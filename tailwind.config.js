@@ -13,6 +13,7 @@ export default {
         extend: {
             fontFamily: {
                 sans: ['Figtree', ...defaultTheme.fontFamily.sans],
+                landing: ['Plus Jakarta Sans', ...defaultTheme.fontFamily.sans],
             },
         },
     },

@@ -1,6 +1,9 @@
 <?php
 
+use App\Enums\Role;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Role as RoleModel;
 use Tests\TestCase;
 
 /*
@@ -44,7 +47,10 @@ expect()->extend('toBeOne', function () {
 |
 */
 
-function something()
+function assignRole(User $user, Role $role): User
 {
-    // ..
+    RoleModel::findOrCreate($role->value, 'web');
+    $user->assignRole($role);
+
+    return $user;
 }

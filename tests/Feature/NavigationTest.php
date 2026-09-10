@@ -3,8 +3,11 @@
 use App\Enums\Role;
 use App\Models\User;
 use App\Navigation\Navigation;
+use Database\Seeders\NavigationSeeder;
 
 it('shows shared links and hides role links for users without a role', function () {
+    $this->seed(NavigationSeeder::class);
+
     $user = User::factory()->create();
 
     $this->actingAs($user)
@@ -17,6 +20,8 @@ it('shows shared links and hides role links for users without a role', function 
 });
 
 it('shows the users link only to administrators', function () {
+    $this->seed(NavigationSeeder::class);
+
     $user = assignRole(User::factory()->create(), Role::Admin);
 
     $this->actingAs($user)
@@ -26,6 +31,8 @@ it('shows the users link only to administrators', function () {
 });
 
 it('shows the systems link only to systems users', function () {
+    $this->seed(NavigationSeeder::class);
+
     $user = assignRole(User::factory()->create(), Role::Sistemas);
 
     $this->actingAs($user)
@@ -35,6 +42,8 @@ it('shows the systems link only to systems users', function () {
 });
 
 it('shows every role link when the user has both roles', function () {
+    $this->seed(NavigationSeeder::class);
+
     $user = User::factory()->create();
     assignRole($user, Role::Admin);
     assignRole($user, Role::Sistemas);
@@ -97,6 +106,8 @@ it('escapes the user name in the sidebar', function () {
 });
 
 it('returns only the links the user may see', function () {
+    $this->seed(NavigationSeeder::class);
+
     $admin = assignRole(User::factory()->create(), Role::Admin);
 
     $labels = collect((new Navigation)->itemsFor($admin))

@@ -1,0 +1,78 @@
+<x-app-layout>
+    <x-slot name="header">
+        <div class="flex items-center justify-between gap-4">
+            <h2 class="text-xl font-semibold leading-tight text-slate-800">
+                Opciones de menú
+            </h2>
+            <a href="{{ route('sistemas.navigation-items.create') }}" class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800">
+                Nueva opción
+            </a>
+        </div>
+    </x-slot>
+
+    <div class="py-8">
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            @if (session('status') === 'navigation-item-created')
+                <p class="mb-4 text-sm font-medium text-green-700">Opción de menú creada correctamente.</p>
+            @endif
+
+            @if (session('status') === 'navigation-item-updated')
+                <p class="mb-4 text-sm font-medium text-green-700">Opción de menú actualizada correctamente.</p>
+            @endif
+
+            @if (session('status') === 'navigation-item-deleted')
+                <p class="mb-4 text-sm font-medium text-green-700">Opción de menú eliminada correctamente.</p>
+            @endif
+
+            <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
+                    <thead class="bg-slate-50 text-slate-600">
+                        <tr>
+                            <th class="px-6 py-3 font-medium">Orden</th>
+                            <th class="px-6 py-3 font-medium">Texto</th>
+                            <th class="px-6 py-3 font-medium">Ruta</th>
+                            <th class="px-6 py-3 font-medium">Visible para</th>
+                            <th class="px-6 py-3 font-medium">Estado</th>
+                            <th class="px-6 py-3 font-medium">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 text-slate-800">
+                        @forelse ($items as $item)
+                            <tr>
+                                <td class="px-6 py-3">{{ $item->sort_order }}</td>
+                                <td class="px-6 py-3">{{ $item->label }}</td>
+                                <td class="px-6 py-3">{{ $item->route_name }}</td>
+                                <td class="px-6 py-3">
+                                    @if ($item->visible_to_all)
+                                        Todos
+                                    @else
+                                        {{ $item->roles->map(fn ($role) => \App\Enums\Role::tryFrom($role->name)?->label() ?? $role->name)->join(', ') ?: 'Sin roles' }}
+                                    @endif
+                                </td>
+                                <td class="px-6 py-3">{{ $item->is_active ? 'Activa' : 'Oculta' }}</td>
+                                <td class="px-6 py-3">
+                                    <div class="flex items-center gap-3">
+                                        <a href="{{ route('sistemas.navigation-items.edit', $item) }}" class="font-medium text-indigo-600 hover:text-indigo-500">
+                                            Editar
+                                        </a>
+                                        <form method="POST" action="{{ route('sistemas.navigation-items.destroy', $item) }}" onsubmit="return confirm('¿Eliminar esta opción de menú?')">
+                                            @csrf
+                                            @method('delete')
+                                            <button type="submit" class="font-medium text-red-600 hover:text-red-500">
+                                                Eliminar
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="6" class="px-6 py-8 text-center text-slate-500">Aún no hay opciones de menú.</td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</x-app-layout>

@@ -2,8 +2,9 @@
 
 namespace App\Navigation;
 
-use App\Enums\Role;
+use App\Models\NavigationItem as NavigationItemModel;
 use App\Models\User;
+use Illuminate\Support\Facades\Route;
 
 class Navigation
 {
@@ -12,22 +13,15 @@ class Navigation
      */
     public function itemsFor(User $user): array
     {
-        return array_values(array_filter(
-            $this->items(),
-            fn (NavigationItem $item): bool => $item->visibleTo($user),
-        ));
-    }
-
-    /**
-     * @return list<NavigationItem>
-     */
-    private function items(): array
-    {
-        return [
-            new NavigationItem('Inicio', 'dashboard', 'home'),
-            new NavigationItem('Usuarios', 'admin.users', 'users', [Role::Admin]),
-            new NavigationItem('Sistemas', 'sistemas.home', 'cog', [Role::Sistemas]),
-            new NavigationItem('Perfil', 'profile.edit', 'user'),
-        ];
+        return NavigationItemModel::query()
+            ->active()
+            ->with('roles')
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get()
+            ->filter(fn (NavigationItemModel $item): bool => Route::has($item->route_name) && $item->isVisibleTo($user))
+            ->map(fn (NavigationItemModel $item): NavigationItem => $item->toMenuItem())
+            ->values()
+            ->all();
     }
 }

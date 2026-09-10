@@ -8,8 +8,11 @@
     <div class="py-8">
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                <div class="p-6 text-slate-700">
-                    Herramientas técnicas reservadas al rol Sistemas.
+                <div class="flex flex-col gap-4 p-6 text-slate-700">
+                    <p>Herramientas técnicas reservadas al rol Sistemas.</p>
+                    <a href="{{ route('sistemas.navigation-items.index') }}" class="text-sm font-medium text-indigo-600 hover:text-indigo-500">
+                        Administrar menú
+                    </a>
                 </div>
             </div>
         </div>

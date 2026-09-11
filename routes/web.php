@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Controllers\NavigationItemController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
@@ -18,16 +17,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::patch('/admin/usuarios/{user}', [UserController::class, 'update'])->name('admin.users.update');
         Route::delete('/admin/usuarios/{user}', [UserController::class, 'destroy'])->name('admin.users.destroy');
     });
-
-    Route::middleware('role:Sistemas')->group(function () {
-        Route::view('/sistemas', 'sistemas.home')->name('sistemas.home');
-        Route::get('/sistemas/menu', [NavigationItemController::class, 'index'])->name('sistemas.navigation-items.index');
-        Route::get('/sistemas/menu/crear', [NavigationItemController::class, 'create'])->name('sistemas.navigation-items.create');
-        Route::post('/sistemas/menu', [NavigationItemController::class, 'store'])->name('sistemas.navigation-items.store');
-        Route::get('/sistemas/menu/{navigationItem}/editar', [NavigationItemController::class, 'edit'])->name('sistemas.navigation-items.edit');
-        Route::patch('/sistemas/menu/{navigationItem}', [NavigationItemController::class, 'update'])->name('sistemas.navigation-items.update');
-        Route::delete('/sistemas/menu/{navigationItem}', [NavigationItemController::class, 'destroy'])->name('sistemas.navigation-items.destroy');
-    });
 });
 
 Route::middleware('auth')->group(function () {
@@ -36,4 +25,5 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
+require __DIR__.'/sistemas.php';
 require __DIR__.'/auth.php';

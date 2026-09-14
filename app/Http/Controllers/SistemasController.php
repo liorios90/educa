@@ -8,4 +8,9 @@ class SistemasController extends Controller
     {
         dd('hola');
     }
+
+    public function prueba2()
+    {
+        dd('esta es una prueba 2');
+    }
 }

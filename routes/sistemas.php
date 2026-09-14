@@ -10,7 +10,7 @@ Route::middleware(['auth', 'verified', 'role:Sistemas'])
     ->group(function () {
         Route::view('/', 'sistemas.home')->name('home');
         Route::get('/prueba', [SistemasController::class, 'prueba'])->name('prueba');
-
+        Route::get('/prueba', [SistemasController::class, 'prueba2'])->name('prueba2');
         Route::get('/menu', [NavigationItemController::class, 'index'])->name('navigation-items.index');
         Route::get('/menu/crear', [NavigationItemController::class, 'create'])->name('navigation-items.create');
         Route::post('/menu', [NavigationItemController::class, 'store'])->name('navigation-items.store');

@@ -2,16 +2,27 @@
 
 namespace App\Models;
 
+use Database\Factories\SysModalidadFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Sys_Modalidad extends Model
 {
-    // 1. Apuntar a la tabla correcta de la migración
+    /** @use HasFactory<SysModalidadFactory> */
+    use HasFactory;
+
     protected $table = 'sys_modalidades';
 
-    // 2. Habilitar la asignación masiva para estos campos
+    /**
+     * @var list<string>
+     */
     protected $fillable = [
         'nombre',
         'descripcion',
     ];
+
+    protected static function newFactory(): SysModalidadFactory
+    {
+        return SysModalidadFactory::new();
+    }
 }

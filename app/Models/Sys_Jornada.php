@@ -2,16 +2,27 @@
 
 namespace App\Models;
 
+use Database\Factories\SysJornadaFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Sys_Jornada extends Model
 {
-    // 1. Especificar el nombre correcto de la tabla de tu migración
+    /** @use HasFactory<SysJornadaFactory> */
+    use HasFactory;
+
     protected $table = 'sys_jornadas';
 
-    // 2. Definir los campos permitidos para guardarse masivamente (create o update)
+    /**
+     * @var list<string>
+     */
     protected $fillable = [
         'nombre',
         'descripcion',
     ];
+
+    protected static function newFactory(): SysJornadaFactory
+    {
+        return SysJornadaFactory::new();
+    }
 }

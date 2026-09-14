@@ -12,29 +12,29 @@ return new class extends Migration
     public function up(): void
     {
 
-      Schema::create('sys_jornadas', function (Blueprint $table) {
-          $table->id('id');
-          // Matutina, Vespertina, Nocturna, Intensiva (Suflex/Fin de semana)
-          $table->string('nombre', 50)->unique();
-          $table->string('descripcion', 150)->nullable();
-          $table->timestamps();
-      });
-      //
-      Schema::create('sys_modalidades', function (Blueprint $table) {
-              $table->id('id');
-              // Presencial, Semipresencial, A distancia (Virtual)
-              $table->string('nombre', 50)->unique();
-              $table->string('descripcion', 150)->nullable();
-              $table->timestamps();
-          });
-      //
-      Schema::create('sys_niveles', function (Blueprint $table) {
-              $table->id('id')->primary();
-              // Presencial, Semipresencial, A distancia (Virtual)
-              $table->string('nombre', 50)->unique();
-              $table->string('descripcion', 150)->nullable();
-              $table->timestamps();
-          });
+        Schema::create('sys_jornadas', function (Blueprint $table) {
+            $table->id('id');
+            // Matutina, Vespertina, Nocturna, Intensiva (Suflex/Fin de semana)
+            $table->string('nombre', 50)->unique();
+            $table->string('descripcion', 150)->nullable();
+            $table->timestamps();
+        });
+        //
+        Schema::create('sys_modalidades', function (Blueprint $table) {
+            $table->id('id');
+            // Presencial, Semipresencial, A distancia (Virtual)
+            $table->string('nombre', 50)->unique();
+            $table->string('descripcion', 150)->nullable();
+            $table->timestamps();
+        });
+        //
+        Schema::create('sys_niveles', function (Blueprint $table) {
+            $table->id();
+            // Presencial, Semipresencial, A distancia (Virtual)
+            $table->string('nombre', 50)->unique();
+            $table->string('descripcion', 150)->nullable();
+            $table->timestamps();
+        });
 
     }
 

@@ -21,7 +21,9 @@ class NavigationSeeder extends Seeder
         $this->upsertItem('Usuarios', 'admin.users', 'users', 2, false, [$admin->id]);
         $this->upsertItem('Sistemas', 'sistemas.home', 'cog', 3, false, [$sistemas->id]);
         $this->upsertItem('Menú', 'sistemas.navigation-items.index', 'cog', 4, false, [$sistemas->id]);
-        $this->upsertItem('Perfil', 'profile.edit', 'user', 5, true, []);
+        $this->upsertItem('Jornadas', 'sistemas.crud.jornadas.index', 'cog', 5, false, [$sistemas->id]);
+        $this->upsertItem('Modalidades', 'sistemas.crud.modalidades.index', 'cog', 6, false, [$sistemas->id]);
+        $this->upsertItem('Perfil', 'profile.edit', 'user', 7, true, []);
     }
 
     /**

@@ -31,6 +31,7 @@
                             <th class="px-6 py-3 font-medium">Orden</th>
                             <th class="px-6 py-3 font-medium">Texto</th>
                             <th class="px-6 py-3 font-medium">Ruta</th>
+                            <th class="px-6 py-3 font-medium">Tipo</th>
                             <th class="px-6 py-3 font-medium">Visible para</th>
                             <th class="px-6 py-3 font-medium">Estado</th>
                             <th class="px-6 py-3 font-medium">Acciones</th>
@@ -41,7 +42,8 @@
                             <tr>
                                 <td class="px-6 py-3">{{ $item->sort_order }}</td>
                                 <td class="px-6 py-3">{{ $item->label }}</td>
-                                <td class="px-6 py-3">{{ $item->route_name }}</td>
+                                <td class="px-6 py-3">{{ $item->is_group ? 'Botones' : $item->route_name }}</td>
+                                <td class="px-6 py-3">{{ $item->is_group ? 'Grupo' : 'Enlace' }}</td>
                                 <td class="px-6 py-3">
                                     @if ($item->visible_to_all)
                                         Todos
@@ -52,6 +54,11 @@
                                 <td class="px-6 py-3">{{ $item->is_active ? 'Activa' : 'Oculta' }}</td>
                                 <td class="px-6 py-3">
                                     <div class="flex items-center gap-3">
+                                        @if ($item->is_group)
+                                            <a href="{{ route('sistemas.navigation-items.submenus.index', $item) }}" class="font-medium text-indigo-600 hover:text-indigo-500">
+                                                Submenús
+                                            </a>
+                                        @endif
                                         <a href="{{ route('sistemas.navigation-items.edit', $item) }}" class="font-medium text-indigo-600 hover:text-indigo-500">
                                             Editar
                                         </a>
@@ -67,7 +74,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="px-6 py-8 text-center text-slate-500">Aún no hay opciones de menú.</td>
+                                <td colspan="7" class="px-6 py-8 text-center text-slate-500">Aún no hay opciones de menú.</td>
                             </tr>
                         @endforelse
                     </tbody>

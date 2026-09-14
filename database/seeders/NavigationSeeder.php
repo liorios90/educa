@@ -21,9 +21,10 @@ class NavigationSeeder extends Seeder
         $this->upsertItem('Usuarios', 'admin.users', 'users', 2, false, [$admin->id]);
         $this->upsertItem('Sistemas', 'sistemas.home', 'cog', 3, false, [$sistemas->id]);
         $this->upsertItem('Menú', 'sistemas.navigation-items.index', 'cog', 4, false, [$sistemas->id]);
-        $this->upsertItem('Jornadas', 'sistemas.crud.jornadas.index', 'cog', 5, false, [$sistemas->id]);
-        $this->upsertItem('Modalidades', 'sistemas.crud.modalidades.index', 'cog', 6, false, [$sistemas->id]);
-        $this->upsertItem('Perfil', 'profile.edit', 'user', 7, true, []);
+        $catalogos = $this->upsertItem('Catálogos', 'navigation.hub', 'cog', 5, false, [$sistemas->id], isGroup: true);
+        $this->upsertItem('Jornadas', 'sistemas.crud.jornadas.index', 'cog', 1, false, [$sistemas->id], parentId: $catalogos->id);
+        $this->upsertItem('Modalidades', 'sistemas.crud.modalidades.index', 'cog', 2, false, [$sistemas->id], parentId: $catalogos->id);
+        $this->upsertItem('Perfil', 'profile.edit', 'user', 6, true, []);
     }
 
     /**
@@ -36,7 +37,9 @@ class NavigationSeeder extends Seeder
         int $sortOrder,
         bool $visibleToAll,
         array $roleIds,
-    ): void {
+        bool $isGroup = false,
+        ?int $parentId = null,
+    ): NavigationItem {
         $item = NavigationItem::query()->updateOrCreate(
             [
                 'route_name' => $routeName,
@@ -47,9 +50,13 @@ class NavigationSeeder extends Seeder
                 'sort_order' => $sortOrder,
                 'is_active' => true,
                 'visible_to_all' => $visibleToAll,
+                'is_group' => $isGroup,
+                'parent_id' => $parentId,
             ],
         );
 
         $item->roles()->sync($visibleToAll ? [] : $roleIds);
+
+        return $item;
     }
 }

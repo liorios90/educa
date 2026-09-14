@@ -10,10 +10,12 @@ use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Spatie\Permission\Models\Role as RoleModel;
 
-#[Fillable(['label', 'route_name', 'icon', 'sort_order', 'is_active', 'visible_to_all'])]
+#[Fillable(['parent_id', 'label', 'route_name', 'icon', 'sort_order', 'is_active', 'visible_to_all', 'is_group'])]
 class NavigationItem extends Model
 {
     /** @use HasFactory<NavigationItemFactory> */
@@ -33,7 +35,24 @@ class NavigationItem extends Model
             'sort_order' => 'integer',
             'is_active' => 'boolean',
             'visible_to_all' => 'boolean',
+            'is_group' => 'boolean',
         ];
+    }
+
+    /**
+     * @return BelongsTo<NavigationItem, $this>
+     */
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'parent_id');
+    }
+
+    /**
+     * @return HasMany<NavigationItem, $this>
+     */
+    public function children(): HasMany
+    {
+        return $this->hasMany(self::class, 'parent_id')->orderBy('sort_order')->orderBy('id');
     }
 
     /**
@@ -53,25 +72,45 @@ class NavigationItem extends Model
         return $user->hasAnyRole($this->roles->pluck('name')->all());
     }
 
+    public function copyVisibilityFrom(NavigationItem $parent): void
+    {
+        $this->update([
+            'visible_to_all' => $parent->visible_to_all,
+            'is_group' => false,
+        ]);
+
+        $this->roles()->sync($parent->visible_to_all ? [] : $parent->roles()->pluck('id'));
+    }
+
     public function toMenuItem(): MenuItem
     {
-        if ($this->visible_to_all) {
-            return new MenuItem($this->label, $this->route_name, $this->icon);
-        }
-
         /** @var list<Role> $roles */
-        $roles = $this->roles
-            ->map(fn (RoleModel $role): ?Role => Role::tryFrom($role->name))
-            ->filter()
-            ->values()
-            ->all();
+        $roles = $this->visible_to_all
+            ? []
+            : $this->roles
+                ->map(fn (RoleModel $role): ?Role => Role::tryFrom($role->name))
+                ->filter()
+                ->values()
+                ->all();
 
-        return new MenuItem($this->label, $this->route_name, $this->icon, $roles);
+        return new MenuItem(
+            $this->label,
+            $this->route_name,
+            $this->icon,
+            $roles,
+            $this->is_group ? $this->id : null,
+        );
     }
 
     #[Scope]
     protected function active(Builder $query): Builder
     {
         return $query->where('is_active', true);
+    }
+
+    #[Scope]
+    protected function topLevel(Builder $query): Builder
+    {
+        return $query->whereNull('parent_id');
     }
 }

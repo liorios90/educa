@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\NavigationHubController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
@@ -8,6 +9,7 @@ Route::view('/', 'welcome')->name('home');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::view('/dashboard', 'dashboard')->name('dashboard');
+    Route::get('/menu/{navigationItem}', [NavigationHubController::class, 'show'])->name('navigation.hub');
 
     Route::middleware('role:Admin')->group(function () {
         Route::get('/admin/usuarios', [UserController::class, 'index'])->name('admin.users');

@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\Role;
+use App\Models\NavigationItem;
 use App\Models\Sys_Jornada;
 use App\Models\Sys_Modalidad;
 use App\Models\User;
@@ -155,11 +156,12 @@ describe('edit', function () {
     });
 });
 
-it('shows the jornadas link to systems users after seeding the menu', function () {
+it('shows the catalogos hub to systems users after seeding the menu', function () {
     $this->seed(NavigationSeeder::class);
     $user = assignRole(User::factory()->create(), Role::Sistemas);
+    $catalogos = NavigationItem::query()->where('label', 'Catálogos')->firstOrFail();
 
     $this->actingAs($user)
         ->get(route('dashboard'))
-        ->assertSee(route('sistemas.crud.jornadas.index'), false);
+        ->assertSee(route('navigation.hub', $catalogos), false);
 });

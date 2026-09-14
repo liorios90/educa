@@ -157,6 +157,30 @@ describe('store', function () {
             ->assertSessionHasErrors('roles');
     });
 
+    it('creates a menu group without a destination route', function () {
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+        $sistemasRole = RoleModel::findOrCreate(Role::Sistemas->value, 'web');
+
+        $this->actingAs($actor)
+            ->post(route('sistemas.navigation-items.store'), [
+                'label' => 'Catálogos',
+                'icon' => 'cog',
+                'sort_order' => 9,
+                'is_active' => '1',
+                'visible_to_all' => '0',
+                'is_group' => '1',
+                'roles' => [$sistemasRole->id],
+            ])
+            ->assertRedirect(route('sistemas.navigation-items.index'))
+            ->assertSessionHas('status', 'navigation-item-created');
+
+        $this->assertDatabaseHas('navigation_items', [
+            'label' => 'Catálogos',
+            'is_group' => true,
+            'route_name' => 'navigation.hub',
+        ]);
+    });
+
     it('forbids administrators from creating menu items', function () {
         $actor = assignRole(User::factory()->create(), Role::Admin);
 

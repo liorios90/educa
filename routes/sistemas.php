@@ -3,6 +3,7 @@
 use App\Crud\CrudRegistry;
 use App\Http\Controllers\GenericCrudController;
 use App\Http\Controllers\NavigationItemController;
+use App\Http\Controllers\NavigationSubmenuController;
 use App\Http\Controllers\SistemasController;
 use Illuminate\Support\Facades\Route;
 
@@ -19,6 +20,12 @@ Route::middleware(['auth', 'verified', 'role:Sistemas'])
         Route::get('/menu/{navigationItem}/editar', [NavigationItemController::class, 'edit'])->name('navigation-items.edit');
         Route::patch('/menu/{navigationItem}', [NavigationItemController::class, 'update'])->name('navigation-items.update');
         Route::delete('/menu/{navigationItem}', [NavigationItemController::class, 'destroy'])->name('navigation-items.destroy');
+        Route::get('/menu/{navigationItem}/submenus', [NavigationSubmenuController::class, 'index'])->name('navigation-items.submenus.index');
+        Route::get('/menu/{navigationItem}/submenus/crear', [NavigationSubmenuController::class, 'create'])->name('navigation-items.submenus.create');
+        Route::post('/menu/{navigationItem}/submenus', [NavigationSubmenuController::class, 'store'])->name('navigation-items.submenus.store');
+        Route::get('/menu/{navigationItem}/submenus/{submenu}/editar', [NavigationSubmenuController::class, 'edit'])->name('navigation-items.submenus.edit')->whereNumber('submenu');
+        Route::patch('/menu/{navigationItem}/submenus/{submenu}', [NavigationSubmenuController::class, 'update'])->name('navigation-items.submenus.update')->whereNumber('submenu');
+        Route::delete('/menu/{navigationItem}/submenus/{submenu}', [NavigationSubmenuController::class, 'destroy'])->name('navigation-items.submenus.destroy')->whereNumber('submenu');
 
         foreach (app(CrudRegistry::class)->slugs() as $slug) {
             Route::prefix("catalogos/{$slug}")

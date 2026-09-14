@@ -22,6 +22,8 @@ class NavigationItemFactory extends Factory
             'sort_order' => fake()->numberBetween(1, 20),
             'is_active' => true,
             'visible_to_all' => false,
+            'is_group' => false,
+            'parent_id' => null,
         ];
     }
 
@@ -29,6 +31,22 @@ class NavigationItemFactory extends Factory
     {
         return $this->state(fn (array $attributes): array => [
             'visible_to_all' => true,
+        ]);
+    }
+
+    public function group(): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'is_group' => true,
+            'route_name' => 'navigation.hub',
+        ]);
+    }
+
+    public function childOf(NavigationItem $parent): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'parent_id' => $parent->id,
+            'is_group' => false,
         ]);
     }
 

@@ -17,6 +17,7 @@ class NavigationItemController extends Controller
     {
         return view('sistemas.navigation-items.index', [
             'items' => NavigationItem::query()
+                ->topLevel()
                 ->with('roles')
                 ->orderBy('sort_order')
                 ->orderBy('id')
@@ -31,14 +32,7 @@ class NavigationItemController extends Controller
 
     public function store(StoreNavigationItemRequest $request): RedirectResponse
     {
-        $item = NavigationItem::create($request->safe()->only([
-            'label',
-            'route_name',
-            'icon',
-            'sort_order',
-            'is_active',
-            'visible_to_all',
-        ]));
+        $item = NavigationItem::create($this->attributesFrom($request));
 
         $this->syncRoles($item, $request);
 
@@ -49,6 +43,8 @@ class NavigationItemController extends Controller
 
     public function edit(NavigationItem $navigationItem): View
     {
+        abort_unless($navigationItem->parent_id === null, 404);
+
         $navigationItem->load('roles');
 
         return view('sistemas.navigation-items.edit', [
@@ -59,16 +55,15 @@ class NavigationItemController extends Controller
 
     public function update(UpdateNavigationItemRequest $request, NavigationItem $navigationItem): RedirectResponse
     {
-        $navigationItem->update($request->safe()->only([
-            'label',
-            'route_name',
-            'icon',
-            'sort_order',
-            'is_active',
-            'visible_to_all',
-        ]));
+        abort_unless($navigationItem->parent_id === null, 404);
 
+        $navigationItem->update($this->attributesFrom($request));
         $this->syncRoles($navigationItem, $request);
+        $navigationItem->load('roles');
+
+        $navigationItem->children()->each(
+            fn (NavigationItem $child) => $child->copyVisibilityFrom($navigationItem),
+        );
 
         return redirect()
             ->route('sistemas.navigation-items.index')
@@ -77,6 +72,8 @@ class NavigationItemController extends Controller
 
     public function destroy(NavigationItem $navigationItem): RedirectResponse
     {
+        abort_unless($navigationItem->parent_id === null, 404);
+
         $navigationItem->delete();
 
         return redirect()
@@ -93,6 +90,27 @@ class NavigationItemController extends Controller
             'roles' => Role::query()->orderBy('name')->get(),
             'icons' => NavigationItem::ICONS,
             'routeNames' => collect(Route::getRoutes()->getRoutesByName())->keys()->sort()->values(),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function attributesFrom(StoreNavigationItemRequest $request): array
+    {
+        $isGroup = $request->boolean('is_group');
+
+        return [
+            ...$request->safe()->only([
+                'label',
+                'icon',
+                'sort_order',
+                'is_active',
+                'visible_to_all',
+                'is_group',
+            ]),
+            'parent_id' => null,
+            'route_name' => $isGroup ? 'navigation.hub' : $request->validated('route_name'),
         ];
     }
 

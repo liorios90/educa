@@ -1,12 +1,14 @@
 @php
     $item = $item ?? null;
+    $asSubmenu = $asSubmenu ?? false;
     $selectedRoles = collect(old('roles', $item?->roles->pluck('id')->all() ?? []))->map(fn ($id) => (int) $id);
     $visibleToAll = (bool) old('visible_to_all', $item?->visible_to_all ?? false);
+    $isGroup = (bool) old('is_group', $item?->is_group ?? false);
 @endphp
 
 <div
     class="space-y-6"
-    x-data="{ visibleToAll: @js($visibleToAll) }"
+    x-data="{ visibleToAll: @js($visibleToAll), isGroup: @js($isGroup) }"
 >
     <div>
         <x-input-label for="label" value="Texto del menú" />
@@ -14,15 +16,36 @@
         <x-input-error class="mt-2" :messages="$errors->get('label')" />
     </div>
 
-    <div>
+    @unless ($asSubmenu)
+        <label class="flex items-center gap-2 text-sm text-slate-700">
+            <input type="hidden" name="is_group" value="0">
+            <input
+                id="is_group"
+                type="checkbox"
+                name="is_group"
+                value="1"
+                class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500"
+                @checked($isGroup)
+                x-model="isGroup"
+            >
+            Es un menú con botones (submenús)
+        </label>
+        <x-input-error class="mt-2" :messages="$errors->get('is_group')" />
+    @endunless
+
+    <div x-show="{{ $asSubmenu ? 'true' : '! isGroup' }}" x-cloak>
         <x-input-label for="route_name" value="Ruta" />
         <select
             id="route_name"
             name="route_name"
             class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-            required
+            @unless ($asSubmenu)
+                x-bind:required="! isGroup"
+            @else
+                required
+            @endunless
         >
-            <option value="" disabled @selected(old('route_name', $item?->route_name) === null)>Selecciona una ruta</option>
+            <option value="" disabled @selected(old('route_name', $item?->route_name) === null || old('route_name', $item?->route_name) === 'navigation.hub')>Selecciona una ruta</option>
             @foreach ($routeNames as $routeName)
                 <option value="{{ $routeName }}" @selected(old('route_name', $item?->route_name) === $routeName)>
                     {{ $routeName }}
@@ -68,36 +91,38 @@
         Visible en el menú
     </label>
 
-    <label class="flex items-center gap-2 text-sm text-slate-700">
-        <input type="hidden" name="visible_to_all" value="0">
-        <input
-            id="visible_to_all"
-            type="checkbox"
-            name="visible_to_all"
-            value="1"
-            class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500"
-            @checked($visibleToAll)
-            x-model="visibleToAll"
-        >
-        Visible para todos los usuarios autenticados
-    </label>
+    @unless ($asSubmenu)
+        <label class="flex items-center gap-2 text-sm text-slate-700">
+            <input type="hidden" name="visible_to_all" value="0">
+            <input
+                id="visible_to_all"
+                type="checkbox"
+                name="visible_to_all"
+                value="1"
+                class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500"
+                @checked($visibleToAll)
+                x-model="visibleToAll"
+            >
+            Visible para todos los usuarios autenticados
+        </label>
 
-    <div x-show="! visibleToAll" x-cloak>
-        <p class="mb-2 text-sm font-medium text-gray-700">Roles</p>
-        <div class="flex flex-col gap-2">
-            @foreach ($roles as $role)
-                <label class="flex items-center gap-2 text-sm text-slate-700">
-                    <input
-                        type="checkbox"
-                        name="roles[]"
-                        value="{{ $role->id }}"
-                        class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500"
-                        @checked($selectedRoles->contains($role->id))
-                    >
-                    {{ \App\Enums\Role::tryFrom($role->name)?->label() ?? $role->name }}
-                </label>
-            @endforeach
+        <div x-show="! visibleToAll" x-cloak>
+            <p class="mb-2 text-sm font-medium text-gray-700">Roles</p>
+            <div class="flex flex-col gap-2">
+                @foreach ($roles as $role)
+                    <label class="flex items-center gap-2 text-sm text-slate-700">
+                        <input
+                            type="checkbox"
+                            name="roles[]"
+                            value="{{ $role->id }}"
+                            class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500"
+                            @checked($selectedRoles->contains($role->id))
+                        >
+                        {{ \App\Enums\Role::tryFrom($role->name)?->label() ?? $role->name }}
+                    </label>
+                @endforeach
+            </div>
+            <x-input-error class="mt-2" :messages="$errors->get('roles')" />
         </div>
-        <x-input-error class="mt-2" :messages="$errors->get('roles')" />
-    </div>
+    @endunless
 </div>

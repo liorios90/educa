@@ -33,7 +33,7 @@ class ReportDefinitionController extends Controller
     public function store(UpsertReportDefinitionRequest $request): RedirectResponse
     {
         $report = ReportDefinition::create([
-            ...$request->safe()->only(['name', 'source', 'is_active', 'visible_to_all']),
+            ...$request->safe()->only($this->reportAttributes()),
             'user_id' => $request->user()?->id,
         ]);
 
@@ -57,7 +57,7 @@ class ReportDefinitionController extends Controller
 
     public function update(UpsertReportDefinitionRequest $request, ReportDefinition $reportDefinition): RedirectResponse
     {
-        $reportDefinition->update($request->safe()->only(['name', 'source', 'is_active', 'visible_to_all']));
+        $reportDefinition->update($request->safe()->only($this->reportAttributes()));
         $this->syncFields($reportDefinition, $request->validated('fields'));
         $this->syncRoles($reportDefinition, $request);
 
@@ -73,6 +73,27 @@ class ReportDefinitionController extends Controller
         return redirect()
             ->route('sistemas.reports.index')
             ->with('status', 'report-deleted');
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function reportAttributes(): array
+    {
+        return [
+            'name',
+            'source',
+            'is_active',
+            'visible_to_all',
+            'layout',
+            'table_border_width',
+            'table_border_color',
+            'table_header',
+            'table_header_background',
+            'table_striped',
+            'table_font_size',
+            'table_cell_padding',
+        ];
     }
 
     /**

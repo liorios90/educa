@@ -49,6 +49,66 @@ it('saves free positions for descriptions and fields', function () {
     ]);
 });
 
+it('saves the table layout with its format options', function () {
+    $actor = assignRole(User::factory()->create(), Role::Sistemas);
+
+    $this->actingAs($actor)
+        ->post(route('sistemas.reports.store'), [
+            'name' => 'Listado en tabla',
+            'source' => 'jornadas',
+            'is_active' => '1',
+            'visible_to_all' => '1',
+            'layout' => 'table',
+            'table_border_width' => 3,
+            'table_border_color' => '#ff0000',
+            'table_header' => '1',
+            'table_header_background' => '#eeeeee',
+            'table_striped' => '1',
+            'table_font_size' => 14,
+            'table_cell_padding' => 10,
+            'fields' => [
+                ['column' => 'nombre', 'label' => 'Jornada'],
+            ],
+        ])
+        ->assertRedirect(route('sistemas.reports.index'));
+
+    $this->assertDatabaseHas('report_definitions', [
+        'name' => 'Listado en tabla',
+        'layout' => 'table',
+        'table_border_width' => 3,
+        'table_border_color' => '#ff0000',
+        'table_header' => true,
+        'table_header_background' => '#eeeeee',
+        'table_striped' => true,
+        'table_font_size' => 14,
+        'table_cell_padding' => 10,
+    ]);
+});
+
+it('rejects a border color that is not hexadecimal', function () {
+    $actor = assignRole(User::factory()->create(), Role::Sistemas);
+
+    $this->actingAs($actor)
+        ->from(route('sistemas.reports.create'))
+        ->post(route('sistemas.reports.store'), [
+            'name' => 'Color inválido',
+            'source' => 'jornadas',
+            'is_active' => '1',
+            'visible_to_all' => '1',
+            'layout' => 'table',
+            'table_border_color' => 'rojo',
+            'fields' => [
+                ['column' => 'nombre', 'label' => 'Jornada'],
+            ],
+        ])
+        ->assertRedirect(route('sistemas.reports.create'))
+        ->assertSessionHasErrors([
+            'table_border_color' => 'Usa un color en formato hexadecimal, por ejemplo #cbd5e1.',
+        ]);
+
+    $this->assertDatabaseMissing('report_definitions', ['name' => 'Color inválido']);
+});
+
 it('rejects layout positions outside the canvas', function () {
     $actor = assignRole(User::factory()->create(), Role::Sistemas);
 

@@ -28,6 +28,7 @@
                         <tr>
                             <th class="px-6 py-3 font-medium">Nombre</th>
                             <th class="px-6 py-3 font-medium">Tabla</th>
+                            <th class="px-6 py-3 font-medium">Diseño</th>
                             <th class="px-6 py-3 font-medium">Campos</th>
                             <th class="px-6 py-3 font-medium">Visible para</th>
                             <th class="px-6 py-3 font-medium">Estado</th>
@@ -39,6 +40,7 @@
                             <tr>
                                 <td class="px-6 py-3">{{ $item->name }}</td>
                                 <td class="px-6 py-3">{{ $item->source }}</td>
+                                <td class="px-6 py-3">{{ $item->layout->label() }}</td>
                                 <td class="px-6 py-3">{{ $item->fields_count }}</td>
                                 <td class="px-6 py-3">
                                     @if ($item->visible_to_all)
@@ -62,7 +64,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="px-6 py-8 text-center text-slate-500">Aún no hay reportes. Crea uno y elige los campos.</td>
+                                <td colspan="7" class="px-6 py-8 text-center text-slate-500">Aún no hay reportes. Crea uno y elige los campos.</td>
                             </tr>
                         @endforelse
                     </tbody>

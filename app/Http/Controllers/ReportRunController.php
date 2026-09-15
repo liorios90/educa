@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\Role;
 use App\Models\ReportDefinition;
 use App\Reports\ReportRunner;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -56,10 +57,17 @@ class ReportRunController extends Controller
         ])->download($filename);
     }
 
+    /**
+     * A report designer previews any report, including one that is hidden or
+     * published to other roles.
+     */
     private function authorizeRun(Request $request, ReportDefinition $reportDefinition): void
     {
         $user = $request->user();
 
-        abort_unless($user !== null && $reportDefinition->isVisibleTo($user), 404);
+        abort_unless(
+            $user !== null && ($reportDefinition->isVisibleTo($user) || $user->hasRole(Role::Sistemas)),
+            404,
+        );
     }
 }

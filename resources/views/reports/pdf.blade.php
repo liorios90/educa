@@ -32,19 +32,23 @@
 <body>
     <h1>{{ $report->name }}</h1>
 
-    @forelse ($rows as $row)
-        <div class="sheet">
-            @foreach ($report->fields as $field)
-                <div class="label" style="left: {{ (int) $field->label_x }}%; top: {{ (int) $field->label_y }}%;">
-                    {{ $field->label }}
-                </div>
-                <div class="value" style="left: {{ (int) $field->value_x }}%; top: {{ (int) $field->value_y }}%;">
-                    {{ $row[$field->column] ?? '—' }}
-                </div>
-            @endforeach
-        </div>
-    @empty
-        <p class="empty">No hay datos para este reporte.</p>
-    @endforelse
+    @if ($report->usesTableLayout())
+        @include('reports._table')
+    @else
+        @forelse ($rows as $row)
+            <div class="sheet">
+                @foreach ($report->fields as $field)
+                    <div class="label" style="left: {{ (int) $field->label_x }}%; top: {{ (int) $field->label_y }}%;">
+                        {{ $field->label }}
+                    </div>
+                    <div class="value" style="left: {{ (int) $field->value_x }}%; top: {{ (int) $field->value_y }}%;">
+                        {{ $row[$field->column] ?? '—' }}
+                    </div>
+                @endforeach
+            </div>
+        @empty
+            <p class="empty">No hay datos para este reporte.</p>
+        @endforelse
+    @endif
 </body>
 </html>

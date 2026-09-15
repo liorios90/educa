@@ -19,6 +19,16 @@
         'value_x' => (int) ($field['value_x'] ?? 32),
         'value_y' => (int) ($field['value_y'] ?? min(8 + ($index * 14), 86)),
     ])->all();
+    $initialLayout = old('layout', $report?->layout?->value ?? \App\Enums\ReportLayout::Canvas->value);
+    $initialTable = [
+        'border_width' => (int) old('table_border_width', $report?->table_border_width ?? 1),
+        'border_color' => old('table_border_color', $report?->table_border_color ?? '#cbd5e1'),
+        'header' => (bool) old('table_header', $report?->table_header ?? true),
+        'header_background' => old('table_header_background', $report?->table_header_background ?? '#f1f5f9'),
+        'striped' => (bool) old('table_striped', $report?->table_striped ?? false),
+        'font_size' => (int) old('table_font_size', $report?->table_font_size ?? 12),
+        'cell_padding' => (int) old('table_cell_padding', $report?->table_cell_padding ?? 8),
+    ];
 @endphp
 
 <div
@@ -29,7 +39,21 @@
         fields: {{ \Illuminate\Support\Js::from($initialFields) }},
         visibleToAll: {{ \Illuminate\Support\Js::from($visibleToAll) }},
         previousSource: {{ \Illuminate\Support\Js::from($initialSource) }},
+        layout: {{ \Illuminate\Support\Js::from($initialLayout) }},
+        table: {{ \Illuminate\Support\Js::from($initialTable) }},
         dragging: null,
+        cellStyle() {
+            return {
+                border: this.table.border_width + 'px solid ' + this.table.border_color,
+                padding: this.table.cell_padding + 'px',
+            };
+        },
+        headerStyle() {
+            return { ...this.cellStyle(), backgroundColor: this.table.header_background };
+        },
+        rowStyle(index) {
+            return this.table.striped && index % 2 === 1 ? { backgroundColor: '#f8fafc' } : {};
+        },
         availableGroups() {
             const fields = this.sources[this.source]?.fields ?? [];
             const groups = [];
@@ -129,6 +153,24 @@
         <x-input-error class="mt-2" :messages="$errors->get('source')" />
     </div>
 
+    <div>
+        <x-input-label for="layout" value="Diseño del resultado" />
+        <select
+            id="layout"
+            name="layout"
+            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+            x-model="layout"
+        >
+            @foreach (\App\Enums\ReportLayout::cases() as $case)
+                <option value="{{ $case->value }}">{{ $case->label() }}</option>
+            @endforeach
+        </select>
+        <p class="mt-1 text-xs text-slate-500">
+            Hoja libre coloca cada dato donde quieras. Tabla de resultados muestra todos los registros en filas y columnas.
+        </p>
+        <x-input-error class="mt-2" :messages="$errors->get('layout')" />
+    </div>
+
     <div class="grid gap-6 lg:grid-cols-2">
         <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <p class="mb-3 text-sm font-medium text-slate-800">Campos disponibles (tabla y relaciones)</p>
@@ -156,7 +198,10 @@
 
         <div class="rounded-2xl border border-slate-200 bg-white p-4">
             <p class="mb-3 text-sm font-medium text-slate-800">Descripciones</p>
-            <p class="mb-3 text-xs text-slate-500">Edita el texto de cada descripción. La posición se ajusta en la vista previa.</p>
+            <p class="mb-3 text-xs text-slate-500">
+                <span x-show="layout === 'canvas'">Edita el texto de cada descripción. La posición se ajusta en la vista previa.</span>
+                <span x-show="layout === 'table'" x-cloak>Cada descripción es el título de una columna. El orden es el de esta lista.</span>
+            </p>
             <x-input-error class="mb-2" :messages="$errors->get('fields')" />
             <ul class="flex flex-col gap-2">
                 <template x-for="(field, index) in fields" :key="field.id">
@@ -180,7 +225,82 @@
         </div>
     </div>
 
-    <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+    <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4" x-show="layout === 'table'" x-cloak>
+        <p class="mb-3 text-sm font-medium text-slate-800">Formato de la tabla</p>
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div>
+                <x-input-label for="table_border_width" value="Grosor del borde (px)" />
+                <x-text-input id="table_border_width" class="mt-1 block w-full" type="number" name="table_border_width" min="0" max="5" x-model.number="table.border_width" />
+                <p class="mt-1 text-xs text-slate-500">0 deja la tabla sin bordes.</p>
+                <x-input-error class="mt-2" :messages="$errors->get('table_border_width')" />
+            </div>
+
+            <div>
+                <x-input-label for="table_border_color" value="Color del borde" />
+                <input id="table_border_color" type="color" name="table_border_color" class="mt-1 h-10 w-full rounded-md border border-gray-300 shadow-sm" x-model="table.border_color">
+                <x-input-error class="mt-2" :messages="$errors->get('table_border_color')" />
+            </div>
+
+            <div>
+                <x-input-label for="table_header_background" value="Fondo del encabezado" />
+                <input id="table_header_background" type="color" name="table_header_background" class="mt-1 h-10 w-full rounded-md border border-gray-300 shadow-sm" x-model="table.header_background">
+                <x-input-error class="mt-2" :messages="$errors->get('table_header_background')" />
+            </div>
+
+            <div>
+                <x-input-label for="table_font_size" value="Tamaño de letra (px)" />
+                <x-text-input id="table_font_size" class="mt-1 block w-full" type="number" name="table_font_size" min="8" max="20" x-model.number="table.font_size" />
+                <x-input-error class="mt-2" :messages="$errors->get('table_font_size')" />
+            </div>
+
+            <div>
+                <x-input-label for="table_cell_padding" value="Espacio interior (px)" />
+                <x-text-input id="table_cell_padding" class="mt-1 block w-full" type="number" name="table_cell_padding" min="0" max="24" x-model.number="table.cell_padding" />
+                <x-input-error class="mt-2" :messages="$errors->get('table_cell_padding')" />
+            </div>
+
+            <div class="flex flex-col justify-center gap-2">
+                <label class="flex items-center gap-2 text-sm text-slate-700">
+                    <input type="hidden" name="table_header" value="0">
+                    <input type="checkbox" name="table_header" value="1" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" x-model="table.header">
+                    Mostrar encabezado
+                </label>
+                <label class="flex items-center gap-2 text-sm text-slate-700">
+                    <input type="hidden" name="table_striped" value="0">
+                    <input type="checkbox" name="table_striped" value="1" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" x-model="table.striped">
+                    Filas alternas
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4" x-show="layout === 'table'" x-cloak>
+        <p class="mb-1 text-sm font-medium text-slate-800">Vista previa</p>
+        <p class="mb-3 text-xs text-slate-500">Así se verá la tabla. Al generar el reporte se muestran los datos reales.</p>
+        <div class="overflow-x-auto rounded-xl border border-slate-300 bg-white p-4">
+            <p x-show="fields.length === 0" class="text-sm text-slate-400">Añade campos para formar las columnas.</p>
+            <table x-show="fields.length > 0" class="w-full" style="border-collapse: collapse;" :style="{ fontSize: table.font_size + 'px' }">
+                <thead x-show="table.header">
+                    <tr>
+                        <template x-for="field in fields" :key="'head-' + field.id">
+                            <th class="text-left font-semibold" :style="headerStyle()" x-text="field.label"></th>
+                        </template>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-for="sample in [1, 2, 3]" :key="'row-' + sample">
+                        <tr :style="rowStyle(sample - 1)">
+                            <template x-for="field in fields" :key="'cell-' + sample + '-' + field.id">
+                                <td :style="cellStyle()" x-text="'Ejemplo ' + sample"></td>
+                            </template>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4" x-show="layout === 'canvas'">
         <p class="mb-1 text-sm font-medium text-slate-800">Vista previa</p>
         <p class="mb-3 text-xs text-slate-500">Arrastra cada descripción y cada campo a cualquier lugar de la hoja.</p>
         <div

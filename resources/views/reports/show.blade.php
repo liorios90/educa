@@ -18,30 +18,36 @@
 
     <div class="py-8">
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div class="flex flex-col gap-6">
-                @forelse ($rows as $row)
-                    <div class="relative min-h-[32rem] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                        @foreach ($report->fields as $field)
-                            <p
-                                class="absolute max-w-[40%] text-xs font-semibold text-slate-500"
-                                style="left: {{ (int) $field->label_x }}%; top: {{ (int) $field->label_y }}%;"
-                            >
-                                {{ $field->label }}
-                            </p>
-                            <p
-                                class="absolute max-w-[50%] text-sm text-slate-800"
-                                style="left: {{ (int) $field->value_x }}%; top: {{ (int) $field->value_y }}%;"
-                            >
-                                {{ $row[$field->column] ?? '—' }}
-                            </p>
-                        @endforeach
-                    </div>
-                @empty
-                    <div class="rounded-2xl border border-slate-200 bg-white px-6 py-8 text-center text-slate-500 shadow-sm">
-                        No hay datos para este reporte.
-                    </div>
-                @endforelse
-            </div>
+            @if ($report->usesTableLayout())
+                <div class="overflow-x-auto rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                    @include('reports._table')
+                </div>
+            @else
+                <div class="flex flex-col gap-6">
+                    @forelse ($rows as $row)
+                        <div class="relative min-h-[32rem] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                            @foreach ($report->fields as $field)
+                                <p
+                                    class="absolute max-w-[40%] text-xs font-semibold text-slate-500"
+                                    style="left: {{ (int) $field->label_x }}%; top: {{ (int) $field->label_y }}%;"
+                                >
+                                    {{ $field->label }}
+                                </p>
+                                <p
+                                    class="absolute max-w-[50%] text-sm text-slate-800"
+                                    style="left: {{ (int) $field->value_x }}%; top: {{ (int) $field->value_y }}%;"
+                                >
+                                    {{ $row[$field->column] ?? '—' }}
+                                </p>
+                            @endforeach
+                        </div>
+                    @empty
+                        <div class="rounded-2xl border border-slate-200 bg-white px-6 py-8 text-center text-slate-500 shadow-sm">
+                            No hay datos para este reporte.
+                        </div>
+                    @endforelse
+                </div>
+            @endif
 
             <div class="mt-4">
                 {{ $rows->links() }}

@@ -61,6 +61,55 @@ it('renders saved description and field positions', function () {
         ->assertSee('left: 45%; top: 60%;', false);
 });
 
+it('renders the results as a table with the configured format', function () {
+    $user = assignRole(User::factory()->create(), Role::Sistemas);
+    Sys_Jornada::factory()->create(['nombre' => 'Matutina']);
+    Sys_Jornada::factory()->create(['nombre' => 'Vespertina']);
+
+    $report = ReportDefinition::factory()->visibleToAll()->tableLayout()->create([
+        'name' => 'Jornadas en tabla',
+        'source' => 'jornadas',
+        'table_border_width' => 2,
+        'table_border_color' => '#ff0000',
+        'table_cell_padding' => 6,
+        'table_font_size' => 14,
+    ]);
+    ReportDefinitionField::factory()->create([
+        'report_definition_id' => $report->id,
+        'column' => 'nombre',
+        'label' => 'Jornada',
+        'sort_order' => 0,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('reports.show', $report))
+        ->assertSee('Jornada')
+        ->assertSee('Matutina')
+        ->assertSee('Vespertina')
+        ->assertSee('border: 2px solid #ff0000; padding: 6px;', false)
+        ->assertSee('font-size: 14px;', false);
+});
+
+it('renders the table layout in the pdf view', function () {
+    $report = ReportDefinition::factory()->visibleToAll()->tableLayout()->create(['source' => 'jornadas']);
+    ReportDefinitionField::factory()->create([
+        'report_definition_id' => $report->id,
+        'column' => 'nombre',
+        'label' => 'Jornada',
+        'sort_order' => 0,
+    ]);
+
+    $this->view('reports.pdf', [
+        'report' => $report->load('fields'),
+        'rows' => [
+            ['nombre' => 'Matutina'],
+        ],
+    ])
+        ->assertSee('Jornada')
+        ->assertSee('Matutina')
+        ->assertDontSee('class="sheet"', false);
+});
+
 it('lets an allowed user download the report as pdf', function () {
     $user = assignRole(User::factory()->create(), Role::Sistemas);
     Sys_Jornada::factory()->create(['nombre' => 'Matutina']);
@@ -182,6 +231,35 @@ it('escapes report values', function () {
         ->get(route('reports.show', $report))
         ->assertSee("<script>alert('xss')</script>")
         ->assertDontSee("<script>alert('xss')</script>", false);
+});
+
+it('lets a report designer preview a report that is hidden and limited to other roles', function () {
+    $designer = assignRole(User::factory()->create(), Role::Sistemas);
+    $admin = assignRole(User::factory()->create(), Role::Admin);
+    Sys_Jornada::factory()->create(['nombre' => 'Matutina']);
+
+    $report = ReportDefinition::factory()->create([
+        'name' => 'Borrador de jornadas',
+        'source' => 'jornadas',
+        'is_active' => false,
+        'visible_to_all' => false,
+    ]);
+    $report->roles()->sync($admin->roles->pluck('id'));
+    ReportDefinitionField::factory()->create([
+        'report_definition_id' => $report->id,
+        'column' => 'nombre',
+        'label' => 'Jornada',
+        'sort_order' => 0,
+    ]);
+
+    $this->actingAs($designer)
+        ->get(route('reports.show', $report))
+        ->assertSee('Borrador de jornadas')
+        ->assertSee('Matutina');
+
+    $this->actingAs($designer)
+        ->get(route('reports.index'))
+        ->assertDontSee('Borrador de jornadas');
 });
 
 it('hides reports the user cannot see', function () {

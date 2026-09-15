@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\ReportLayout;
 use App\Models\ReportDefinition;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -20,6 +21,7 @@ class ReportDefinitionFactory extends Factory
             'source' => 'jornadas',
             'is_active' => true,
             'visible_to_all' => false,
+            'layout' => ReportLayout::Canvas,
         ];
     }
 
@@ -27,6 +29,13 @@ class ReportDefinitionFactory extends Factory
     {
         return $this->state(fn (array $attributes): array => [
             'visible_to_all' => true,
+        ]);
+    }
+
+    public function tableLayout(): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'layout' => ReportLayout::Table,
         ]);
     }
 }

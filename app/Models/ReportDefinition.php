@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\ReportLayout;
 use Database\Factories\ReportDefinitionFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -11,11 +12,42 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Spatie\Permission\Models\Role as RoleModel;
 
-#[Fillable(['name', 'source', 'is_active', 'visible_to_all', 'user_id'])]
+#[Fillable([
+    'name',
+    'source',
+    'is_active',
+    'visible_to_all',
+    'user_id',
+    'layout',
+    'table_border_width',
+    'table_border_color',
+    'table_header',
+    'table_header_background',
+    'table_striped',
+    'table_font_size',
+    'table_cell_padding',
+])]
 class ReportDefinition extends Model
 {
     /** @use HasFactory<ReportDefinitionFactory> */
     use HasFactory;
+
+    /**
+     * Mirrors the database defaults so a report renders with a usable table
+     * format before those columns are read back from the database.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'layout' => 'canvas',
+        'table_border_width' => 1,
+        'table_border_color' => '#cbd5e1',
+        'table_header' => true,
+        'table_header_background' => '#f1f5f9',
+        'table_striped' => false,
+        'table_font_size' => 12,
+        'table_cell_padding' => 8,
+    ];
 
     /**
      * @return array<string, string>
@@ -25,7 +57,18 @@ class ReportDefinition extends Model
         return [
             'is_active' => 'boolean',
             'visible_to_all' => 'boolean',
+            'layout' => ReportLayout::class,
+            'table_border_width' => 'integer',
+            'table_header' => 'boolean',
+            'table_striped' => 'boolean',
+            'table_font_size' => 'integer',
+            'table_cell_padding' => 'integer',
         ];
+    }
+
+    public function usesTableLayout(): bool
+    {
+        return $this->layout === ReportLayout::Table;
     }
 
     /**

@@ -114,5 +114,5 @@ it('returns only the links the user may see', function () {
         ->map(fn ($item) => $item->label)
         ->all();
 
-    expect($labels)->toBe(['Inicio', 'Usuarios', 'Perfil']);
+    expect($labels)->toBe(['Inicio', 'Usuarios', 'Reportes', 'Perfil']);
 });

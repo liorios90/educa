@@ -4,6 +4,7 @@ use App\Crud\CrudRegistry;
 use App\Http\Controllers\GenericCrudController;
 use App\Http\Controllers\NavigationItemController;
 use App\Http\Controllers\NavigationSubmenuController;
+use App\Http\Controllers\ReportDefinitionController;
 use App\Http\Controllers\SistemasController;
 use Illuminate\Support\Facades\Route;
 
@@ -12,6 +13,12 @@ Route::middleware(['auth', 'verified', 'role:Sistemas'])
     ->name('sistemas.')
     ->group(function () {
         Route::view('/', 'sistemas.home')->name('home');
+        Route::get('/reportes', [ReportDefinitionController::class, 'index'])->name('reports.index');
+        Route::get('/reportes/crear', [ReportDefinitionController::class, 'create'])->name('reports.create');
+        Route::post('/reportes', [ReportDefinitionController::class, 'store'])->name('reports.store');
+        Route::get('/reportes/{reportDefinition}/editar', [ReportDefinitionController::class, 'edit'])->name('reports.edit');
+        Route::patch('/reportes/{reportDefinition}', [ReportDefinitionController::class, 'update'])->name('reports.update');
+        Route::delete('/reportes/{reportDefinition}', [ReportDefinitionController::class, 'destroy'])->name('reports.destroy');
         Route::get('/prueba', [SistemasController::class, 'prueba'])->name('prueba');
         Route::get('/prueba', [SistemasController::class, 'prueba2'])->name('prueba2');
         Route::get('/menu', [NavigationItemController::class, 'index'])->name('navigation-items.index');

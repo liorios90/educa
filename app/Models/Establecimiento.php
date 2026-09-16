@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Enums\Role;
 use Database\Factories\EstablecimientoFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Storage;
 
 class Establecimiento extends Model
 {
@@ -55,5 +58,46 @@ class Establecimiento extends Model
     public function circuito(): BelongsTo
     {
         return $this->belongsTo(Sys_Circuito::class, 'circuito_id');
+    }
+
+    /**
+     * @return HasMany<User, $this>
+     */
+    public function users(): HasMany
+    {
+        return $this->hasMany(User::class);
+    }
+
+    public function administrador(): ?User
+    {
+        return $this->users()
+            ->whereHas('roles', fn ($query) => $query->where('name', Role::Admin->value))
+            ->orderBy('id')
+            ->first();
+    }
+
+    public function logoUrl(): ?string
+    {
+        if (! is_string($this->logo) || $this->logo === '') {
+            return null;
+        }
+
+        if (! Storage::disk('public')->exists($this->logo)) {
+            return null;
+        }
+
+        return Storage::disk('public')->url($this->logo);
+    }
+
+    public function monograma(): string
+    {
+        $parts = preg_split('/\s+/u', trim($this->nombre)) ?: [];
+        $letters = '';
+
+        foreach (array_slice($parts, 0, 2) as $part) {
+            $letters .= mb_strtoupper(mb_substr($part, 0, 1));
+        }
+
+        return $letters !== '' ? $letters : 'E';
     }
 }

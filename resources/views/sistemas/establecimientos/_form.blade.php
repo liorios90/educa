@@ -2,6 +2,7 @@
     use App\Enums\Regimen;
 
     $establecimiento = $establecimiento ?? null;
+    $administrador = $administrador ?? null;
     $zonaId = old('zona_id', $establecimiento?->zona_id);
     $distritoId = old('distrito_id', $establecimiento?->distrito_id);
     $circuitoId = old('circuito_id', $establecimiento?->circuito_id);
@@ -181,6 +182,40 @@
             <x-input-label for="grupo_amie" value="Grupo AMIE" />
             <x-text-input id="grupo_amie" class="mt-1 block w-full" type="number" name="grupo_amie" :value="old('grupo_amie', $establecimiento?->grupo_amie)" />
             <x-input-error class="mt-2" :messages="$errors->get('grupo_amie')" />
+        </div>
+    </div>
+
+    <div class="space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <div>
+            <p class="text-sm font-medium text-slate-800">Usuario administrador</p>
+            <p class="mt-1 text-xs text-slate-500">Este usuario entra con el rol Administrador y queda ligado a este establecimiento.</p>
+        </div>
+
+        <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+            <div>
+                <x-input-label for="admin_name" value="Nombre del administrador" />
+                <x-text-input id="admin_name" class="mt-1 block w-full" type="text" name="admin_name" :value="old('admin_name', $administrador?->name)" required />
+                <x-input-error class="mt-2" :messages="$errors->get('admin_name')" />
+            </div>
+
+            <div>
+                <x-input-label for="admin_email" value="Correo del administrador" />
+                <x-text-input id="admin_email" class="mt-1 block w-full" type="email" name="admin_email" :value="old('admin_email', $administrador?->email)" required autocomplete="username" />
+                <x-input-error class="mt-2" :messages="$errors->get('admin_email')" />
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+            <div>
+                <x-input-label for="admin_password" :value="$administrador ? 'Nueva contraseña (opcional)' : 'Contraseña'" />
+                <x-text-input id="admin_password" class="mt-1 block w-full" type="password" name="admin_password" autocomplete="new-password" :required="$administrador === null" />
+                <x-input-error class="mt-2" :messages="$errors->get('admin_password')" />
+            </div>
+
+            <div>
+                <x-input-label for="admin_password_confirmation" value="Confirmar contraseña" />
+                <x-text-input id="admin_password_confirmation" class="mt-1 block w-full" type="password" name="admin_password_confirmation" autocomplete="new-password" :required="$administrador === null" />
+            </div>
         </div>
     </div>
 

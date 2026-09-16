@@ -7,10 +7,12 @@ use App\Enums\Role;
 use App\Models\Establecimiento;
 use App\Models\Sys_Circuito;
 use App\Models\Sys_Distrito;
+use App\Models\User;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Password;
 
 class UpsertEstablecimientoRequest extends FormRequest
 {
@@ -49,6 +51,21 @@ class UpsertEstablecimientoRequest extends FormRequest
             'zona_id' => ['required', 'integer', 'exists:sys_zonas,id'],
             'distrito_id' => ['required', 'integer', 'exists:sys_distritos,id'],
             'circuito_id' => ['required', 'integer', 'exists:sys_circuitos,id'],
+            'admin_name' => ['required', 'string', 'max:255'],
+            'admin_email' => [
+                'required',
+                'string',
+                'lowercase',
+                'email',
+                'max:255',
+                Rule::unique(User::class, 'email')->ignore($this->administrador()?->id),
+            ],
+            'admin_password' => [
+                Rule::requiredIf($this->isMethod('POST') || $this->administrador() === null),
+                'nullable',
+                'confirmed',
+                Password::defaults(),
+            ],
         ];
     }
 
@@ -88,5 +105,28 @@ class UpsertEstablecimientoRequest extends FormRequest
                 }
             },
         ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'admin_name.required' => 'Indica el nombre del administrador del establecimiento.',
+            'admin_email.required' => 'Indica el correo del administrador del establecimiento.',
+            'admin_password.required' => 'Indica la contraseña del administrador del establecimiento.',
+        ];
+    }
+
+    private function administrador(): ?User
+    {
+        $establecimiento = $this->route('establecimiento');
+
+        if (! $establecimiento instanceof Establecimiento) {
+            return null;
+        }
+
+        return $establecimiento->administrador();
     }
 }

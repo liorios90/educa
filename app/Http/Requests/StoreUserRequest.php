@@ -26,6 +26,22 @@ class StoreUserRequest extends FormRequest
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', Rule::unique(User::class)],
             'password' => ['required', 'confirmed', Password::defaults()],
             'role' => ['required', Rule::enum(Role::class)],
+            'establecimiento_id' => [
+                Rule::requiredIf(fn (): bool => Role::tryFrom((string) $this->input('role'))?->requiresEstablecimiento() ?? false),
+                'nullable',
+                'integer',
+                Rule::exists('establecimientos', 'id'),
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'establecimiento_id.required' => 'Este rol debe pertenecer a un establecimiento.',
         ];
     }
 }

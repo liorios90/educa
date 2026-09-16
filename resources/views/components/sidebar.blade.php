@@ -18,9 +18,23 @@
     :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'"
 >
     <div class="flex h-16 items-center gap-3 px-6">
-        <a href="{{ route('dashboard') }}" class="flex items-center gap-3 text-white">
-            <x-application-logo class="h-8 w-8 fill-current text-indigo-300" />
-            <span class="text-base font-semibold tracking-tight">{{ config('app.name', 'Educa') }}</span>
+        <a href="{{ route('dashboard') }}" class="flex min-w-0 items-center gap-3 text-white">
+            @if ($establecimiento)
+                @php
+                    $logoUrl = $establecimiento->logoUrl();
+                @endphp
+                <span class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white ring-1 ring-white/10">
+                    @if ($logoUrl)
+                        <img src="{{ $logoUrl }}" alt="" class="h-full w-full object-contain p-1">
+                    @else
+                        <span class="text-xs font-semibold text-indigo-600">{{ $establecimiento->monograma() }}</span>
+                    @endif
+                </span>
+                <span class="truncate text-base font-semibold tracking-tight">{{ $establecimiento->nombre }}</span>
+            @else
+                <x-application-logo class="h-8 w-8 fill-current text-indigo-300" />
+                <span class="text-base font-semibold tracking-tight">{{ config('app.name', 'Educa') }}</span>
+            @endif
         </a>
     </div>
 

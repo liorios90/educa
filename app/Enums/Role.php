@@ -16,4 +16,12 @@ enum Role: string
             self::Secretaria => 'Secretaría',
         };
     }
+
+    public function requiresEstablecimiento(): bool
+    {
+        return match ($this) {
+            self::Admin, self::Secretaria => true,
+            self::Sistemas => false,
+        };
+    }
 }

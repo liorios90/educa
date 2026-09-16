@@ -7,11 +7,7 @@
 
     <div class="py-8">
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                <div class="p-6 text-slate-700">
-                    Bienvenido al panel. Usa el menú para acceder a las secciones de tu rol.
-                </div>
-            </div>
+            <x-establecimiento-inicio />
         </div>
     </div>
 </x-app-layout>

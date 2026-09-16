@@ -34,26 +34,7 @@
                     <x-text-input id="password_confirmation" class="mt-1 block w-full" type="password" name="password_confirmation" autocomplete="new-password" />
                 </div>
 
-                <div>
-                    <x-input-label for="role" value="Rol" />
-                    <select
-                        id="role"
-                        name="role"
-                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                        required
-                    >
-                        @php
-                            $selectedRole = old('role', $user->roles->first()?->name);
-                        @endphp
-                        <option value="" disabled @selected($selectedRole === null)>Selecciona un rol</option>
-                        @foreach ($roles as $role)
-                            <option value="{{ $role->value }}" @selected($selectedRole === $role->value)>
-                                {{ $role->label() }}
-                            </option>
-                        @endforeach
-                    </select>
-                    <x-input-error class="mt-2" :messages="$errors->get('role')" />
-                </div>
+                @include('admin.users._role', ['user' => $user])
 
                 <div class="flex items-center justify-end gap-4">
                     <a href="{{ route($usersIndexRoute) }}" class="text-sm text-slate-600 hover:text-slate-900">Cancelar</a>

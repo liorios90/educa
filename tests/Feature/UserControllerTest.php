@@ -1,8 +1,10 @@
 <?php
 
 use App\Enums\Role;
+use App\Models\Establecimiento;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
+use Spatie\Permission\Models\Role as RoleModel;
 
 describe('store', function () {
     it('allows a systems user to create a user', function () {
@@ -26,6 +28,83 @@ describe('store', function () {
             ->and($created->hasRole(Role::Sistemas))->toBeTrue();
 
         expect(Hash::check('password', $created->password))->toBeTrue();
+    });
+
+    it('requires an establishment when a systems user creates a school-bound role', function (Role $role) {
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+
+        $this->actingAs($actor)
+            ->from(route('sistemas.users.create'))
+            ->post(route('sistemas.users.store'), [
+                'name' => 'Director Andino',
+                'email' => 'director@example.com',
+                'password' => 'password',
+                'password_confirmation' => 'password',
+                'role' => $role->value,
+            ])
+            ->assertRedirect(route('sistemas.users.create'))
+            ->assertSessionHasErrors([
+                'establecimiento_id' => 'Este rol debe pertenecer a un establecimiento.',
+            ]);
+
+        expect(User::query()->where('email', 'director@example.com')->exists())->toBeFalse();
+    })->with([
+        'administrator' => Role::Admin,
+        'secretaria' => Role::Secretaria,
+    ]);
+
+    it('assigns the establishment when a systems user creates a school-bound role', function (Role $role) {
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+        RoleModel::findOrCreate($role->value, 'web');
+        $establecimiento = Establecimiento::factory()->create(['nombre' => 'UE Los Andes']);
+
+        $this->actingAs($actor)
+            ->post(route('sistemas.users.store'), [
+                'name' => 'Director Andino',
+                'email' => 'director@example.com',
+                'password' => 'password',
+                'password_confirmation' => 'password',
+                'role' => $role->value,
+                'establecimiento_id' => $establecimiento->id,
+            ])
+            ->assertRedirect(route('sistemas.users'))
+            ->assertSessionHas('status', 'user-created');
+
+        $created = User::query()->where('email', 'director@example.com')->firstOrFail();
+
+        expect($created->hasRole($role))->toBeTrue()
+            ->and($created->establecimiento_id)->toBe($establecimiento->id);
+    })->with([
+        'administrator' => Role::Admin,
+        'secretaria' => Role::Secretaria,
+    ]);
+
+    it('does not keep an establishment when the role is sistemas', function () {
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+        $establecimiento = Establecimiento::factory()->create();
+
+        $this->actingAs($actor)
+            ->post(route('sistemas.users.store'), [
+                'name' => 'Lourdes Flores',
+                'email' => 'lourdes@example.com',
+                'password' => 'password',
+                'password_confirmation' => 'password',
+                'role' => Role::Sistemas->value,
+                'establecimiento_id' => $establecimiento->id,
+            ])
+            ->assertRedirect(route('sistemas.users'));
+
+        expect(User::query()->where('email', 'lourdes@example.com')->value('establecimiento_id'))->toBeNull();
+    });
+
+    it('lists establishments on the create form', function () {
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+        Establecimiento::factory()->create(['nombre' => 'UE Cotopaxi']);
+
+        $this->actingAs($actor)
+            ->get(route('sistemas.users.create'))
+            ->assertSee('Establecimiento')
+            ->assertSee('UE Cotopaxi');
     });
 
     it('allows an administrator to create a user', function () {
@@ -232,6 +311,78 @@ describe('update', function () {
             ->and($user->hasRole(Role::Secretaria))->toBeFalse();
     });
 
+    it('requires an establishment when a systems user changes a user to a school-bound role', function (Role $role) {
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+        $user = assignRole(User::factory()->create(), Role::Sistemas);
+
+        $this->actingAs($actor)
+            ->from(route('sistemas.users.edit', $user))
+            ->patch(route('sistemas.users.update', $user), [
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $role->value,
+            ])
+            ->assertRedirect(route('sistemas.users.edit', $user))
+            ->assertSessionHasErrors([
+                'establecimiento_id' => 'Este rol debe pertenecer a un establecimiento.',
+            ]);
+
+        expect($user->fresh()->hasRole($role))->toBeFalse();
+    })->with([
+        'administrator' => Role::Admin,
+        'secretaria' => Role::Secretaria,
+    ]);
+
+    it('assigns the establishment when a systems user changes a user to a school-bound role', function (Role $role) {
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+        $user = assignRole(User::factory()->create(), Role::Sistemas);
+        RoleModel::findOrCreate($role->value, 'web');
+        $establecimiento = Establecimiento::factory()->create(['nombre' => 'UE Los Andes']);
+
+        $this->actingAs($actor)
+            ->patch(route('sistemas.users.update', $user), [
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => $role->value,
+                'establecimiento_id' => $establecimiento->id,
+            ])
+            ->assertRedirect(route('sistemas.users'))
+            ->assertSessionHas('status', 'user-updated');
+
+        $user->refresh();
+
+        expect($user->hasRole($role))->toBeTrue()
+            ->and($user->establecimiento_id)->toBe($establecimiento->id);
+    })->with([
+        'administrator' => Role::Admin,
+        'secretaria' => Role::Secretaria,
+    ]);
+
+    it('clears the establishment when the role no longer belongs to a school', function (Role $role) {
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+        $establecimiento = Establecimiento::factory()->create();
+        $user = assignRole(User::factory()->create([
+            'establecimiento_id' => $establecimiento->id,
+        ]), $role);
+
+        $this->actingAs($actor)
+            ->patch(route('sistemas.users.update', $user), [
+                'name' => $user->name,
+                'email' => $user->email,
+                'role' => Role::Sistemas->value,
+                'establecimiento_id' => $establecimiento->id,
+            ])
+            ->assertRedirect(route('sistemas.users'));
+
+        $user->refresh();
+
+        expect($user->hasRole(Role::Sistemas))->toBeTrue()
+            ->and($user->establecimiento_id)->toBeNull();
+    })->with([
+        'administrator' => Role::Admin,
+        'secretaria' => Role::Secretaria,
+    ]);
+
     it('forbids systems users from updating a user', function () {
         $actor = assignRole(User::factory()->create(), Role::Sistemas);
         $user = User::factory()->create(['name' => 'Original']);
@@ -348,6 +499,20 @@ describe('index', function () {
             ->assertSee('Luisa Mora')
             ->assertSee(route('admin.users.edit', $user), false)
             ->assertSee(route('admin.users.destroy', $user), false);
+    });
+
+    it('shows the establishment of an administrator in the users list', function () {
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+        $establecimiento = Establecimiento::factory()->create(['nombre' => 'UE Cotopaxi']);
+        assignRole(User::factory()->create([
+            'name' => 'Director Andino',
+            'establecimiento_id' => $establecimiento->id,
+        ]), Role::Admin);
+
+        $this->actingAs($actor)
+            ->get(route('sistemas.users'))
+            ->assertSee('Director Andino')
+            ->assertSee('UE Cotopaxi');
     });
 
     it('shows edit and delete actions for systems users', function () {

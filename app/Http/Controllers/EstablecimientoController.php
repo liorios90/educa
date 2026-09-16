@@ -2,15 +2,19 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\Role;
 use App\Http\Requests\UpsertEstablecimientoRequest;
 use App\Models\Establecimiento;
 use App\Models\Sys_Circuito;
 use App\Models\Sys_Distrito;
 use App\Models\Sys_Zona;
+use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
+use Spatie\Permission\Models\Role as RoleModel;
 
 class EstablecimientoController extends Controller
 {
@@ -31,7 +35,10 @@ class EstablecimientoController extends Controller
 
     public function store(UpsertEstablecimientoRequest $request): RedirectResponse
     {
-        Establecimiento::query()->create($this->attributesFrom($request));
+        DB::transaction(function () use ($request): void {
+            $establecimiento = Establecimiento::query()->create($this->attributesFrom($request));
+            $this->syncAdministrador($establecimiento, $request);
+        });
 
         return redirect()
             ->route('sistemas.establecimientos')
@@ -43,12 +50,16 @@ class EstablecimientoController extends Controller
         return view('sistemas.establecimientos.edit', [
             ...$this->catalogOptions(),
             'establecimiento' => $establecimiento,
+            'administrador' => $establecimiento->administrador(),
         ]);
     }
 
     public function update(UpsertEstablecimientoRequest $request, Establecimiento $establecimiento): RedirectResponse
     {
-        $establecimiento->update($this->attributesFrom($request, $establecimiento));
+        DB::transaction(function () use ($request, $establecimiento): void {
+            $establecimiento->update($this->attributesFrom($request, $establecimiento));
+            $this->syncAdministrador($establecimiento, $request);
+        });
 
         return redirect()
             ->route('sistemas.establecimientos')
@@ -57,7 +68,10 @@ class EstablecimientoController extends Controller
 
     public function destroy(Establecimiento $establecimiento): RedirectResponse
     {
-        $establecimiento->delete();
+        DB::transaction(function () use ($establecimiento): void {
+            $establecimiento->users()->get()->each(fn (User $user) => $user->delete());
+            $establecimiento->delete();
+        });
 
         return redirect()
             ->route('sistemas.establecimientos')
@@ -124,6 +138,44 @@ class EstablecimientoController extends Controller
         }
 
         return $attributes;
+    }
+
+    private function syncAdministrador(Establecimiento $establecimiento, UpsertEstablecimientoRequest $request): void
+    {
+        RoleModel::findOrCreate(Role::Admin->value, 'web');
+
+        $administrador = $establecimiento->administrador();
+        $attributes = [
+            'name' => $request->validated('admin_name'),
+            'email' => $request->validated('admin_email'),
+            'establecimiento_id' => $establecimiento->id,
+        ];
+
+        if ($request->filled('admin_password')) {
+            $attributes['password'] = $request->validated('admin_password');
+        }
+
+        if ($administrador === null) {
+            User::query()->create($attributes)->assignRole(Role::Admin);
+
+            return;
+        }
+
+        $administrador->fill([
+            'name' => $attributes['name'],
+            'email' => $attributes['email'],
+        ]);
+
+        if (isset($attributes['password'])) {
+            $administrador->password = $attributes['password'];
+        }
+
+        if ($administrador->isDirty('email')) {
+            $administrador->email_verified_at = null;
+        }
+
+        $administrador->save();
+        $administrador->syncRoles([Role::Admin]);
     }
 
     /**

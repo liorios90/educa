@@ -17,9 +17,12 @@ class Sidebar extends Component
         /** @var User $user */
         $user = Auth::user();
 
+        $user->loadMissing('establecimiento');
+
         return view('components.sidebar', [
             'items' => $this->navigation->itemsFor($user),
             'user' => $user,
+            'establecimiento' => $user->establecimiento,
         ]);
     }
 }

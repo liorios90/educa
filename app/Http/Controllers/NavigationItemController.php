@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreNavigationItemRequest;
 use App\Http\Requests\UpdateNavigationItemRequest;
 use App\Models\NavigationItem;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Route;
 use Illuminate\View\View;
@@ -13,15 +15,38 @@ use Spatie\Permission\Models\Role;
 
 class NavigationItemController extends Controller
 {
-    public function index(): View
+    /**
+     * @var list<string>
+     */
+    private const SORTABLE = [
+        'sort_order',
+        'label',
+        'route_name',
+        'is_group',
+        'visible_to_all',
+        'is_active',
+    ];
+
+    public function index(Request $request): View
     {
+        [$sort, $direction] = $this->sortFrom($request);
+        $search = $this->searchFrom($request);
+
+        $items = NavigationItem::query()
+            ->topLevel()
+            ->with('roles');
+
+        $this->applySearch($items, $search);
+
         return view('sistemas.navigation-items.index', [
-            'items' => NavigationItem::query()
-                ->topLevel()
-                ->with('roles')
-                ->orderBy('sort_order')
+            'items' => $items
+                ->orderBy($sort, $direction)
                 ->orderBy('id')
-                ->get(),
+                ->paginate(15)
+                ->withQueryString(),
+            'sort' => $sort,
+            'direction' => $direction,
+            'search' => $search,
         ]);
     }
 
@@ -123,5 +148,42 @@ class NavigationItemController extends Controller
         }
 
         $item->roles()->sync($request->validated('roles'));
+    }
+
+    /**
+     * @return array{0: string, 1: 'asc'|'desc'}
+     */
+    private function sortFrom(Request $request): array
+    {
+        $sort = $request->string('sort')->toString();
+        $direction = $request->string('direction')->toString();
+
+        return [
+            in_array($sort, self::SORTABLE, true) ? $sort : 'sort_order',
+            $direction === 'desc' ? 'desc' : 'asc',
+        ];
+    }
+
+    private function searchFrom(Request $request): string
+    {
+        return $request->string('q')->trim()->substr(0, 100)->toString();
+    }
+
+    private function applySearch(Builder $query, string $search): void
+    {
+        if ($search === '') {
+            return;
+        }
+
+        $like = '%'.addcslashes($search, '%_\\').'%';
+        $operator = $query->getConnection()->getDriverName() === 'pgsql' ? 'ilike' : 'like';
+
+        $query->where(function (Builder $builder) use ($like, $operator): void {
+            $builder->where('label', $operator, $like)
+                ->orWhere('route_name', $operator, $like)
+                ->orWhereHas('roles', function (Builder $roles) use ($like, $operator): void {
+                    $roles->where('name', $operator, $like);
+                });
+        });
     }
 }

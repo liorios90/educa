@@ -11,7 +11,7 @@
                 @csrf
                 @method('patch')
 
-                @include('sistemas.establecimientos._form', ['establecimiento' => $establecimiento])
+                @include('sistemas.establecimientos._form', ['establecimiento' => $establecimiento, 'administrador' => $administrador])
 
                 <div class="mt-6 flex items-center justify-end gap-4">
                     <a href="{{ route('sistemas.establecimientos') }}" class="text-sm text-slate-600 hover:text-slate-900">Cancelar</a>

@@ -7,6 +7,7 @@ use App\Models\Sys_Distrito;
 use App\Models\Sys_Zona;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -29,6 +30,10 @@ function establecimientoPayload(Sys_Zona $zona, Sys_Distrito $distrito, Sys_Circ
         'zona_id' => $zona->id,
         'distrito_id' => $distrito->id,
         'circuito_id' => $circuito->id,
+        'admin_name' => 'Director Andino',
+        'admin_email' => 'director.andes@example.com',
+        'admin_password' => 'password',
+        'admin_password_confirmation' => 'password',
         ...$overrides,
     ];
 }
@@ -110,6 +115,17 @@ describe('create', function () {
             ->assertDontSee('Visión')
             ->assertDontSee('Ideario');
     });
+
+    it('shows administrator fields on the create form', function () {
+        $user = assignRole(User::factory()->create(), Role::Sistemas);
+
+        $this->actingAs($user)
+            ->get(route('sistemas.establecimientos.create'))
+            ->assertOk()
+            ->assertSee('Usuario administrador')
+            ->assertSee('Nombre del administrador')
+            ->assertSee('Correo del administrador');
+    });
 });
 
 describe('store', function () {
@@ -132,7 +148,34 @@ describe('store', function () {
             ->and($establecimiento->circuito_id)->toBe($circuito->id)
             ->and($establecimiento->regimen)->toBe('Sierra');
 
+        $administrador = $establecimiento->administrador();
+
+        expect($administrador)->not->toBeNull()
+            ->and($administrador->name)->toBe('Director Andino')
+            ->and($administrador->email)->toBe('director.andes@example.com')
+            ->and($administrador->establecimiento_id)->toBe($establecimiento->id)
+            ->and($administrador->hasRole(Role::Admin))->toBeTrue();
+
+        expect(Hash::check('password', $administrador->password))->toBeTrue();
+
         Storage::disk('public')->assertExists($establecimiento->logo);
+    });
+
+    it('does not create the establecimiento when the administrator email is already taken', function () {
+        Storage::fake('public');
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+        User::factory()->create(['email' => 'director.andes@example.com']);
+        $zona = Sys_Zona::factory()->create();
+        $distrito = Sys_Distrito::factory()->create(['zona_id' => $zona->id]);
+        $circuito = Sys_Circuito::factory()->create(['distrito_id' => $distrito->id]);
+
+        $this->actingAs($actor)
+            ->from(route('sistemas.establecimientos.create'))
+            ->post(route('sistemas.establecimientos.store'), establecimientoPayload($zona, $distrito, $circuito))
+            ->assertRedirect(route('sistemas.establecimientos.create'))
+            ->assertSessionHasErrors('admin_email');
+
+        $this->assertDatabaseMissing('establecimientos', ['email' => 'andes@example.com']);
     });
 
     it('rejects an empty payload', function () {
@@ -142,7 +185,7 @@ describe('store', function () {
             ->from(route('sistemas.establecimientos.create'))
             ->post(route('sistemas.establecimientos.store'), [])
             ->assertRedirect(route('sistemas.establecimientos.create'))
-            ->assertSessionHasErrors(['nombre', 'zona_id', 'distrito_id', 'circuito_id', 'regimen', 'logo']);
+            ->assertSessionHasErrors(['nombre', 'zona_id', 'distrito_id', 'circuito_id', 'regimen', 'logo', 'admin_name', 'admin_email', 'admin_password']);
     });
 
     it('rejects a distrito that does not belong to the zona', function () {
@@ -205,6 +248,58 @@ describe('update', function () {
         expect($establecimiento->fresh()->nombre)->toBe('UE Nueva');
     });
 
+    it('prefills the administrator on the edit form', function () {
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+        $establecimiento = Establecimiento::factory()->create();
+        assignRole(User::factory()->create([
+            'name' => 'Director Andino',
+            'email' => 'director@example.com',
+            'establecimiento_id' => $establecimiento->id,
+        ]), Role::Admin);
+
+        $this->actingAs($actor)
+            ->get(route('sistemas.establecimientos.edit', $establecimiento))
+            ->assertSee('Director Andino')
+            ->assertSee('director@example.com')
+            ->assertSee('Nueva contraseña (opcional)');
+    });
+
+    it('updates the administrator without requiring a new password', function () {
+        Storage::fake('public');
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+        $establecimiento = Establecimiento::factory()->create();
+        $administrador = assignRole(User::factory()->create([
+            'name' => 'Director Viejo',
+            'email' => 'viejo@example.com',
+            'password' => 'secret-password',
+            'establecimiento_id' => $establecimiento->id,
+        ]), Role::Admin);
+        $zona = $establecimiento->zona;
+        $distrito = $establecimiento->distrito;
+        $circuito = $establecimiento->circuito;
+
+        $payload = establecimientoPayload($zona, $distrito, $circuito, [
+            'codigo_amie' => $establecimiento->codigo_amie,
+            'email' => $establecimiento->email,
+            'admin_name' => 'Director Nuevo',
+            'admin_email' => 'nuevo@example.com',
+        ]);
+        unset($payload['admin_password'], $payload['admin_password_confirmation'], $payload['logo']);
+
+        $this->actingAs($actor)
+            ->patch(route('sistemas.establecimientos.update', $establecimiento), $payload)
+            ->assertRedirect(route('sistemas.establecimientos'))
+            ->assertSessionHasNoErrors();
+
+        $administrador->refresh();
+
+        expect($administrador->name)->toBe('Director Nuevo')
+            ->and($administrador->email)->toBe('nuevo@example.com')
+            ->and($administrador->establecimiento_id)->toBe($establecimiento->id);
+
+        expect(Hash::check('secret-password', $administrador->password))->toBeTrue();
+    });
+
     it('keeps hidden catalog fields and the current logo when they are omitted', function () {
         Storage::fake('public');
         $actor = assignRole(User::factory()->create(), Role::Sistemas);
@@ -251,5 +346,20 @@ describe('destroy', function () {
             ->assertSessionHas('status', 'establecimiento-deleted');
 
         $this->assertModelMissing($establecimiento);
+    });
+
+    it('deletes the administrator when the establecimiento is deleted', function () {
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+        $establecimiento = Establecimiento::factory()->create();
+        $administrador = assignRole(User::factory()->create([
+            'establecimiento_id' => $establecimiento->id,
+        ]), Role::Admin);
+
+        $this->actingAs($actor)
+            ->delete(route('sistemas.establecimientos.destroy', $establecimiento))
+            ->assertRedirect(route('sistemas.establecimientos'));
+
+        $this->assertModelMissing($establecimiento);
+        $this->assertModelMissing($administrador);
     });
 });

@@ -35,6 +35,7 @@
                             <th class="px-6 py-3 font-medium">Nombre</th>
                             <th class="px-6 py-3 font-medium">Correo</th>
                             <th class="px-6 py-3 font-medium">Rol</th>
+                            <th class="px-6 py-3 font-medium">Establecimiento</th>
                             <th class="px-6 py-3 font-medium">Acciones</th>
                         </tr>
                     </thead>
@@ -46,6 +47,7 @@
                                 <td class="px-6 py-3">
                                     {{ $user->roles->map(fn ($role) => \App\Enums\Role::tryFrom($role->name)?->label() ?? $role->name)->join(', ') ?: 'Sin rol' }}
                                 </td>
+                                <td class="px-6 py-3">{{ $user->establecimiento?->nombre ?? '—' }}</td>
                                 <td class="px-6 py-3">
                                     <div class="flex items-center gap-3">
                                         <a href="{{ route($usersIndexRoute.'.edit', $user) }}" class="font-medium text-indigo-600 hover:text-indigo-500">
@@ -66,7 +68,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="4" class="px-6 py-8 text-center text-slate-500">Aún no hay usuarios.</td>
+                                <td colspan="5" class="px-6 py-8 text-center text-slate-500">Aún no hay usuarios.</td>
                             </tr>
                         @endforelse
                     </tbody>

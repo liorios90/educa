@@ -2,8 +2,11 @@
 
 use App\Enums\Role;
 use App\Models\NavigationItem;
+use App\Models\Sys_Circuito;
+use App\Models\Sys_Distrito;
 use App\Models\Sys_Jornada;
 use App\Models\Sys_Modalidad;
+use App\Models\Sys_Zona;
 use App\Models\User;
 use Database\Seeders\NavigationSeeder;
 
@@ -29,6 +32,47 @@ describe('index', function () {
             ->assertOk()
             ->assertSee('Modalidades')
             ->assertSee('Presencial');
+    });
+
+    it('allows systems users to open the zonas catalog', function () {
+        $user = assignRole(User::factory()->create(), Role::Sistemas);
+        Sys_Zona::factory()->create(['nombre' => 'Zona 1']);
+
+        $this->actingAs($user)
+            ->get(route('sistemas.crud.zonas.index'))
+            ->assertOk()
+            ->assertSee('Zonas')
+            ->assertSee('Zona 1');
+    });
+
+    it('allows systems users to open the distritos catalog', function () {
+        $user = assignRole(User::factory()->create(), Role::Sistemas);
+        Sys_Distrito::factory()->create(['nombre' => 'Distrito 09D01']);
+
+        $this->actingAs($user)
+            ->get(route('sistemas.crud.distritos.index'))
+            ->assertOk()
+            ->assertSee('Distritos')
+            ->assertSee('Distrito 09D01');
+    });
+
+    it('allows systems users to open the circuitos catalog', function () {
+        $user = assignRole(User::factory()->create(), Role::Sistemas);
+        Sys_Circuito::factory()->create(['nombre' => 'Circuito 09D01C01']);
+
+        $this->actingAs($user)
+            ->get(route('sistemas.crud.circuitos.index'))
+            ->assertOk()
+            ->assertSee('Circuitos')
+            ->assertSee('Circuito 09D01C01');
+    });
+
+    it('does not expose establecimientos as a catalog', function () {
+        $user = assignRole(User::factory()->create(), Role::Sistemas);
+
+        $this->actingAs($user)
+            ->get('/sistemas/catalogos/establecimientos')
+            ->assertNotFound();
     });
 
     it('forbids administrators from opening the catalog', function () {
@@ -98,6 +142,89 @@ describe('store', function () {
             ->assertSessionHasErrors('nombre');
     });
 
+    it('creates a zona', function () {
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+
+        $this->actingAs($actor)
+            ->post(route('sistemas.crud.zonas.store'), [
+                'nombre' => 'Zona 8',
+                'descripcion' => 'Guayas',
+                'usuario' => 'sistemas',
+                'activo' => '1',
+            ])
+            ->assertRedirect(route('sistemas.crud.zonas.index'))
+            ->assertSessionHas('status', 'crud-created');
+
+        $this->assertDatabaseHas('sys_zonas', [
+            'nombre' => 'Zona 8',
+            'descripcion' => 'Guayas',
+            'usuario' => 'sistemas',
+            'activo' => 1,
+        ]);
+    });
+
+    it('creates a distrito for an existing zona', function () {
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+        $zona = Sys_Zona::factory()->create();
+
+        $this->actingAs($actor)
+            ->post(route('sistemas.crud.distritos.store'), [
+                'nombre' => '09D01',
+                'provincia' => 'Guayas',
+                'descripcion' => 'Distrito norte',
+                'usuario' => 'sistemas',
+                'activo' => '1',
+                'zona_id' => $zona->id,
+            ])
+            ->assertRedirect(route('sistemas.crud.distritos.index'))
+            ->assertSessionHas('status', 'crud-created');
+
+        $this->assertDatabaseHas('sys_distritos', [
+            'nombre' => '09D01',
+            'provincia' => 'Guayas',
+            'zona_id' => $zona->id,
+        ]);
+    });
+
+    it('rejects a distrito without a zona', function () {
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+
+        $this->actingAs($actor)
+            ->from(route('sistemas.crud.distritos.create'))
+            ->post(route('sistemas.crud.distritos.store'), [
+                'nombre' => '09D02',
+                'provincia' => 'Guayas',
+                'descripcion' => 'Sin zona',
+                'usuario' => 'sistemas',
+                'activo' => '1',
+            ])
+            ->assertRedirect(route('sistemas.crud.distritos.create'))
+            ->assertSessionHasErrors('zona_id');
+
+        $this->assertDatabaseMissing('sys_distritos', ['nombre' => '09D02']);
+    });
+
+    it('creates a circuito for an existing distrito', function () {
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+        $distrito = Sys_Distrito::factory()->create();
+
+        $this->actingAs($actor)
+            ->post(route('sistemas.crud.circuitos.store'), [
+                'nombre' => '09D01C01',
+                'descripcion' => 'Circuito centro',
+                'usuario' => 'sistemas',
+                'activo' => '1',
+                'distrito_id' => $distrito->id,
+            ])
+            ->assertRedirect(route('sistemas.crud.circuitos.index'))
+            ->assertSessionHas('status', 'crud-created');
+
+        $this->assertDatabaseHas('sys_circuitos', [
+            'nombre' => '09D01C01',
+            'distrito_id' => $distrito->id,
+        ]);
+    });
+
     it('forbids administrators from creating records', function () {
         $actor = assignRole(User::factory()->create(), Role::Admin);
 
@@ -164,4 +291,21 @@ it('shows the catalogos hub to systems users after seeding the menu', function (
     $this->actingAs($user)
         ->get(route('dashboard'))
         ->assertSee(route('navigation.hub', $catalogos), false);
+});
+
+it('seeds geographic catalogs under catalogos and omits establecimientos', function () {
+    $this->seed(NavigationSeeder::class);
+    $user = assignRole(User::factory()->create(), Role::Sistemas);
+    $catalogos = NavigationItem::query()->where('label', 'Catálogos')->firstOrFail();
+
+    $this->actingAs($user)
+        ->get(route('navigation.hub', $catalogos))
+        ->assertOk()
+        ->assertSee('Zonas')
+        ->assertSee('Distritos')
+        ->assertSee('Circuitos')
+        ->assertSee(route('sistemas.crud.zonas.index'), false)
+        ->assertSee(route('sistemas.crud.distritos.index'), false)
+        ->assertSee(route('sistemas.crud.circuitos.index'), false)
+        ->assertDontSee('Establecimientos');
 });

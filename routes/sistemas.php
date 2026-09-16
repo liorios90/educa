@@ -6,6 +6,7 @@ use App\Http\Controllers\NavigationItemController;
 use App\Http\Controllers\NavigationSubmenuController;
 use App\Http\Controllers\ReportDefinitionController;
 use App\Http\Controllers\SistemasController;
+use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'verified', 'role:Sistemas'])

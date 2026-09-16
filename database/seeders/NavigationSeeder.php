@@ -24,6 +24,9 @@ class NavigationSeeder extends Seeder
         $catalogos = $this->upsertItem('Catálogos', 'navigation.hub', 'cog', 5, false, [$sistemas->id], isGroup: true);
         $this->upsertItem('Jornadas', 'sistemas.crud.jornadas.index', 'cog', 1, false, [$sistemas->id], parentId: $catalogos->id);
         $this->upsertItem('Modalidades', 'sistemas.crud.modalidades.index', 'cog', 2, false, [$sistemas->id], parentId: $catalogos->id);
+        $this->upsertItem('Zonas', 'sistemas.crud.zonas.index', 'cog', 3, false, [$sistemas->id], parentId: $catalogos->id);
+        $this->upsertItem('Distritos', 'sistemas.crud.distritos.index', 'cog', 4, false, [$sistemas->id], parentId: $catalogos->id);
+        $this->upsertItem('Circuitos', 'sistemas.crud.circuitos.index', 'cog', 5, false, [$sistemas->id], parentId: $catalogos->id);
         $this->upsertItem('Diseñar reportes', 'sistemas.reports.index', 'cog', 6, false, [$sistemas->id]);
         $this->upsertItem('Reportes', 'reports.index', 'home', 7, true, []);
         $this->upsertItem('Perfil', 'profile.edit', 'user', 8, true, []);

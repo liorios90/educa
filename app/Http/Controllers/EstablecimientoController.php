@@ -8,6 +8,8 @@ use App\Models\Sys_Circuito;
 use App\Models\Sys_Distrito;
 use App\Models\Sys_Zona;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 
 class EstablecimientoController extends Controller
@@ -29,7 +31,7 @@ class EstablecimientoController extends Controller
 
     public function store(UpsertEstablecimientoRequest $request): RedirectResponse
     {
-        Establecimiento::query()->create($request->safe()->only($this->fillableAttributes()));
+        Establecimiento::query()->create($this->attributesFrom($request));
 
         return redirect()
             ->route('sistemas.establecimientos')
@@ -46,7 +48,7 @@ class EstablecimientoController extends Controller
 
     public function update(UpsertEstablecimientoRequest $request, Establecimiento $establecimiento): RedirectResponse
     {
-        $establecimiento->update($request->safe()->only($this->fillableAttributes()));
+        $establecimiento->update($this->attributesFrom($request, $establecimiento));
 
         return redirect()
             ->route('sistemas.establecimientos')
@@ -105,6 +107,26 @@ class EstablecimientoController extends Controller
     }
 
     /**
+     * @return array<string, mixed>
+     */
+    private function attributesFrom(UpsertEstablecimientoRequest $request, ?Establecimiento $establecimiento = null): array
+    {
+        $attributes = $request->safe()->only($this->fillableAttributes());
+
+        $logo = $request->file('logo');
+
+        if ($logo instanceof UploadedFile) {
+            if (is_string($establecimiento?->logo) && $establecimiento->logo !== '') {
+                Storage::disk('public')->delete($establecimiento->logo);
+            }
+
+            $attributes['logo'] = $logo->store('establecimientos/logos', 'public');
+        }
+
+        return $attributes;
+    }
+
+    /**
      * @return list<string>
      */
     private function fillableAttributes(): array
@@ -120,11 +142,6 @@ class EstablecimientoController extends Controller
             'email',
             'usuario',
             'activo',
-            'logo',
-            'only_visible',
-            'mision',
-            'vision',
-            'ideario',
             'grupo_amie',
             'zona_id',
             'distrito_id',

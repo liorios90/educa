@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Crud\CrudDefinition;
 use App\Crud\CrudRegistry;
 use App\Http\Requests\UpsertCrudRecordRequest;
+use App\Models\NavigationItem;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 
@@ -15,21 +16,38 @@ class GenericCrudController extends Controller
     public function index(): View
     {
         $definition = $this->definition();
+        $menuItem = NavigationItem::query()
+            ->where('route_name', $definition->routeName('index'))
+            ->whereNotNull('parent_id')
+            ->first();
+
+        $query = $definition->query();
+        $relations = $definition->listRelations();
+
+        if ($relations !== []) {
+            $query->with($relations);
+        }
 
         return view('sistemas.crud.index', [
             'definition' => $definition,
-            'records' => $definition->query()
+            'records' => $query
                 ->orderBy($definition->orderBy)
                 ->orderBy('id')
                 ->get(),
+            'backUrl' => $menuItem !== null
+                ? route('navigation.hub', $menuItem->parent_id)
+                : null,
         ]);
     }
 
     public function create(): View
     {
+        $definition = $this->definition();
+
         return view('sistemas.crud.create', [
-            'definition' => $this->definition(),
+            'definition' => $definition,
             'record' => null,
+            'options' => $definition->selectOptions(),
         ]);
     }
 
@@ -51,6 +69,7 @@ class GenericCrudController extends Controller
         return view('sistemas.crud.edit', [
             'definition' => $definition,
             'record' => $definition->findOrFail((int) $record),
+            'options' => $definition->selectOptions(),
         ]);
     }
 

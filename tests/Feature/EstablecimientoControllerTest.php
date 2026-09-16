@@ -6,6 +6,8 @@ use App\Models\Sys_Circuito;
 use App\Models\Sys_Distrito;
 use App\Models\Sys_Zona;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * @return array<string, mixed>
@@ -23,7 +25,7 @@ function establecimientoPayload(Sys_Zona $zona, Sys_Distrito $distrito, Sys_Circ
         'email' => 'andes@example.com',
         'usuario' => 'sistemas',
         'activo' => '1',
-        'logo' => 'logo.png',
+        'logo' => UploadedFile::fake()->image('logo.png'),
         'zona_id' => $zona->id,
         'distrito_id' => $distrito->id,
         'circuito_id' => $circuito->id,
@@ -93,10 +95,26 @@ describe('create', function () {
             ->assertSee('09D01')
             ->assertSee('09D01C01');
     });
+
+    it('shows costa and sierra as regimen options and hides unused fields', function () {
+        $user = assignRole(User::factory()->create(), Role::Sistemas);
+
+        $this->actingAs($user)
+            ->get(route('sistemas.establecimientos.create'))
+            ->assertOk()
+            ->assertSee('Costa')
+            ->assertSee('Sierra')
+            ->assertSee('type="file"', false)
+            ->assertDontSee('Solo visible')
+            ->assertDontSee('Misión')
+            ->assertDontSee('Visión')
+            ->assertDontSee('Ideario');
+    });
 });
 
 describe('store', function () {
     it('creates an establecimiento with catalog ids not names', function () {
+        Storage::fake('public');
         $actor = assignRole(User::factory()->create(), Role::Sistemas);
         $zona = Sys_Zona::factory()->create();
         $distrito = Sys_Distrito::factory()->create(['zona_id' => $zona->id]);
@@ -107,13 +125,14 @@ describe('store', function () {
             ->assertRedirect(route('sistemas.establecimientos'))
             ->assertSessionHas('status', 'establecimiento-created');
 
-        $this->assertDatabaseHas('establecimientos', [
-            'nombre' => 'UE Los Andes',
-            'email' => 'andes@example.com',
-            'zona_id' => $zona->id,
-            'distrito_id' => $distrito->id,
-            'circuito_id' => $circuito->id,
-        ]);
+        $establecimiento = Establecimiento::query()->where('email', 'andes@example.com')->firstOrFail();
+
+        expect($establecimiento->zona_id)->toBe($zona->id)
+            ->and($establecimiento->distrito_id)->toBe($distrito->id)
+            ->and($establecimiento->circuito_id)->toBe($circuito->id)
+            ->and($establecimiento->regimen)->toBe('Sierra');
+
+        Storage::disk('public')->assertExists($establecimiento->logo);
     });
 
     it('rejects an empty payload', function () {
@@ -123,10 +142,11 @@ describe('store', function () {
             ->from(route('sistemas.establecimientos.create'))
             ->post(route('sistemas.establecimientos.store'), [])
             ->assertRedirect(route('sistemas.establecimientos.create'))
-            ->assertSessionHasErrors(['nombre', 'zona_id', 'distrito_id', 'circuito_id']);
+            ->assertSessionHasErrors(['nombre', 'zona_id', 'distrito_id', 'circuito_id', 'regimen', 'logo']);
     });
 
     it('rejects a distrito that does not belong to the zona', function () {
+        Storage::fake('public');
         $actor = assignRole(User::factory()->create(), Role::Sistemas);
         $zona = Sys_Zona::factory()->create();
         $otraZona = Sys_Zona::factory()->create();
@@ -141,10 +161,29 @@ describe('store', function () {
 
         $this->assertDatabaseMissing('establecimientos', ['email' => 'andes@example.com']);
     });
+
+    it('rejects a regimen that is not costa or sierra', function () {
+        Storage::fake('public');
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+        $zona = Sys_Zona::factory()->create();
+        $distrito = Sys_Distrito::factory()->create(['zona_id' => $zona->id]);
+        $circuito = Sys_Circuito::factory()->create(['distrito_id' => $distrito->id]);
+
+        $this->actingAs($actor)
+            ->from(route('sistemas.establecimientos.create'))
+            ->post(route('sistemas.establecimientos.store'), establecimientoPayload($zona, $distrito, $circuito, [
+                'regimen' => 'Amazonia',
+            ]))
+            ->assertRedirect(route('sistemas.establecimientos.create'))
+            ->assertSessionHasErrors('regimen');
+
+        $this->assertDatabaseMissing('establecimientos', ['email' => 'andes@example.com']);
+    });
 });
 
 describe('update', function () {
     it('updates an establecimiento', function () {
+        Storage::fake('public');
         $actor = assignRole(User::factory()->create(), Role::Sistemas);
         $establecimiento = Establecimiento::factory()->create(['nombre' => 'Viejo']);
         $zona = $establecimiento->zona;
@@ -164,6 +203,40 @@ describe('update', function () {
             ->assertSessionHas('status', 'establecimiento-updated');
 
         expect($establecimiento->fresh()->nombre)->toBe('UE Nueva');
+    });
+
+    it('keeps hidden catalog fields and the current logo when they are omitted', function () {
+        Storage::fake('public');
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+        $establecimiento = Establecimiento::factory()->create([
+            'logo' => 'establecimientos/logos/actual.png',
+            'only_visible' => 'interno',
+            'mision' => 'Mision original',
+            'vision' => 'Vision original',
+            'ideario' => 'Ideario original',
+        ]);
+        Storage::disk('public')->put($establecimiento->logo, 'logo-content');
+        $zona = $establecimiento->zona;
+        $distrito = $establecimiento->distrito;
+        $circuito = $establecimiento->circuito;
+
+        $payload = establecimientoPayload($zona, $distrito, $circuito, [
+            'codigo_amie' => $establecimiento->codigo_amie,
+            'email' => $establecimiento->email,
+        ]);
+        unset($payload['logo']);
+
+        $this->actingAs($actor)
+            ->patch(route('sistemas.establecimientos.update', $establecimiento), $payload)
+            ->assertRedirect(route('sistemas.establecimientos'));
+
+        $establecimiento->refresh();
+
+        expect($establecimiento->logo)->toBe('establecimientos/logos/actual.png')
+            ->and($establecimiento->only_visible)->toBe('interno')
+            ->and($establecimiento->mision)->toBe('Mision original')
+            ->and($establecimiento->vision)->toBe('Vision original')
+            ->and($establecimiento->ideario)->toBe('Ideario original');
     });
 });
 

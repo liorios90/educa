@@ -10,7 +10,7 @@
             <form method="POST" action="{{ route($definition->routeName('store')) }}" class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                 @csrf
 
-                @include('sistemas.crud._form', ['definition' => $definition, 'record' => $record])
+                @include('sistemas.crud._form', ['definition' => $definition, 'record' => $record, 'options' => $options])
 
                 <div class="mt-6 flex items-center justify-end gap-4">
                     <a href="{{ route($definition->routeName('index')) }}" class="text-sm text-slate-600 hover:text-slate-900">Cancelar</a>

@@ -11,7 +11,7 @@
                 @csrf
                 @method('patch')
 
-                @include('sistemas.crud._form', ['definition' => $definition, 'record' => $record])
+                @include('sistemas.crud._form', ['definition' => $definition, 'record' => $record, 'options' => $options])
 
                 <div class="mt-6 flex items-center justify-end gap-4">
                     <a href="{{ route($definition->routeName('index')) }}" class="text-sm text-slate-600 hover:text-slate-900">Cancelar</a>

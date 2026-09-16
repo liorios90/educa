@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\Regimen;
 use App\Enums\Role;
 use App\Models\Establecimiento;
 use App\Models\Sys_Circuito;
@@ -33,15 +34,17 @@ class UpsertEstablecimientoRequest extends FormRequest
             'telefono' => ['required', 'string', 'max:255'],
             'representante' => ['required', 'string', 'max:255'],
             'codigo_amie' => ['required', 'string', 'max:255', Rule::unique('establecimientos', 'codigo_amie')->ignore($ignoreId)],
-            'regimen' => ['required', 'string'],
+            'regimen' => ['required', Rule::enum(Regimen::class)],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', Rule::unique('establecimientos', 'email')->ignore($ignoreId)],
             'usuario' => ['required', 'string', 'max:255'],
             'activo' => ['required', 'boolean'],
-            'logo' => ['required', 'string', 'max:255'],
-            'only_visible' => ['nullable', 'string', 'max:50'],
-            'mision' => ['nullable', 'string'],
-            'vision' => ['nullable', 'string'],
-            'ideario' => ['nullable', 'string'],
+            'logo' => [
+                Rule::requiredIf($this->isMethod('POST')),
+                'nullable',
+                'image',
+                'mimes:jpg,jpeg,png,webp',
+                'max:2048',
+            ],
             'grupo_amie' => ['nullable', 'integer'],
             'zona_id' => ['required', 'integer', 'exists:sys_zonas,id'],
             'distrito_id' => ['required', 'integer', 'exists:sys_distritos,id'],

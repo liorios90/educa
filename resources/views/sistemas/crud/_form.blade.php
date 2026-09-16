@@ -1,5 +1,6 @@
 @php
     $record = $record ?? null;
+    $options = $options ?? [];
 @endphp
 
 <div class="space-y-6">
@@ -26,6 +27,26 @@
                     rows="3"
                     class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                 >{{ old($field->name, $record?->getAttribute($field->name)) }}</textarea>
+                <x-input-error class="mt-2" :messages="$errors->get($field->name)" />
+            </div>
+        @elseif ($field->type === 'select')
+            <div>
+                <x-input-label :for="$field->name" :value="$field->label" />
+                <select
+                    id="{{ $field->name }}"
+                    name="{{ $field->name }}"
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                >
+                    <option value="">Selecciona {{ strtolower($field->label) }}</option>
+                    @foreach ($options[$field->name] ?? [] as $option)
+                        <option
+                            value="{{ $option['id'] }}"
+                            @selected((string) old($field->name, $record?->getAttribute($field->name)) === (string) $option['id'])
+                        >
+                            {{ $option['label'] }}
+                        </option>
+                    @endforeach
+                </select>
                 <x-input-error class="mt-2" :messages="$errors->get($field->name)" />
             </div>
         @else

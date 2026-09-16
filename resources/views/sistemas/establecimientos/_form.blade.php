@@ -1,8 +1,11 @@
 @php
+    use App\Enums\Regimen;
+
     $establecimiento = $establecimiento ?? null;
     $zonaId = old('zona_id', $establecimiento?->zona_id);
     $distritoId = old('distrito_id', $establecimiento?->distrito_id);
     $circuitoId = old('circuito_id', $establecimiento?->circuito_id);
+    $regimen = old('regimen', $establecimiento?->regimen);
 @endphp
 
 <div
@@ -84,13 +87,19 @@
 
     <div>
         <x-input-label for="regimen" value="Régimen" />
-        <textarea
+        <select
             id="regimen"
             name="regimen"
-            rows="3"
             class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
             required
-        >{{ old('regimen', $establecimiento?->regimen) }}</textarea>
+        >
+            <option value="" @selected($regimen === null || $regimen === '')>Selecciona un régimen</option>
+            @foreach (Regimen::cases() as $option)
+                <option value="{{ $option->value }}" @selected((string) $regimen === $option->value)>
+                    {{ $option->label() }}
+                </option>
+            @endforeach
+        </select>
         <x-input-error class="mt-2" :messages="$errors->get('regimen')" />
     </div>
 
@@ -118,9 +127,10 @@
             <select
                 id="distrito_id"
                 name="distrito_id"
-                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-slate-100"
                 required
                 x-model="distritoId"
+                x-bind:disabled="zonaId === ''"
                 @change="onDistritoChange()"
             >
                 <option value="">Selecciona un distrito</option>
@@ -136,9 +146,10 @@
             <select
                 id="circuito_id"
                 name="circuito_id"
-                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 disabled:bg-slate-100"
                 required
                 x-model="circuitoId"
+                x-bind:disabled="distritoId === ''"
             >
                 <option value="">Selecciona un circuito</option>
                 <template x-for="circuito in filteredCircuitos" :key="circuito.id">
@@ -152,39 +163,25 @@
     <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
         <div>
             <x-input-label for="logo" value="Logo" />
-            <x-text-input id="logo" class="mt-1 block w-full" type="text" name="logo" :value="old('logo', $establecimiento?->logo)" required />
+            <input
+                id="logo"
+                type="file"
+                name="logo"
+                accept="image/jpeg,image/png,image/webp"
+                class="mt-1 block w-full text-sm text-slate-700 file:mr-4 file:rounded-md file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:text-xs file:font-semibold file:uppercase file:tracking-widest file:text-white hover:file:bg-slate-800"
+                @required($establecimiento === null)
+            />
+            @if (is_string($establecimiento?->logo) && $establecimiento->logo !== '')
+                <img src="{{ Storage::disk('public')->url($establecimiento->logo) }}" alt="Logo actual" class="mt-3 h-16 w-16 rounded-md object-cover">
+            @endif
             <x-input-error class="mt-2" :messages="$errors->get('logo')" />
         </div>
 
         <div>
-            <x-input-label for="only_visible" value="Solo visible" />
-            <x-text-input id="only_visible" class="mt-1 block w-full" type="text" name="only_visible" :value="old('only_visible', $establecimiento?->only_visible)" />
-            <x-input-error class="mt-2" :messages="$errors->get('only_visible')" />
+            <x-input-label for="grupo_amie" value="Grupo AMIE" />
+            <x-text-input id="grupo_amie" class="mt-1 block w-full" type="number" name="grupo_amie" :value="old('grupo_amie', $establecimiento?->grupo_amie)" />
+            <x-input-error class="mt-2" :messages="$errors->get('grupo_amie')" />
         </div>
-    </div>
-
-    <div>
-        <x-input-label for="grupo_amie" value="Grupo AMIE" />
-        <x-text-input id="grupo_amie" class="mt-1 block w-full" type="number" name="grupo_amie" :value="old('grupo_amie', $establecimiento?->grupo_amie)" />
-        <x-input-error class="mt-2" :messages="$errors->get('grupo_amie')" />
-    </div>
-
-    <div>
-        <x-input-label for="mision" value="Misión" />
-        <textarea id="mision" name="mision" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">{{ old('mision', $establecimiento?->mision) }}</textarea>
-        <x-input-error class="mt-2" :messages="$errors->get('mision')" />
-    </div>
-
-    <div>
-        <x-input-label for="vision" value="Visión" />
-        <textarea id="vision" name="vision" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">{{ old('vision', $establecimiento?->vision) }}</textarea>
-        <x-input-error class="mt-2" :messages="$errors->get('vision')" />
-    </div>
-
-    <div>
-        <x-input-label for="ideario" value="Ideario" />
-        <textarea id="ideario" name="ideario" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">{{ old('ideario', $establecimiento?->ideario) }}</textarea>
-        <x-input-error class="mt-2" :messages="$errors->get('ideario')" />
     </div>
 
     <label class="flex items-center gap-2 text-sm text-slate-700">

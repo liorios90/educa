@@ -2,6 +2,7 @@
 
 namespace App\Crud;
 
+use Illuminate\Database\Eloquent\Model;
 use InvalidArgumentException;
 
 class CrudRegistry
@@ -49,13 +50,31 @@ class CrudRegistry
                 throw new InvalidArgumentException("Invalid CRUD field name for {$slug}.");
             }
 
+            $type = $field['type'] ?? 'text';
+            $relatedModel = $field['related_model'] ?? null;
+            $relation = $field['relation'] ?? null;
+            $optionLabel = $field['option_label'] ?? 'nombre';
+
+            if ($type === 'select') {
+                if (! is_string($relatedModel) || ! is_a($relatedModel, Model::class, true)) {
+                    throw new InvalidArgumentException("Invalid CRUD related_model for {$slug}.{$field['name']}.");
+                }
+
+                if (! is_string($relation) || $relation === '') {
+                    throw new InvalidArgumentException("Invalid CRUD relation for {$slug}.{$field['name']}.");
+                }
+            }
+
             $fields[] = new CrudField(
                 name: $field['name'],
                 label: $field['label'],
-                type: $field['type'] ?? 'text',
+                type: $type,
                 list: $field['list'] ?? true,
                 rules: $field['rules'] ?? [],
                 unique: $field['unique'] ?? false,
+                relatedModel: is_string($relatedModel) ? $relatedModel : null,
+                optionLabel: is_string($optionLabel) ? $optionLabel : 'nombre',
+                relation: is_string($relation) ? $relation : null,
             );
         }
 

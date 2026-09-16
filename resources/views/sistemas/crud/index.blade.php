@@ -65,6 +65,16 @@
                     </tbody>
                 </table>
             </div>
+            @if ($backUrl)
+                <div class="mt-6">
+                    <a
+                        href="{{ $backUrl }}"
+                        class="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-widest text-gray-700 shadow-sm hover:bg-gray-50"
+                    >
+                        Volver
+                    </a>
+                </div>
+            @endif
         </div>
     </div>
 </x-app-layout>

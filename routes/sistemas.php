@@ -1,6 +1,7 @@
 <?php
 
 use App\Crud\CrudRegistry;
+use App\Http\Controllers\EstablecimientoController;
 use App\Http\Controllers\GenericCrudController;
 use App\Http\Controllers\NavigationItemController;
 use App\Http\Controllers\NavigationSubmenuController;
@@ -26,6 +27,12 @@ Route::middleware(['auth', 'verified', 'role:Sistemas'])
         Route::get('/reportes/{reportDefinition}/editar', [ReportDefinitionController::class, 'edit'])->name('reports.edit');
         Route::patch('/reportes/{reportDefinition}', [ReportDefinitionController::class, 'update'])->name('reports.update');
         Route::delete('/reportes/{reportDefinition}', [ReportDefinitionController::class, 'destroy'])->name('reports.destroy');
+        Route::get('/establecimientos', [EstablecimientoController::class, 'index'])->name('establecimientos');
+        Route::get('/establecimientos/crear', [EstablecimientoController::class, 'create'])->name('establecimientos.create');
+        Route::post('/establecimientos', [EstablecimientoController::class, 'store'])->name('establecimientos.store');
+        Route::get('/establecimientos/{establecimiento}/editar', [EstablecimientoController::class, 'edit'])->name('establecimientos.edit');
+        Route::patch('/establecimientos/{establecimiento}', [EstablecimientoController::class, 'update'])->name('establecimientos.update');
+        Route::delete('/establecimientos/{establecimiento}', [EstablecimientoController::class, 'destroy'])->name('establecimientos.destroy');
         Route::get('/prueba', [SistemasController::class, 'prueba'])->name('prueba');
         Route::get('/prueba', [SistemasController::class, 'prueba2'])->name('prueba2');
         Route::get('/menu', [NavigationItemController::class, 'index'])->name('navigation-items.index');

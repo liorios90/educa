@@ -2,14 +2,19 @@
 
 namespace App\Models;
 
+use Database\Factories\EstablecimientoFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Establecimiento extends Model
 {
+    /** @use HasFactory<EstablecimientoFactory> */
     use HasFactory;
 
+    /**
+     * @var list<string>
+     */
     protected $fillable = [
         'nombre',
         'descripcion',
@@ -31,6 +36,11 @@ class Establecimiento extends Model
         'distrito_id',
         'circuito_id',
     ];
+
+    protected static function newFactory(): EstablecimientoFactory
+    {
+        return EstablecimientoFactory::new();
+    }
 
     public function zona(): BelongsTo
     {

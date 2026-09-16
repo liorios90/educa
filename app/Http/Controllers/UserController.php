@@ -16,6 +16,7 @@ class UserController extends Controller
     {
         return view('admin.users', [
             'users' => User::query()->with('roles')->orderBy('name')->get(),
+            'usersIndexRoute' => $this->usersIndexRoute(),
         ]);
     }
 
@@ -23,6 +24,7 @@ class UserController extends Controller
     {
         return view('admin.users.create', [
             'roles' => Role::cases(),
+            'usersIndexRoute' => $this->usersIndexRoute(),
         ]);
     }
 
@@ -32,7 +34,7 @@ class UserController extends Controller
         $user->assignRole($request->enum('role', Role::class));
 
         return redirect()
-            ->route('admin.users')
+            ->route($this->usersIndexRoute($request))
             ->with('status', 'user-created');
     }
 
@@ -41,6 +43,7 @@ class UserController extends Controller
         return view('admin.users.edit', [
             'user' => $user,
             'roles' => Role::cases(),
+            'usersIndexRoute' => $this->usersIndexRoute(),
         ]);
     }
 
@@ -60,7 +63,7 @@ class UserController extends Controller
         $user->syncRoles([$request->enum('role', Role::class)]);
 
         return redirect()
-            ->route('admin.users')
+            ->route($this->usersIndexRoute($request))
             ->with('status', 'user-updated');
     }
 
@@ -73,7 +76,14 @@ class UserController extends Controller
         $user->delete();
 
         return redirect()
-            ->route('admin.users')
+            ->route($this->usersIndexRoute($request))
             ->with('status', 'user-deleted');
+    }
+
+    private function usersIndexRoute(?Request $request = null): string
+    {
+        $request ??= request();
+
+        return $request->routeIs('sistemas.*') ? 'sistemas.users' : 'admin.users';
     }
 }

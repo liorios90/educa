@@ -7,7 +7,7 @@
 
     <div class="py-8">
         <div class="mx-auto max-w-xl px-4 sm:px-6 lg:px-8">
-            <form method="POST" action="{{ route('admin.users.store') }}" class="space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <form method="POST" action="{{ route($usersIndexRoute.'.store') }}" class="space-y-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                 @csrf
 
                 <div>
@@ -52,7 +52,7 @@
                 </div>
 
                 <div class="flex items-center justify-end gap-4">
-                    <a href="{{ route('admin.users') }}" class="text-sm text-slate-600 hover:text-slate-900">Cancelar</a>
+                    <a href="{{ route($usersIndexRoute) }}" class="text-sm text-slate-600 hover:text-slate-900">Cancelar</a>
                     <x-primary-button>Crear usuario</x-primary-button>
                 </div>
             </form>

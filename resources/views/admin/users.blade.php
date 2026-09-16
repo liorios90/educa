@@ -4,7 +4,7 @@
             <h2 class="text-xl font-semibold leading-tight text-slate-800">
                 Usuarios
             </h2>
-            <a href="{{ route('admin.users.create') }}" class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800">
+            <a href="{{ route($usersIndexRoute.'.create') }}" class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800">
                 Nuevo usuario
             </a>
         </div>
@@ -48,12 +48,12 @@
                                 </td>
                                 <td class="px-6 py-3">
                                     <div class="flex items-center gap-3">
-                                        <a href="{{ route('admin.users.edit', $user) }}" class="font-medium text-indigo-600 hover:text-indigo-500">
+                                        <a href="{{ route($usersIndexRoute.'.edit', $user) }}" class="font-medium text-indigo-600 hover:text-indigo-500">
                                             Editar
                                         </a>
 
                                         @unless (auth()->user()->is($user))
-                                            <form method="POST" action="{{ route('admin.users.destroy', $user) }}" onsubmit="return confirm('¿Eliminar este usuario?')">
+                                            <form method="POST" action="{{ route($usersIndexRoute.'.destroy', $user) }}" onsubmit="return confirm('¿Eliminar este usuario?')">
                                                 @csrf
                                                 @method('delete')
                                                 <button type="submit" class="font-medium text-red-600 hover:text-red-500">

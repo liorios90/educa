@@ -13,6 +13,12 @@ Route::middleware(['auth', 'verified', 'role:Sistemas'])
     ->name('sistemas.')
     ->group(function () {
         Route::view('/', 'sistemas.home')->name('home');
+        Route::get('/usuarios', [UserController::class, 'index'])->name('users');
+        Route::get('/usuarios/crear', [UserController::class, 'create'])->name('users.create');
+        Route::post('/usuarios', [UserController::class, 'store'])->name('users.store');
+        Route::get('/usuarios/{user}/editar', [UserController::class, 'edit'])->name('users.edit');
+        Route::patch('/usuarios/{user}', [UserController::class, 'update'])->name('users.update');
+        Route::delete('/usuarios/{user}', [UserController::class, 'destroy'])->name('users.destroy');
         Route::get('/reportes', [ReportDefinitionController::class, 'index'])->name('reports.index');
         Route::get('/reportes/crear', [ReportDefinitionController::class, 'create'])->name('reports.create');
         Route::post('/reportes', [ReportDefinitionController::class, 'store'])->name('reports.store');

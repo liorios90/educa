@@ -4,6 +4,91 @@ use App\Enums\Role;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 
+describe('store', function () {
+    it('allows a systems user to create a user', function () {
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+
+        $this->actingAs($actor)
+            ->post(route('sistemas.users.store'), [
+                'name' => 'Lourdes Flores',
+                'email' => 'lourdes@example.com',
+                'password' => 'password',
+                'password_confirmation' => 'password',
+                'role' => Role::Sistemas->value,
+            ])
+            ->assertRedirect(route('sistemas.users'))
+            ->assertSessionHas('status', 'user-created');
+
+        $created = User::query()->where('email', 'lourdes@example.com')->first();
+
+        expect($created)->not->toBeNull()
+            ->and($created->name)->toBe('Lourdes Flores')
+            ->and($created->hasRole(Role::Sistemas))->toBeTrue();
+
+        expect(Hash::check('password', $created->password))->toBeTrue();
+    });
+
+    it('allows an administrator to create a user', function () {
+        $admin = assignRole(User::factory()->create(), Role::Admin);
+
+        $this->actingAs($admin)
+            ->post(route('admin.users.store'), [
+                'name' => 'Lourdes Flores',
+                'email' => 'lourdes@example.com',
+                'password' => 'password',
+                'password_confirmation' => 'password',
+                'role' => Role::Admin->value,
+            ])
+            ->assertRedirect(route('admin.users'))
+            ->assertSessionHas('status', 'user-created');
+
+        $created = User::query()->where('email', 'lourdes@example.com')->first();
+
+        expect($created)->not->toBeNull()
+            ->and($created->name)->toBe('Lourdes Flores')
+            ->and($created->hasRole(Role::Admin))->toBeTrue();
+    });
+
+    it('forbids a secretary from creating a user', function () {
+        $actor = assignRole(User::factory()->create(), Role::Secretaria);
+
+        $this->actingAs($actor)
+            ->post(route('sistemas.users.store'), [
+                'name' => 'Lourdes Flores',
+                'email' => 'lourdes@example.com',
+                'password' => 'password',
+                'password_confirmation' => 'password',
+                'role' => Role::Secretaria->value,
+            ])
+            ->assertForbidden();
+
+        expect(User::query()->where('email', 'lourdes@example.com')->exists())->toBeFalse();
+    });
+
+    it('redirects guests from the store route to login', function () {
+        $this->post(route('sistemas.users.store'), [
+            'name' => 'Lourdes Flores',
+            'email' => 'lourdes@example.com',
+            'password' => 'password',
+            'password_confirmation' => 'password',
+            'role' => Role::Sistemas->value,
+        ])
+            ->assertRedirect(route('login'));
+
+        expect(User::query()->where('email', 'lourdes@example.com')->exists())->toBeFalse();
+    });
+
+    it('rejects an empty create payload', function () {
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+
+        $this->actingAs($actor)
+            ->from(route('sistemas.users.create'))
+            ->post(route('sistemas.users.store'), [])
+            ->assertRedirect(route('sistemas.users.create'))
+            ->assertSessionHasErrors(['name', 'email', 'password', 'role']);
+    });
+});
+
 describe('update', function () {
     it('allows an administrator to update another user', function () {
         $admin = assignRole(User::factory()->create(), Role::Admin);
@@ -123,6 +208,30 @@ describe('update', function () {
             ->assertSessionHasErrors(['name', 'email', 'role']);
     });
 
+    it('allows a systems user to update another user', function () {
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+        $user = assignRole(User::factory()->create([
+            'name' => 'Ana Pérez',
+            'email' => 'ana@example.com',
+        ]), Role::Secretaria);
+
+        $this->actingAs($actor)
+            ->patch(route('sistemas.users.update', $user), [
+                'name' => 'Ana Gómez',
+                'email' => 'ana.gomez@example.com',
+                'role' => Role::Sistemas->value,
+            ])
+            ->assertRedirect(route('sistemas.users'))
+            ->assertSessionHas('status', 'user-updated');
+
+        $user->refresh();
+
+        expect($user->name)->toBe('Ana Gómez')
+            ->and($user->email)->toBe('ana.gomez@example.com')
+            ->and($user->hasRole(Role::Sistemas))->toBeTrue()
+            ->and($user->hasRole(Role::Secretaria))->toBeFalse();
+    });
+
     it('forbids systems users from updating a user', function () {
         $actor = assignRole(User::factory()->create(), Role::Sistemas);
         $user = User::factory()->create(['name' => 'Original']);
@@ -196,6 +305,18 @@ describe('destroy', function () {
         $this->assertModelExists($admin);
     });
 
+    it('allows a systems user to delete another user', function () {
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+        $user = User::factory()->create();
+
+        $this->actingAs($actor)
+            ->delete(route('sistemas.users.destroy', $user))
+            ->assertRedirect(route('sistemas.users'))
+            ->assertSessionHas('status', 'user-deleted');
+
+        $this->assertModelMissing($user);
+    });
+
     it('forbids systems users from deleting a user', function () {
         $actor = assignRole(User::factory()->create(), Role::Sistemas);
         $user = User::factory()->create();
@@ -227,6 +348,17 @@ describe('index', function () {
             ->assertSee('Luisa Mora')
             ->assertSee(route('admin.users.edit', $user), false)
             ->assertSee(route('admin.users.destroy', $user), false);
+    });
+
+    it('shows edit and delete actions for systems users', function () {
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+        $user = User::factory()->create(['name' => 'Luisa Mora']);
+
+        $this->actingAs($actor)
+            ->get(route('sistemas.users'))
+            ->assertSee('Luisa Mora')
+            ->assertSee(route('sistemas.users.edit', $user), false)
+            ->assertSee(route('sistemas.users.destroy', $user), false);
     });
 
     it('escapes user names in the list', function () {

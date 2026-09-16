@@ -18,12 +18,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/reportes/{reportDefinition}', [ReportRunController::class, 'show'])->name('reports.show');
 
     Route::middleware('role:Admin')->group(function () {
-        Route::get('/admin/usuarios', [UserController::class, 'index'])->name('admin.users');
-        Route::get('/admin/usuarios/crear', [UserController::class, 'create'])->name('admin.users.create');
-        Route::post('/admin/usuarios', [UserController::class, 'store'])->name('admin.users.store');
-        Route::get('/admin/usuarios/{user}/editar', [UserController::class, 'edit'])->name('admin.users.edit');
-        Route::patch('/admin/usuarios/{user}', [UserController::class, 'update'])->name('admin.users.update');
-        Route::delete('/admin/usuarios/{user}', [UserController::class, 'destroy'])->name('admin.users.destroy');
+        // Route::get('/admin/usuarios', [UserController::class, 'index'])->name('admin.users');
+        // Route::get('/admin/usuarios/crear', [UserController::class, 'create'])->name('admin.users.create');
+        // Route::post('/admin/usuarios', [UserController::class, 'store'])->name('admin.users.store');
+        // Route::get('/admin/usuarios/{user}/editar', [UserController::class, 'edit'])->name('admin.users.edit');
+        // Route::patch('/admin/usuarios/{user}', [UserController::class, 'update'])->name('admin.users.update');
+        // Route::delete('/admin/usuarios/{user}', [UserController::class, 'destroy'])->name('admin.users.destroy');
     });
 });
 
@@ -33,6 +33,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
+require __DIR__.'/admin.php';
 require __DIR__.'/secretaria.php';
 require __DIR__.'/sistemas.php';
 require __DIR__.'/auth.php';

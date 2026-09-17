@@ -19,6 +19,7 @@ class Persona extends Model
      * @var list<string>
      */
     protected $fillable = [
+        'user_id',
         'tipo_identificacion_id',
         'identificacion',
         'nombres',
@@ -63,6 +64,11 @@ class Persona extends Model
     public function establecimiento(): BelongsTo
     {
         return $this->belongsTo(Establecimiento::class);
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 
     /**

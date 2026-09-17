@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
@@ -40,5 +41,13 @@ class User extends Authenticatable
     public function establecimiento(): BelongsTo
     {
         return $this->belongsTo(Establecimiento::class);
+    }
+
+    /**
+     * @return HasOne<Persona, $this>
+     */
+    public function persona(): HasOne
+    {
+        return $this->hasOne(Persona::class);
     }
 }

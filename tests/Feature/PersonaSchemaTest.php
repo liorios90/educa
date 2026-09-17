@@ -10,6 +10,7 @@ it('creates the personas table', function () {
     expect(Schema::hasTable('personas'))->toBeTrue()
         ->and(Schema::hasColumns('personas', [
             'id',
+            'user_id',
             'tipo_identificacion_id',
             'identificacion',
             'nombres',

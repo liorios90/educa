@@ -50,7 +50,7 @@
                 </option>
             @endforeach
         </select>
-        <p class="mt-1 text-xs text-slate-500">Administrador y Secretaría deben pertenecer a un establecimiento.</p>
+        <p class="mt-1 text-xs text-slate-500">Administrador, Secretaría y Padre deben pertenecer a un establecimiento.</p>
         <x-input-error class="mt-2" :messages="$errors->get('establecimiento_id')" />
     </div>
 </div>

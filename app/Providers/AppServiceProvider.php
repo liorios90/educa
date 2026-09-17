@@ -11,14 +11,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
-    }
-
-    /**
-     * Bootstrap any application services.
-     */
-    public function boot(): void
-    {
-        //
+        $this->app->booting(function (): void {
+            config(['debugbar.collectors.session' => true]);
+        });
     }
 }

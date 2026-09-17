@@ -3,19 +3,29 @@
 namespace App\Http\Middleware;
 
 use App\Auth\ActiveRole;
+use App\Auth\AuthContext;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 class EnsureActiveRole
 {
-    public function __construct(private ActiveRole $activeRole) {}
+    public function __construct(
+        private ActiveRole $activeRole,
+        private AuthContext $authContext,
+    ) {}
 
     public function handle(Request $request, Closure $next): Response
     {
         $user = $request->user();
 
-        if ($user === null || $this->shouldSkip($request)) {
+        if ($user === null || $request->routeIs('logout')) {
+            return $next($request);
+        }
+
+        $this->authContext->rememberIfMissing($user);
+
+        if ($this->shouldSkip($request)) {
             return $next($request);
         }
 

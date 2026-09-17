@@ -4,6 +4,8 @@ use App\Models\Sys_Circuito;
 use App\Models\Sys_Distrito;
 use App\Models\Sys_Jornada;
 use App\Models\Sys_Modalidad;
+use App\Models\Sys_Pais;
+use App\Models\Sys_Provincia;
 use App\Models\Sys_Zona;
 
 return [
@@ -152,6 +154,88 @@ return [
                     'related_model' => Sys_Zona::class,
                     'option_label' => 'nombre',
                     'relation' => 'zona',
+                ],
+            ],
+        ],
+        'paises' => [
+            'model' => Sys_Pais::class,
+            'title' => 'Países',
+            'singular' => 'país',
+            'order_by' => 'nombre',
+            'fields' => [
+                [
+                    'name' => 'nombre',
+                    'label' => 'Nombre',
+                    'type' => 'text',
+                    'list' => true,
+                    'rules' => ['required', 'string', 'max:255'],
+                ],
+                [
+                    'name' => 'descripcion',
+                    'label' => 'Descripción',
+                    'type' => 'text',
+                    'list' => true,
+                    'rules' => ['required', 'string', 'max:255'],
+                ],
+                [
+                    'name' => 'usuario',
+                    'label' => 'Usuario',
+                    'type' => 'text',
+                    'list' => true,
+                    'rules' => ['required', 'string', 'max:255'],
+                ],
+                [
+                    'name' => 'activo',
+                    'label' => 'Activo',
+                    'type' => 'boolean',
+                    'list' => true,
+                    'rules' => ['required', 'boolean'],
+                ],
+            ],
+        ],
+        'provincias' => [
+            'model' => Sys_Provincia::class,
+            'title' => 'Provincias',
+            'singular' => 'provincia',
+            'order_by' => 'nombre',
+            'fields' => [
+                [
+                    'name' => 'nombre',
+                    'label' => 'Nombre',
+                    'type' => 'text',
+                    'list' => true,
+                    'rules' => ['required', 'string', 'max:255'],
+                ],
+                [
+                    'name' => 'descripcion',
+                    'label' => 'Descripción',
+                    'type' => 'text',
+                    'list' => true,
+                    'rules' => ['required', 'string', 'max:255'],
+                ],
+                [
+                    'name' => 'usuario',
+                    'label' => 'Usuario',
+                    'type' => 'text',
+                    'list' => true,
+                    'rules' => ['required', 'string', 'max:255'],
+                ],
+                [
+                    'name' => 'activo',
+                    'label' => 'Activo',
+                    'type' => 'boolean',
+                    'list' => true,
+                    'rules' => ['required', 'boolean'],
+                ],
+                [
+                    'name' => 'pais_id',
+                    'label' => 'País',
+                    'type' => 'select',
+                    'list' => true,
+                    'rules' => ['required', 'integer', 'exists:sys_paises,id'],
+                    'related_model' => Sys_Pais::class,
+                    'option_label' => 'nombre',
+                    'relation' => 'pais',
                 ],
             ],
         ],

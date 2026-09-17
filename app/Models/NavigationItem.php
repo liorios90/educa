@@ -63,13 +63,19 @@ class NavigationItem extends Model
         return $this->belongsToMany(RoleModel::class, 'navigation_item_role');
     }
 
-    public function isVisibleTo(User $user): bool
+    public function isVisibleTo(User $user, ?Role $activeRole = null): bool
     {
         if ($this->visible_to_all) {
             return true;
         }
 
-        return $user->hasAnyRole($this->roles->pluck('name')->all());
+        $roleNames = $this->roles->pluck('name')->all();
+
+        if ($activeRole !== null) {
+            return in_array($activeRole->value, $roleNames, true);
+        }
+
+        return $user->hasAnyRole($roleNames);
     }
 
     public function copyVisibilityFrom(NavigationItem $parent): void

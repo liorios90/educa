@@ -16,7 +16,7 @@ describe('store', function () {
                 'email' => 'lourdes@example.com',
                 'password' => 'password',
                 'password_confirmation' => 'password',
-                'role' => Role::Sistemas->value,
+                'roles' => [Role::Sistemas->value],
             ])
             ->assertRedirect(route('sistemas.users'))
             ->assertSessionHas('status', 'user-created');
@@ -30,6 +30,42 @@ describe('store', function () {
         expect(Hash::check('password', $created->password))->toBeTrue();
     });
 
+    it('allows a systems user to assign multiple roles', function () {
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+        RoleModel::findOrCreate(Role::Admin->value, 'web');
+        $establecimiento = Establecimiento::factory()->create();
+
+        $this->actingAs($actor)
+            ->post(route('sistemas.users.store'), [
+                'name' => 'Lourdes Flores',
+                'email' => 'lourdes@example.com',
+                'password' => 'password',
+                'password_confirmation' => 'password',
+                'roles' => [Role::Sistemas->value, Role::Admin->value],
+                'establecimiento_id' => $establecimiento->id,
+            ])
+            ->assertRedirect(route('sistemas.users'))
+            ->assertSessionHasNoErrors();
+
+        $created = User::query()->where('email', 'lourdes@example.com')->firstOrFail();
+
+        expect($created->hasRole(Role::Sistemas))->toBeTrue()
+            ->and($created->hasRole(Role::Admin))->toBeTrue()
+            ->and($created->establecimiento_id)->toBe($establecimiento->id);
+    });
+
+    it('shows role checkboxes on the create form', function () {
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+
+        $this->actingAs($actor)
+            ->get(route('sistemas.users.create'))
+            ->assertOk()
+            ->assertSee('name="roles[]"', false)
+            ->assertSee('Administrador')
+            ->assertSee('Sistemas')
+            ->assertSee('Secretaría');
+    });
+
     it('requires an establishment when a systems user creates a school-bound role', function (Role $role) {
         $actor = assignRole(User::factory()->create(), Role::Sistemas);
 
@@ -40,7 +76,7 @@ describe('store', function () {
                 'email' => 'director@example.com',
                 'password' => 'password',
                 'password_confirmation' => 'password',
-                'role' => $role->value,
+                'roles' => [$role->value],
             ])
             ->assertRedirect(route('sistemas.users.create'))
             ->assertSessionHasErrors([
@@ -64,7 +100,7 @@ describe('store', function () {
                 'email' => 'director@example.com',
                 'password' => 'password',
                 'password_confirmation' => 'password',
-                'role' => $role->value,
+                'roles' => [$role->value],
                 'establecimiento_id' => $establecimiento->id,
             ])
             ->assertRedirect(route('sistemas.users'))
@@ -89,7 +125,7 @@ describe('store', function () {
                 'email' => 'lourdes@example.com',
                 'password' => 'password',
                 'password_confirmation' => 'password',
-                'role' => Role::Sistemas->value,
+                'roles' => [Role::Sistemas->value],
                 'establecimiento_id' => $establecimiento->id,
             ])
             ->assertRedirect(route('sistemas.users'));
@@ -116,7 +152,7 @@ describe('store', function () {
                 'email' => 'lourdes@example.com',
                 'password' => 'password',
                 'password_confirmation' => 'password',
-                'role' => Role::Admin->value,
+                'roles' => [Role::Admin->value],
             ])
             ->assertRedirect(route('admin.users'))
             ->assertSessionHas('status', 'user-created');
@@ -137,7 +173,7 @@ describe('store', function () {
                 'email' => 'lourdes@example.com',
                 'password' => 'password',
                 'password_confirmation' => 'password',
-                'role' => Role::Secretaria->value,
+                'roles' => [Role::Secretaria->value],
             ])
             ->assertForbidden();
 
@@ -150,7 +186,7 @@ describe('store', function () {
             'email' => 'lourdes@example.com',
             'password' => 'password',
             'password_confirmation' => 'password',
-            'role' => Role::Sistemas->value,
+            'roles' => [Role::Sistemas->value],
         ])
             ->assertRedirect(route('login'));
 
@@ -164,7 +200,7 @@ describe('store', function () {
             ->from(route('sistemas.users.create'))
             ->post(route('sistemas.users.store'), [])
             ->assertRedirect(route('sistemas.users.create'))
-            ->assertSessionHasErrors(['name', 'email', 'password', 'role']);
+            ->assertSessionHasErrors(['name', 'email', 'password', 'roles']);
     });
 });
 
@@ -180,7 +216,7 @@ describe('update', function () {
             ->patch(route('admin.users.update', $user), [
                 'name' => 'Ana Gómez',
                 'email' => 'ana.gomez@example.com',
-                'role' => Role::Admin->value,
+                'roles' => [Role::Admin->value],
             ])
             ->assertRedirect(route('admin.users'))
             ->assertSessionHas('status', 'user-updated');
@@ -203,7 +239,7 @@ describe('update', function () {
             ->patch(route('admin.users.update', $user), [
                 'name' => $user->name,
                 'email' => $user->email,
-                'role' => Role::Sistemas->value,
+                'roles' => [Role::Sistemas->value],
             ])
             ->assertSessionHasNoErrors();
 
@@ -220,7 +256,7 @@ describe('update', function () {
                 'email' => $user->email,
                 'password' => 'new-password',
                 'password_confirmation' => 'new-password',
-                'role' => Role::Sistemas->value,
+                'roles' => [Role::Sistemas->value],
             ])
             ->assertSessionHasNoErrors();
 
@@ -237,7 +273,7 @@ describe('update', function () {
             ->patch(route('admin.users.update', $user), [
                 'name' => $user->name,
                 'email' => 'taken@example.com',
-                'role' => Role::Sistemas->value,
+                'roles' => [Role::Sistemas->value],
             ])
             ->assertRedirect(route('admin.users.edit', $user))
             ->assertSessionHasErrors('email');
@@ -256,7 +292,7 @@ describe('update', function () {
             ->patch(route('admin.users.update', $user), [
                 'name' => $user->name,
                 'email' => 'nuevo@example.com',
-                'role' => Role::Sistemas->value,
+                'roles' => [Role::Sistemas->value],
             ])
             ->assertSessionHasNoErrors();
 
@@ -269,7 +305,7 @@ describe('update', function () {
         $this->patch(route('admin.users.update', $user), [
             'name' => 'Cambiado',
             'email' => $user->email,
-            'role' => Role::Sistemas->value,
+            'roles' => [Role::Sistemas->value],
         ])
             ->assertRedirect(route('login'));
 
@@ -284,7 +320,7 @@ describe('update', function () {
             ->from(route('admin.users.edit', $user))
             ->patch(route('admin.users.update', $user), [])
             ->assertRedirect(route('admin.users.edit', $user))
-            ->assertSessionHasErrors(['name', 'email', 'role']);
+            ->assertSessionHasErrors(['name', 'email', 'roles']);
     });
 
     it('allows a systems user to update another user', function () {
@@ -298,7 +334,7 @@ describe('update', function () {
             ->patch(route('sistemas.users.update', $user), [
                 'name' => 'Ana Gómez',
                 'email' => 'ana.gomez@example.com',
-                'role' => Role::Sistemas->value,
+                'roles' => [Role::Sistemas->value],
             ])
             ->assertRedirect(route('sistemas.users'))
             ->assertSessionHas('status', 'user-updated');
@@ -320,7 +356,7 @@ describe('update', function () {
             ->patch(route('sistemas.users.update', $user), [
                 'name' => $user->name,
                 'email' => $user->email,
-                'role' => $role->value,
+                'roles' => [$role->value],
             ])
             ->assertRedirect(route('sistemas.users.edit', $user))
             ->assertSessionHasErrors([
@@ -343,7 +379,7 @@ describe('update', function () {
             ->patch(route('sistemas.users.update', $user), [
                 'name' => $user->name,
                 'email' => $user->email,
-                'role' => $role->value,
+                'roles' => [$role->value],
                 'establecimiento_id' => $establecimiento->id,
             ])
             ->assertRedirect(route('sistemas.users'))
@@ -369,7 +405,7 @@ describe('update', function () {
             ->patch(route('sistemas.users.update', $user), [
                 'name' => $user->name,
                 'email' => $user->email,
-                'role' => Role::Sistemas->value,
+                'roles' => [Role::Sistemas->value],
                 'establecimiento_id' => $establecimiento->id,
             ])
             ->assertRedirect(route('sistemas.users'));
@@ -391,7 +427,7 @@ describe('update', function () {
             ->patch(route('admin.users.update', $user), [
                 'name' => 'Cambiado',
                 'email' => $user->email,
-                'role' => Role::Sistemas->value,
+                'roles' => [Role::Sistemas->value],
             ])
             ->assertForbidden();
 

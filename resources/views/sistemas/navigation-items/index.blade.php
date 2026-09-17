@@ -53,7 +53,7 @@
                             <x-sortable-column field="sort_order" :current="$sort" :direction="$direction" route="sistemas.navigation-items.index">Orden</x-sortable-column>
                             <x-sortable-column field="label" :current="$sort" :direction="$direction" route="sistemas.navigation-items.index">Texto</x-sortable-column>
                             <x-sortable-column field="route_name" :current="$sort" :direction="$direction" route="sistemas.navigation-items.index">Ruta</x-sortable-column>
-                            <x-sortable-column field="is_group" :current="$sort" :direction="$direction" route="sistemas.navigation-items.index">Tipo</x-sortable-column>
+                            <!-- <x-sortable-column field="is_group" :current="$sort" :direction="$direction" route="sistemas.navigation-items.index">Tipo</x-sortable-column> -->
                             <x-sortable-column field="visible_to_all" :current="$sort" :direction="$direction" route="sistemas.navigation-items.index">Visible para</x-sortable-column>
                             <x-sortable-column field="is_active" :current="$sort" :direction="$direction" route="sistemas.navigation-items.index">Estado</x-sortable-column>
                             <th class="px-6 py-3 font-medium">Acciones</th>
@@ -65,7 +65,7 @@
                                 <td class="px-6 py-3">{{ $item->sort_order }}</td>
                                 <td class="px-6 py-3">{{ $item->label }}</td>
                                 <td class="px-6 py-3">{{ $item->is_group ? 'Botones' : $item->route_name }}</td>
-                                <td class="px-6 py-3">{{ $item->is_group ? 'Grupo' : 'Enlace' }}</td>
+                                <!-- <td class="px-6 py-3">{{ $item->is_group ? 'Grupo' : 'Enlace' }}</td> -->
                                 <td class="px-6 py-3">
                                     @if ($item->visible_to_all)
                                         Todos

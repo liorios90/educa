@@ -1,8 +1,6 @@
 @php
-    $currentRole = $user->roles->first();
-    $roleLabel = $currentRole
-        ? (\App\Enums\Role::tryFrom($currentRole->name)?->label() ?? $currentRole->name)
-        : 'Sin rol';
+    $roleLabel = $activeRole?->label()
+        ?? ($user->roles->first() ? (\App\Enums\Role::tryFrom($user->roles->first()->name)?->label() ?? $user->roles->first()->name) : 'Sin rol');
 @endphp
 
 <div
@@ -19,21 +17,13 @@
 >
     <div class="flex h-16 items-center gap-3 px-6">
         <a href="{{ route('dashboard') }}" class="flex min-w-0 items-center gap-3 text-white">
-            @if ($establecimiento)
-                @php
-                    $logoUrl = $establecimiento->logoUrl();
-                @endphp
-                <span class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white ring-1 ring-white/10">
-                    @if ($logoUrl)
-                        <img src="{{ $logoUrl }}" alt="" class="h-full w-full object-contain p-1">
-                    @else
-                        <span class="text-xs font-semibold text-indigo-600">{{ $establecimiento->monograma() }}</span>
-                    @endif
-                </span>
+            @if ($isSistemas)
+                <span class="truncate text-base font-semibold tracking-tight">{{ config('app.name', 'Educa') }}</span>
+            @elseif ($establecimiento)
                 <span class="truncate text-base font-semibold tracking-tight">{{ $establecimiento->nombre }}</span>
             @else
                 <x-application-logo class="h-8 w-8 fill-current text-indigo-300" />
-                <span class="text-base font-semibold tracking-tight">{{ config('app.name', 'Educa') }}</span>
+                <span class="truncate text-base font-semibold tracking-tight">{{ config('app.name', 'Educa') }}</span>
             @endif
         </a>
     </div>
@@ -56,6 +46,12 @@
                 <p class="truncate text-xs text-slate-400">{{ $roleLabel }}</p>
             </div>
         </div>
+
+        @if ($canSwitchRole)
+            <a href="{{ route('role.select') }}" class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white">
+                Cambiar rol
+            </a>
+        @endif
 
         <form method="POST" action="{{ route('logout') }}">
             @csrf

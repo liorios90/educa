@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Auth\ActiveRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use Illuminate\Http\RedirectResponse;
@@ -22,11 +23,23 @@ class AuthenticatedSessionController extends Controller
     /**
      * Handle an incoming authentication request.
      */
-    public function store(LoginRequest $request): RedirectResponse
+    public function store(LoginRequest $request, ActiveRole $activeRole): RedirectResponse
     {
         $request->authenticate();
 
         $request->session()->regenerate();
+        $activeRole->clear();
+
+        $user = $request->user();
+        $roles = $user !== null ? $activeRole->assigned($user) : collect();
+
+        if ($roles->count() > 1) {
+            return redirect()->route('role.select');
+        }
+
+        if ($roles->count() === 1) {
+            $activeRole->set($roles->first());
+        }
 
         return redirect()->intended(route('dashboard', absolute: false));
     }

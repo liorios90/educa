@@ -34,7 +34,7 @@
                         <tr>
                             <th class="px-6 py-3 font-medium">Nombre</th>
                             <th class="px-6 py-3 font-medium">Correo</th>
-                            <th class="px-6 py-3 font-medium">Rol</th>
+                            <th class="px-6 py-3 font-medium">Roles</th>
                             <th class="px-6 py-3 font-medium">Establecimiento</th>
                             <th class="px-6 py-3 font-medium">Acciones</th>
                         </tr>

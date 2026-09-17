@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Auth\ActiveRoleController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\ConfirmablePasswordController;
 use App\Http\Controllers\Auth\EmailVerificationNotificationController;
@@ -56,4 +57,9 @@ Route::middleware('auth')->group(function () {
 
     Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])
         ->name('logout');
+});
+
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('rol', [ActiveRoleController::class, 'create'])->name('role.select');
+    Route::post('rol', [ActiveRoleController::class, 'store'])->name('role.store');
 });

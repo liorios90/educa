@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Spatie\Permission\Models\Role as RoleModel;
 
 class UserController extends Controller
 {
@@ -29,12 +30,12 @@ class UserController extends Controller
 
     public function store(StoreUserRequest $request): RedirectResponse
     {
-        $role = $request->enum('role', Role::class);
+        $roles = $request->selectedRoles();
         $user = User::create([
             ...$request->safe()->only(['name', 'email', 'password']),
-            'establecimiento_id' => $this->establecimientoIdFor($role, $request->validated('establecimiento_id')),
+            'establecimiento_id' => $this->establecimientoIdFor($roles, $request->validated('establecimiento_id')),
         ]);
-        $user->assignRole($role);
+        $this->syncRoles($user, $roles);
 
         return redirect()
             ->route($this->usersIndexRoute($request))
@@ -43,6 +44,8 @@ class UserController extends Controller
 
     public function edit(User $user): View
     {
+        $user->loadMissing('roles');
+
         return view('admin.users.edit', [
             'user' => $user,
             ...$this->formData(),
@@ -51,10 +54,10 @@ class UserController extends Controller
 
     public function update(UpdateUserRequest $request, User $user): RedirectResponse
     {
-        $role = $request->enum('role', Role::class);
+        $roles = $request->selectedRoles();
         $user->fill([
             ...$request->safe()->only(['name', 'email']),
-            'establecimiento_id' => $this->establecimientoIdFor($role, $request->validated('establecimiento_id')),
+            'establecimiento_id' => $this->establecimientoIdFor($roles, $request->validated('establecimiento_id')),
         ]);
 
         if ($request->filled('password')) {
@@ -66,7 +69,7 @@ class UserController extends Controller
         }
 
         $user->save();
-        $user->syncRoles([$role]);
+        $this->syncRoles($user, $roles);
 
         return redirect()
             ->route($this->usersIndexRoute($request))
@@ -102,13 +105,37 @@ class UserController extends Controller
         ];
     }
 
-    private function establecimientoIdFor(Role $role, mixed $establecimientoId): ?int
+    /**
+     * @param  list<Role>  $roles
+     */
+    private function establecimientoIdFor(array $roles, mixed $establecimientoId): ?int
     {
-        if (! $role->requiresEstablecimiento()) {
+        $requiresEstablecimiento = false;
+
+        foreach ($roles as $role) {
+            if ($role->requiresEstablecimiento()) {
+                $requiresEstablecimiento = true;
+                break;
+            }
+        }
+
+        if (! $requiresEstablecimiento) {
             return null;
         }
 
         return is_numeric($establecimientoId) ? (int) $establecimientoId : null;
+    }
+
+    /**
+     * @param  list<Role>  $roles
+     */
+    private function syncRoles(User $user, array $roles): void
+    {
+        foreach ($roles as $role) {
+            RoleModel::findOrCreate($role->value, 'web');
+        }
+
+        $user->syncRoles(array_map(fn (Role $role): string => $role->value, $roles));
     }
 
     private function usersIndexRoute(?Request $request = null): string

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Auth\ActiveRole;
 use App\Enums\Role;
 use App\Models\ReportDefinition;
 use App\Reports\ReportRunner;
@@ -17,12 +18,14 @@ class ReportRunController extends Controller
     {
         $user = $request->user();
 
+        $activeRole = $user !== null ? app(ActiveRole::class)->get($user) : null;
+
         $reports = ReportDefinition::query()
             ->with('roles')
             ->where('is_active', true)
             ->orderBy('name')
             ->get()
-            ->filter(fn (ReportDefinition $report): bool => $user !== null && $report->isVisibleTo($user))
+            ->filter(fn (ReportDefinition $report): bool => $user !== null && $report->isVisibleTo($user, $activeRole))
             ->values();
 
         return view('reports.index', [
@@ -65,8 +68,10 @@ class ReportRunController extends Controller
     {
         $user = $request->user();
 
+        $activeRole = app(ActiveRole::class)->get($user);
+
         abort_unless(
-            $user !== null && ($reportDefinition->isVisibleTo($user) || $user->hasRole(Role::Sistemas)),
+            $user !== null && ($reportDefinition->isVisibleTo($user, $activeRole) || $activeRole === Role::Sistemas),
             404,
         );
     }

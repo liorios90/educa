@@ -1,4 +1,30 @@
-@if ($establecimiento)
+@if ($isSistemas)
+    <section class="relative overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-sm">
+        <div class="landing-mesh pointer-events-none absolute inset-0 opacity-90"></div>
+        <div class="landing-grid pointer-events-none absolute inset-0 opacity-40"></div>
+
+        <div class="relative mx-auto flex w-full flex-col items-center justify-center gap-6 px-8 py-12 text-center md:px-12 md:py-16">
+            <div class="mx-auto flex h-32 w-32 shrink-0 items-center justify-center overflow-hidden rounded-3xl bg-white shadow-xl shadow-slate-900/5 ring-1 ring-slate-200/80">
+                @if ($logoUrl)
+                    <img
+                        src="{{ $logoUrl }}"
+                        alt="Logo de Sistemas"
+                        class="h-full w-full object-contain p-3"
+                    >
+                @else
+                    <x-application-logo class="h-16 w-16 fill-current text-indigo-500" />
+                @endif
+            </div>
+
+            <div class="w-full text-center">
+                <p class="text-xs font-semibold uppercase tracking-[0.22em] text-indigo-500">Sistemas</p>
+                <h1 class="mt-2 text-3xl font-semibold tracking-tight text-slate-900 sm:text-4xl">
+                    {{ config('app.name', 'Educa') }}
+                </h1>
+            </div>
+        </div>
+    </section>
+@elseif ($establecimiento)
     <section class="relative overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-sm">
         <div class="landing-mesh pointer-events-none absolute inset-0 opacity-90"></div>
         <div class="landing-grid pointer-events-none absolute inset-0 opacity-40"></div>

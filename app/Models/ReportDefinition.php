@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\ReportLayout;
+use App\Enums\Role;
 use Database\Factories\ReportDefinitionFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -95,7 +96,7 @@ class ReportDefinition extends Model
         return $this->belongsTo(User::class, 'user_id');
     }
 
-    public function isVisibleTo(User $user): bool
+    public function isVisibleTo(User $user, ?Role $activeRole = null): bool
     {
         if (! $this->is_active) {
             return false;
@@ -105,6 +106,12 @@ class ReportDefinition extends Model
             return true;
         }
 
-        return $user->hasAnyRole($this->roles->pluck('name')->all());
+        $roleNames = $this->roles->pluck('name')->all();
+
+        if ($activeRole !== null) {
+            return in_array($activeRole->value, $roleNames, true);
+        }
+
+        return $user->hasAnyRole($roleNames);
     }
 }

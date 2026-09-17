@@ -41,7 +41,7 @@ it('shows the systems link only to systems users', function () {
         ->assertDontSee(route('admin.users'), false);
 });
 
-it('shows every role link when the user has both roles', function () {
+it('redirects a multi-role user to choose a role before the dashboard', function () {
     $this->seed(NavigationSeeder::class);
 
     $user = User::factory()->create();
@@ -50,8 +50,7 @@ it('shows every role link when the user has both roles', function () {
 
     $this->actingAs($user)
         ->get(route('dashboard'))
-        ->assertSee(route('admin.users'), false)
-        ->assertSee(route('sistemas.home'), false);
+        ->assertRedirect(route('role.select'));
 });
 
 it('allows administrators to open the users page', function () {

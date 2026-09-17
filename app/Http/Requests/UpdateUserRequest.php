@@ -35,9 +35,10 @@ class UpdateUserRequest extends FormRequest
                 Rule::unique(User::class)->ignore($user),
             ],
             'password' => ['nullable', 'confirmed', Password::defaults()],
-            'role' => ['required', Rule::enum(Role::class)],
+            'roles' => ['required', 'array', 'min:1'],
+            'roles.*' => ['distinct', Rule::enum(Role::class)],
             'establecimiento_id' => [
-                Rule::requiredIf(fn (): bool => Role::tryFrom((string) $this->input('role'))?->requiresEstablecimiento() ?? false),
+                Rule::requiredIf(fn (): bool => $this->selectedRolesRequireEstablecimiento()),
                 'nullable',
                 'integer',
                 Rule::exists('establecimientos', 'id'),
@@ -51,7 +52,32 @@ class UpdateUserRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'roles.required' => 'Selecciona al menos un rol.',
             'establecimiento_id.required' => 'Este rol debe pertenecer a un establecimiento.',
         ];
+    }
+
+    /**
+     * @return list<Role>
+     */
+    public function selectedRoles(): array
+    {
+        return array_values(array_filter(
+            array_map(
+                fn (mixed $value): ?Role => Role::tryFrom((string) $value),
+                (array) $this->validated('roles'),
+            ),
+        ));
+    }
+
+    private function selectedRolesRequireEstablecimiento(): bool
+    {
+        foreach ((array) $this->input('roles', []) as $value) {
+            if (Role::tryFrom((string) $value)?->requiresEstablecimiento()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

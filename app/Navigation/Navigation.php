@@ -2,6 +2,7 @@
 
 namespace App\Navigation;
 
+use App\Auth\ActiveRole;
 use App\Models\NavigationItem as NavigationItemModel;
 use App\Models\User;
 use Illuminate\Support\Facades\Route;
@@ -13,6 +14,8 @@ class Navigation
      */
     public function itemsFor(User $user): array
     {
+        $activeRole = app(ActiveRole::class)->get($user);
+
         return NavigationItemModel::query()
             ->topLevel()
             ->active()
@@ -20,7 +23,7 @@ class Navigation
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get()
-            ->filter(fn (NavigationItemModel $item): bool => $this->isReachable($item) && $item->isVisibleTo($user))
+            ->filter(fn (NavigationItemModel $item): bool => $this->isReachable($item) && $item->isVisibleTo($user, $activeRole))
             ->map(fn (NavigationItemModel $item): NavigationItem => $item->toMenuItem())
             ->values()
             ->all();

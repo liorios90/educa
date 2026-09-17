@@ -78,4 +78,12 @@ class Persona extends Model
     {
         return $this->hasMany(Padre::class);
     }
+
+    /**
+     * @return HasMany<Alumno, $this>
+     */
+    public function alumnos(): HasMany
+    {
+        return $this->hasMany(Alumno::class);
+    }
 }

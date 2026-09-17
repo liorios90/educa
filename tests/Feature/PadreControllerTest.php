@@ -40,14 +40,6 @@ function padrePayload(Sys_Pais $pais, Sys_Provincia $provincia, array $overrides
     ];
 }
 
-function adminOf(Establecimiento $establecimiento): User
-{
-    return assignRole(User::factory()->create([
-        'name' => 'Director Andino',
-        'establecimiento_id' => $establecimiento->id,
-    ]), Role::Admin);
-}
-
 describe('index', function () {
     it('allows administrators to open padres of their establishment', function () {
         $establecimiento = Establecimiento::factory()->create();

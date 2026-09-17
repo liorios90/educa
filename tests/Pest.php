@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\Role;
+use App\Models\Establecimiento;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Role as RoleModel;
@@ -53,4 +54,12 @@ function assignRole(User $user, Role $role): User
     $user->assignRole($role);
 
     return $user;
+}
+
+function adminOf(Establecimiento $establecimiento): User
+{
+    return assignRole(User::factory()->create([
+        'name' => 'Director Andino',
+        'establecimiento_id' => $establecimiento->id,
+    ]), Role::Admin);
 }

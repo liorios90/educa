@@ -6,6 +6,7 @@ use Database\Factories\PadreFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Padre extends Model
 {
@@ -34,5 +35,13 @@ class Padre extends Model
     public function persona(): BelongsTo
     {
         return $this->belongsTo(Persona::class);
+    }
+
+    /**
+     * @return HasMany<Alumno, $this>
+     */
+    public function alumnos(): HasMany
+    {
+        return $this->hasMany(Alumno::class);
     }
 }

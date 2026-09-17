@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\AlumnoController;
 use App\Http\Controllers\PadreController;
 use Illuminate\Support\Facades\Route;
 
@@ -16,5 +17,11 @@ Route::middleware(['auth', 'verified', 'role:Admin'])
         Route::get('padres/{padre}/editar', [PadreController::class, 'edit'])->name('padres.edit');
         Route::patch('padres/{padre}', [PadreController::class, 'update'])->name('padres.update');
         Route::delete('padres/{padre}', [PadreController::class, 'destroy'])->name('padres.destroy');
+        Route::get('alumnos', [AlumnoController::class, 'index'])->name('alumnos');
+        Route::get('alumnos/crear', [AlumnoController::class, 'create'])->name('alumnos.create');
+        Route::post('alumnos', [AlumnoController::class, 'store'])->name('alumnos.store');
+        Route::get('alumnos/{alumno}/editar', [AlumnoController::class, 'edit'])->name('alumnos.edit');
+        Route::patch('alumnos/{alumno}', [AlumnoController::class, 'update'])->name('alumnos.update');
+        Route::delete('alumnos/{alumno}', [AlumnoController::class, 'destroy'])->name('alumnos.destroy');
 
     });

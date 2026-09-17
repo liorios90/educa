@@ -2,6 +2,7 @@
 
 use App\Crud\CrudRegistry;
 use App\Http\Controllers\EstablecimientoController;
+use App\Http\Controllers\EstructuraController;
 use App\Http\Controllers\GenericCrudController;
 use App\Http\Controllers\NavigationItemController;
 use App\Http\Controllers\NavigationSubmenuController;
@@ -33,6 +34,16 @@ Route::middleware(['auth', 'verified', 'role:Sistemas'])
         Route::get('/establecimientos/{establecimiento}/editar', [EstablecimientoController::class, 'edit'])->name('establecimientos.edit');
         Route::patch('/establecimientos/{establecimiento}', [EstablecimientoController::class, 'update'])->name('establecimientos.update');
         Route::delete('/establecimientos/{establecimiento}', [EstablecimientoController::class, 'destroy'])->name('establecimientos.destroy');
+        Route::get('/estructura', [EstructuraController::class, 'index'])->name('estructura');
+        Route::post('/estructura/niveles', [EstructuraController::class, 'storeNivel'])->name('estructura.niveles.store');
+        Route::patch('/estructura/niveles/{nivel}', [EstructuraController::class, 'updateNivel'])->name('estructura.niveles.update')->whereNumber('nivel');
+        Route::delete('/estructura/niveles/{nivel}', [EstructuraController::class, 'destroyNivel'])->name('estructura.niveles.destroy')->whereNumber('nivel');
+        Route::post('/estructura/niveles/{nivel}/subniveles', [EstructuraController::class, 'storeSubnivel'])->name('estructura.subniveles.store')->whereNumber('nivel');
+        Route::patch('/estructura/niveles/{nivel}/subniveles/{subnivel}', [EstructuraController::class, 'updateSubnivel'])->name('estructura.subniveles.update')->scopeBindings()->whereNumber('nivel')->whereNumber('subnivel');
+        Route::delete('/estructura/niveles/{nivel}/subniveles/{subnivel}', [EstructuraController::class, 'destroySubnivel'])->name('estructura.subniveles.destroy')->scopeBindings()->whereNumber('nivel')->whereNumber('subnivel');
+        Route::post('/estructura/niveles/{nivel}/subniveles/{subnivel}/grados', [EstructuraController::class, 'storeGrado'])->name('estructura.grados.store')->scopeBindings()->whereNumber('nivel')->whereNumber('subnivel');
+        Route::patch('/estructura/niveles/{nivel}/subniveles/{subnivel}/grados/{grado}', [EstructuraController::class, 'updateGrado'])->name('estructura.grados.update')->scopeBindings()->whereNumber('nivel')->whereNumber('subnivel')->whereNumber('grado');
+        Route::delete('/estructura/niveles/{nivel}/subniveles/{subnivel}/grados/{grado}', [EstructuraController::class, 'destroyGrado'])->name('estructura.grados.destroy')->scopeBindings()->whereNumber('nivel')->whereNumber('subnivel')->whereNumber('grado');
         Route::get('/prueba', [SistemasController::class, 'prueba'])->name('prueba');
         Route::get('/prueba', [SistemasController::class, 'prueba2'])->name('prueba2');
         Route::get('/menu', [NavigationItemController::class, 'index'])->name('navigation-items.index');

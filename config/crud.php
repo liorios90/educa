@@ -88,13 +88,7 @@ return [
                     'list' => true,
                     'rules' => ['required', 'string', 'max:255'],
                 ],
-                [
-                    'name' => 'usuario',
-                    'label' => 'Usuario',
-                    'type' => 'text',
-                    'list' => true,
-                    'rules' => ['required', 'string', 'max:255'],
-                ],
+
                 [
                     'name' => 'activo',
                     'label' => 'Activo',
@@ -131,13 +125,7 @@ return [
                     'list' => true,
                     'rules' => ['required', 'string', 'max:255'],
                 ],
-                [
-                    'name' => 'usuario',
-                    'label' => 'Usuario',
-                    'type' => 'text',
-                    'list' => true,
-                    'rules' => ['required', 'string', 'max:255'],
-                ],
+                
                 [
                     'name' => 'activo',
                     'label' => 'Activo',
@@ -177,13 +165,7 @@ return [
                     'list' => true,
                     'rules' => ['required', 'string', 'max:255'],
                 ],
-                [
-                    'name' => 'usuario',
-                    'label' => 'Usuario',
-                    'type' => 'text',
-                    'list' => true,
-                    'rules' => ['required', 'string', 'max:255'],
-                ],
+                
                 [
                     'name' => 'activo',
                     'label' => 'Activo',
@@ -213,13 +195,7 @@ return [
                     'list' => true,
                     'rules' => ['required', 'string', 'max:255'],
                 ],
-                [
-                    'name' => 'usuario',
-                    'label' => 'Usuario',
-                    'type' => 'text',
-                    'list' => true,
-                    'rules' => ['required', 'string', 'max:255'],
-                ],
+                
                 [
                     'name' => 'activo',
                     'label' => 'Activo',
@@ -259,13 +235,7 @@ return [
                     'list' => true,
                     'rules' => ['required', 'string', 'max:255'],
                 ],
-                [
-                    'name' => 'usuario',
-                    'label' => 'Usuario',
-                    'type' => 'text',
-                    'list' => true,
-                    'rules' => ['required', 'string', 'max:255'],
-                ],
+                
                 [
                     'name' => 'activo',
                     'label' => 'Activo',

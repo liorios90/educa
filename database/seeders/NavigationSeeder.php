@@ -31,6 +31,8 @@ class NavigationSeeder extends Seeder
         $this->upsertItem('Circuitos', 'sistemas.crud.circuitos.index', 'cog', 5, false, [$sistemas->id], parentId: $catalogos->id);
         $this->upsertItem('Países', 'sistemas.crud.paises.index', 'cog', 6, false, [$sistemas->id], parentId: $catalogos->id);
         $this->upsertItem('Provincias', 'sistemas.crud.provincias.index', 'cog', 7, false, [$sistemas->id], parentId: $catalogos->id);
+        $this->upsertItem('Funciones', 'sistemas.crud.funciones.index', 'cog', 8, false, [$sistemas->id], parentId: $catalogos->id);
+        $this->upsertItem('Tipos de contrato', 'sistemas.crud.tipos-contratos.index', 'cog', 9, false, [$sistemas->id], parentId: $catalogos->id);
         $this->upsertItem('Diseñar reportes', 'sistemas.reports.index', 'cog', 6, false, [$sistemas->id]);
         $estructura = $this->upsertItem('Estructura', 'navigation.hub', 'home', 7, false, [$sistemas->id], isGroup: true);
         $this->upsertItem('Nivel - Subnivel - Grado', 'sistemas.estructura', 'home', 1, false, [$sistemas->id], parentId: $estructura->id);

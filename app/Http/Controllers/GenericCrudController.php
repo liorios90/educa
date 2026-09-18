@@ -55,7 +55,7 @@ class GenericCrudController extends Controller
     {
         $definition = $this->definition();
 
-        $definition->query()->create($request->safe()->only($definition->fillableNames()));
+        $definition->query()->create($this->attributesForPersistence($request, $definition));
 
         return redirect()
             ->route($definition->routeName('index'))
@@ -78,7 +78,7 @@ class GenericCrudController extends Controller
         $definition = $this->definition();
         $model = $definition->findOrFail((int) $record);
 
-        $model->update($request->safe()->only($definition->fillableNames()));
+        $model->update($this->attributesForPersistence($request, $definition));
 
         return redirect()
             ->route($definition->routeName('index'))
@@ -94,6 +94,21 @@ class GenericCrudController extends Controller
         return redirect()
             ->route($definition->routeName('index'))
             ->with('status', 'crud-deleted');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function attributesForPersistence(UpsertCrudRecordRequest $request, CrudDefinition $definition): array
+    {
+        $attributes = $request->safe()->only($definition->fillableNames());
+        $model = new $definition->model;
+
+        if ($model->isFillable('usuario')) {
+            $attributes['usuario'] = (string) $request->user()?->name;
+        }
+
+        return $attributes;
     }
 
     private function definition(): CrudDefinition

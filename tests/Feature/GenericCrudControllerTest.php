@@ -4,8 +4,10 @@ use App\Enums\Role;
 use App\Models\NavigationItem;
 use App\Models\Sys_Circuito;
 use App\Models\Sys_Distrito;
+use App\Models\Sys_Funcion;
 use App\Models\Sys_Jornada;
 use App\Models\Sys_Modalidad;
+use App\Models\Sys_TipoContrato;
 use App\Models\Sys_Zona;
 use App\Models\User;
 use Database\Seeders\NavigationSeeder;
@@ -65,6 +67,29 @@ describe('index', function () {
             ->assertOk()
             ->assertSee('Circuitos')
             ->assertSee('Circuito 09D01C01');
+    });
+
+    it('allows systems users to open the funciones catalog', function () {
+        $user = assignRole(User::factory()->create(), Role::Sistemas);
+        Sys_Funcion::factory()->create(['nombre' => 'Docente']);
+
+        $this->actingAs($user)
+            ->get(route('sistemas.crud.funciones.index'))
+            ->assertOk()
+            ->assertSee('Funciones')
+            ->assertSee('Nueva función')
+            ->assertSee('Docente');
+    });
+
+    it('allows systems users to open the tipos de contrato catalog', function () {
+        $user = assignRole(User::factory()->create(), Role::Sistemas);
+        Sys_TipoContrato::factory()->create(['nombre' => 'Nombramiento']);
+
+        $this->actingAs($user)
+            ->get(route('sistemas.crud.tipos-contratos.index'))
+            ->assertOk()
+            ->assertSee('Tipos de contrato')
+            ->assertSee('Nombramiento');
     });
 
     it('does not expose establecimientos as a catalog', function () {
@@ -158,7 +183,7 @@ describe('store', function () {
         $this->assertDatabaseHas('sys_zonas', [
             'nombre' => 'Zona 8',
             'descripcion' => 'Guayas',
-            'usuario' => 'sistemas',
+            'usuario' => $actor->name,
             'activo' => 1,
         ]);
     });
@@ -223,6 +248,112 @@ describe('store', function () {
             'nombre' => '09D01C01',
             'distrito_id' => $distrito->id,
         ]);
+    });
+
+    it('creates a funcion with the authenticated user in usuario', function () {
+        $actor = assignRole(User::factory()->create(['name' => 'Ana Sistemas']), Role::Sistemas);
+
+        $this->actingAs($actor)
+            ->post(route('sistemas.crud.funciones.store'), [
+                'nombre' => 'Docente',
+                'descripcion' => 'Función docente',
+                'usuario' => 'intruso',
+                'activo' => '1',
+            ])
+            ->assertRedirect(route('sistemas.crud.funciones.index'))
+            ->assertSessionHas('status', 'crud-created');
+
+        $this->assertDatabaseHas('sys_funciones', [
+            'nombre' => 'Docente',
+            'descripcion' => 'Función docente',
+            'usuario' => 'Ana Sistemas',
+            'activo' => 1,
+        ]);
+        $this->assertDatabaseMissing('sys_funciones', ['usuario' => 'intruso']);
+    });
+
+    it('rejects an empty funcion payload', function () {
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+
+        $this->actingAs($actor)
+            ->from(route('sistemas.crud.funciones.create'))
+            ->post(route('sistemas.crud.funciones.store'), [])
+            ->assertRedirect(route('sistemas.crud.funciones.create'))
+            ->assertSessionHasErrors(['nombre', 'descripcion']);
+    });
+
+    it('does not ask for usuario on the funcion form', function () {
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+
+        $this->actingAs($actor)
+            ->get(route('sistemas.crud.funciones.create'))
+            ->assertOk()
+            ->assertDontSee('name="usuario"', false);
+    });
+
+    it('stores the authenticated user when updating a funcion', function () {
+        $actor = assignRole(User::factory()->create(['name' => 'Luis Sistemas']), Role::Sistemas);
+        $funcion = Sys_Funcion::factory()->create([
+            'nombre' => 'Docente',
+            'usuario' => 'otro',
+        ]);
+
+        $this->actingAs($actor)
+            ->patch(route('sistemas.crud.funciones.update', $funcion), [
+                'nombre' => 'Inspector',
+                'descripcion' => 'Función de inspección',
+                'activo' => '1',
+            ])
+            ->assertRedirect(route('sistemas.crud.funciones.index'))
+            ->assertSessionHas('status', 'crud-updated');
+
+        $funcion->refresh();
+
+        expect($funcion->nombre)->toBe('Inspector')
+            ->and($funcion->usuario)->toBe('Luis Sistemas');
+    });
+
+    it('creates a tipo de contrato with the authenticated user in usuario', function () {
+        $actor = assignRole(User::factory()->create(['name' => 'Ana Sistemas']), Role::Sistemas);
+
+        $this->actingAs($actor)
+            ->post(route('sistemas.crud.tipos-contratos.store'), [
+                'codigo' => 'NOM',
+                'nombre' => 'Nombramiento',
+                'descripcion' => 'Contrato de nombramiento',
+                'usuario' => 'intruso',
+                'activo' => '1',
+            ])
+            ->assertRedirect(route('sistemas.crud.tipos-contratos.index'))
+            ->assertSessionHas('status', 'crud-created');
+
+        $this->assertDatabaseHas('sys_tipo_contratos', [
+            'codigo' => 'NOM',
+            'nombre' => 'Nombramiento',
+            'descripcion' => 'Contrato de nombramiento',
+            'usuario' => 'Ana Sistemas',
+            'activo' => 1,
+        ]);
+        $this->assertDatabaseMissing('sys_tipo_contratos', ['usuario' => 'intruso']);
+    });
+
+    it('rejects an empty tipo de contrato payload', function () {
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+
+        $this->actingAs($actor)
+            ->from(route('sistemas.crud.tipos-contratos.create'))
+            ->post(route('sistemas.crud.tipos-contratos.store'), [])
+            ->assertRedirect(route('sistemas.crud.tipos-contratos.create'))
+            ->assertSessionHasErrors(['codigo', 'nombre', 'descripcion']);
+    });
+
+    it('does not ask for usuario on the tipo de contrato form', function () {
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+
+        $this->actingAs($actor)
+            ->get(route('sistemas.crud.tipos-contratos.create'))
+            ->assertOk()
+            ->assertDontSee('name="usuario"', false);
     });
 
     it('forbids administrators from creating records', function () {
@@ -304,8 +435,12 @@ it('seeds geographic catalogs under catalogos and omits establecimientos', funct
         ->assertSee('Zonas')
         ->assertSee('Distritos')
         ->assertSee('Circuitos')
+        ->assertSee('Funciones')
+        ->assertSee('Tipos de contrato')
         ->assertSee(route('sistemas.crud.zonas.index'), false)
         ->assertSee(route('sistemas.crud.distritos.index'), false)
         ->assertSee(route('sistemas.crud.circuitos.index'), false)
+        ->assertSee(route('sistemas.crud.funciones.index'), false)
+        ->assertSee(route('sistemas.crud.tipos-contratos.index'), false)
         ->assertDontSee('Establecimientos');
 });

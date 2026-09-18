@@ -2,10 +2,12 @@
 
 use App\Models\Sys_Circuito;
 use App\Models\Sys_Distrito;
+use App\Models\Sys_Funcion;
 use App\Models\Sys_Jornada;
 use App\Models\Sys_Modalidad;
 use App\Models\Sys_Pais;
 use App\Models\Sys_Provincia;
+use App\Models\Sys_TipoContrato;
 use App\Models\Sys_Zona;
 
 return [
@@ -125,7 +127,7 @@ return [
                     'list' => true,
                     'rules' => ['required', 'string', 'max:255'],
                 ],
-                
+
                 [
                     'name' => 'activo',
                     'label' => 'Activo',
@@ -165,7 +167,7 @@ return [
                     'list' => true,
                     'rules' => ['required', 'string', 'max:255'],
                 ],
-                
+
                 [
                     'name' => 'activo',
                     'label' => 'Activo',
@@ -195,7 +197,7 @@ return [
                     'list' => true,
                     'rules' => ['required', 'string', 'max:255'],
                 ],
-                
+
                 [
                     'name' => 'activo',
                     'label' => 'Activo',
@@ -235,7 +237,7 @@ return [
                     'list' => true,
                     'rules' => ['required', 'string', 'max:255'],
                 ],
-                
+
                 [
                     'name' => 'activo',
                     'label' => 'Activo',
@@ -252,6 +254,71 @@ return [
                     'related_model' => Sys_Distrito::class,
                     'option_label' => 'nombre',
                     'relation' => 'distrito',
+                ],
+            ],
+        ],
+        'funciones' => [
+            'model' => Sys_Funcion::class,
+            'title' => 'Funciones',
+            'singular' => 'función',
+            'order_by' => 'nombre',
+            'fields' => [
+                [
+                    'name' => 'nombre',
+                    'label' => 'Nombre',
+                    'type' => 'text',
+                    'list' => true,
+                    'rules' => ['required', 'string', 'max:255'],
+                ],
+                [
+                    'name' => 'descripcion',
+                    'label' => 'Descripción',
+                    'type' => 'text',
+                    'list' => true,
+                    'rules' => ['required', 'string', 'max:255'],
+                ],
+                [
+                    'name' => 'activo',
+                    'label' => 'Activo',
+                    'type' => 'boolean',
+                    'list' => true,
+                    'rules' => ['required', 'boolean'],
+                ],
+            ],
+        ],
+        'tipos-contratos' => [
+            'model' => Sys_TipoContrato::class,
+            'title' => 'Tipos de contrato',
+            'singular' => 'tipo de contrato',
+            'order_by' => 'nombre',
+            'fields' => [
+                [
+                    'name' => 'codigo',
+                    'label' => 'Código',
+                    'type' => 'text',
+                    'list' => true,
+                    'rules' => ['required', 'string', 'max:45'],
+                ],
+                [
+                    'name' => 'nombre',
+                    'label' => 'Nombre',
+                    'type' => 'text',
+                    'list' => true,
+                    'rules' => ['required', 'string', 'max:255'],
+                ],
+                [
+                    'name' => 'descripcion',
+                    'label' => 'Descripción',
+                    'type' => 'text',
+                    'list' => true,
+                    'rules' => ['required', 'string', 'max:255'],
+                ],
+                [
+                    'name' => 'activo',
+                    'label' => 'Activo',
+                    'type' => 'boolean',
+                    'list' => true,
+                    'rules' => ['required', 'boolean'],
                 ],
             ],
         ],

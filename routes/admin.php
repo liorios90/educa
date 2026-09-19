@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AlumnoController;
+use App\Http\Controllers\EmpleadoController;
 use App\Http\Controllers\PadreController;
 use Illuminate\Support\Facades\Route;
 
@@ -23,5 +24,11 @@ Route::middleware(['auth', 'verified', 'role:Admin'])
         Route::get('alumnos/{alumno}/editar', [AlumnoController::class, 'edit'])->name('alumnos.edit');
         Route::patch('alumnos/{alumno}', [AlumnoController::class, 'update'])->name('alumnos.update');
         Route::delete('alumnos/{alumno}', [AlumnoController::class, 'destroy'])->name('alumnos.destroy');
+        Route::get('empleados', [EmpleadoController::class, 'index'])->name('empleados');
+        Route::get('empleados/crear', [EmpleadoController::class, 'create'])->name('empleados.create');
+        Route::post('empleados', [EmpleadoController::class, 'store'])->name('empleados.store');
+        Route::get('empleados/{empleado}/editar', [EmpleadoController::class, 'edit'])->name('empleados.edit');
+        Route::patch('empleados/{empleado}', [EmpleadoController::class, 'update'])->name('empleados.update');
+        Route::delete('empleados/{empleado}', [EmpleadoController::class, 'destroy'])->name('empleados.destroy');
 
     });

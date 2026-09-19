@@ -22,6 +22,8 @@ class RoleSeeder extends Seeder
         Role::findOrCreate(RoleName::Secretaria->value, 'web');
         Role::findOrCreate(RoleName::Padre->value, 'web');
         Role::findOrCreate(RoleName::Alumno->value, 'web');
+        Role::findOrCreate(RoleName::Empleado->value, 'web');
+        Role::findOrCreate(RoleName::Docente->value, 'web');
 
         $adminHome = Permission::findOrCreate('admin.home', 'web');
         $admin->givePermissionTo($adminHome);

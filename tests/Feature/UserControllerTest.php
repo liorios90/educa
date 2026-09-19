@@ -63,7 +63,8 @@ describe('store', function () {
             ->assertSee('name="roles[]"', false)
             ->assertSee('Administrador')
             ->assertSee('Sistemas')
-            ->assertSee('Secretaría');
+            ->assertSee('Secretaría')
+            ->assertSee('Docente');
     });
 
     it('requires an establishment when a systems user creates a school-bound role', function (Role $role) {
@@ -87,6 +88,7 @@ describe('store', function () {
     })->with([
         'administrator' => Role::Admin,
         'secretaria' => Role::Secretaria,
+        'docente' => Role::Docente,
     ]);
 
     it('assigns the establishment when a systems user creates a school-bound role', function (Role $role) {
@@ -113,6 +115,7 @@ describe('store', function () {
     })->with([
         'administrator' => Role::Admin,
         'secretaria' => Role::Secretaria,
+        'docente' => Role::Docente,
     ]);
 
     it('does not keep an establishment when the role is sistemas', function () {
@@ -367,6 +370,7 @@ describe('update', function () {
     })->with([
         'administrator' => Role::Admin,
         'secretaria' => Role::Secretaria,
+        'docente' => Role::Docente,
     ]);
 
     it('assigns the establishment when a systems user changes a user to a school-bound role', function (Role $role) {
@@ -392,6 +396,7 @@ describe('update', function () {
     })->with([
         'administrator' => Role::Admin,
         'secretaria' => Role::Secretaria,
+        'docente' => Role::Docente,
     ]);
 
     it('clears the establishment when the role no longer belongs to a school', function (Role $role) {
@@ -417,6 +422,7 @@ describe('update', function () {
     })->with([
         'administrator' => Role::Admin,
         'secretaria' => Role::Secretaria,
+        'docente' => Role::Docente,
     ]);
 
     it('forbids systems users from updating a user', function () {

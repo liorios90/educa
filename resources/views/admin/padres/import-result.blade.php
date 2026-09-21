@@ -1,5 +1,9 @@
 @php
-    $esAlumnos = $importData->tablas === 'users,personas,alumnos';
+    $volver = match ($importData->tablas) {
+        'users,personas,alumnos' => ['url' => route('Admin.alumnos'), 'label' => 'Volver a alumnos'],
+        'users,personas,empleados' => ['url' => route('Admin.empleados'), 'label' => 'Volver a empleados'],
+        default => ['url' => route('Admin.padres'), 'label' => 'Volver a padres'],
+    };
 @endphp
 
 <x-app-layout>
@@ -8,8 +12,8 @@
             <h2 class="text-xl font-semibold leading-tight text-slate-800">
                 Resultado de la importación
             </h2>
-            <a href="{{ $esAlumnos ? route('Admin.alumnos') : route('Admin.padres') }}" class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800">
-                {{ $esAlumnos ? 'Volver a alumnos' : 'Volver a padres' }}
+            <a href="{{ $volver['url'] }}" class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800">
+                {{ $volver['label'] }}
             </a>
         </div>
     </x-slot>

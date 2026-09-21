@@ -2,12 +2,14 @@
 
 use App\Enums\Role;
 use App\Models\Alumno;
+use App\Models\Empleado;
 use App\Models\Establecimiento;
 use App\Models\ImportData;
 use App\Models\Padre;
 use App\Models\Persona;
 use App\Models\Sys_Pais;
 use App\Models\Sys_Provincia;
+use App\Models\Sys_TipoContrato;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
@@ -203,9 +205,10 @@ describe('create', function () {
         $this->actingAs($admin)
             ->get(route('Admin.padres.import'))
             ->assertOk()
-            ->assertSee('Importar padres o alumnos')
+            ->assertSee('Importar padres, alumnos o docentes')
             ->assertSee('Padres')
             ->assertSee('Alumnos')
+            ->assertSee('Docentes')
             ->assertSee('tipo_identificacion')
             ->assertSee('identificacion_representante');
     });
@@ -217,6 +220,16 @@ describe('create', function () {
             ->get(route('Admin.padres.import', ['tipo' => 'alumnos']))
             ->assertOk()
             ->assertSee('value="alumnos"', false)
+            ->assertSee('checked', false);
+    });
+
+    it('preselects docentes when the form is opened for docentes', function () {
+        $admin = adminOf(Establecimiento::factory()->create());
+
+        $this->actingAs($admin)
+            ->get(route('Admin.padres.import', ['tipo' => 'docentes']))
+            ->assertOk()
+            ->assertSee('value="docentes"', false)
             ->assertSee('checked', false);
     });
 
@@ -570,6 +583,78 @@ describe('store', function () {
         ]);
         $this->assertDatabaseMissing('users', ['email' => 'mateo.nunez@example.com']);
     });
+
+    it('imports docentes as employees with the docente role', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $pais = Sys_Pais::factory()->create();
+        Sys_Provincia::factory()->create(['pais_id' => $pais->id]);
+        $tipoContrato = Sys_TipoContrato::factory()->create();
+
+        $response = $this->actingAs($admin)
+            ->post(route('Admin.padres.import.store'), importPayload(representantesCsv([
+                representantesHeader(),
+                ['C', '0977777777', 'carla.rios@example.com', 'Carla', 'Ríos'],
+            ]), 'docentes'));
+
+        $import = ImportData::query()->firstOrFail();
+
+        $response->assertRedirect(route('Admin.padres.import.show', $import))
+            ->assertSessionHas('status', 'import-processed');
+
+        $user = User::query()->where('email', 'carla.rios@example.com')->firstOrFail();
+        $persona = Persona::query()->where('identificacion', '0977777777')->firstOrFail();
+        $empleado = Empleado::query()->where('persona_id', $persona->id)->firstOrFail();
+
+        expect($import->tablas)->toBe('users,personas,empleados')
+            ->and($import->mensaje)->toBe('Importados: 1. Fallidos: 0.')
+            ->and($user->hasRole(Role::Docente))->toBeTrue()
+            ->and($user->establecimiento_id)->toBe($establecimiento->id)
+            ->and(Hash::check('0977777777', $user->password))->toBeTrue()
+            ->and($persona->nombres)->toBe('Carla')
+            ->and($empleado->tipo_contrato_id)->toBe($tipoContrato->id)
+            ->and($empleado->horas)->toBe(0);
+    });
+
+    it('imports docentes from an excel file', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $pais = Sys_Pais::factory()->create();
+        Sys_Provincia::factory()->create(['pais_id' => $pais->id]);
+        Sys_TipoContrato::factory()->create();
+
+        $this->actingAs($admin)
+            ->post(route('Admin.padres.import.store'), importPayload(representantesXlsx([
+                representantesHeader(),
+                ['C', '0988888888', 'diego.paz@example.com', 'Diego', 'Paz'],
+            ]), 'docentes'));
+
+        $import = ImportData::query()->firstOrFail();
+        $persona = Persona::query()->where('identificacion', '0988888888')->firstOrFail();
+
+        expect($import->tipo_archivo)->toBe('xlsx')
+            ->and($import->mensaje)->toBe('Importados: 1. Fallidos: 0.');
+        $this->assertDatabaseHas('users', ['email' => 'diego.paz@example.com']);
+        expect(Empleado::query()->where('persona_id', $persona->id)->exists())->toBeTrue();
+    });
+
+    it('does not import docentes when there is no contract type in catalogs', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $pais = Sys_Pais::factory()->create();
+        Sys_Provincia::factory()->create(['pais_id' => $pais->id]);
+
+        $this->actingAs($admin)
+            ->post(route('Admin.padres.import.store'), importPayload(representantesCsv([
+                representantesHeader(),
+                ['C', '0977777777', 'carla.rios@example.com', 'Carla', 'Ríos'],
+            ]), 'docentes'));
+
+        $this->assertDatabaseMissing('users', ['email' => 'carla.rios@example.com']);
+        $this->assertDatabaseHas('import_data_detalles', [
+            'descripcion' => 'No hay un tipo de contrato en catálogos para completar los docentes.',
+        ]);
+    });
 });
 
 describe('show', function () {
@@ -614,6 +699,21 @@ describe('show', function () {
             ->get(route('Admin.padres.import.show', $import))
             ->assertOk()
             ->assertSee('Volver a alumnos')
+            ->assertDontSee('Volver a padres');
+    });
+
+    it('links back to empleados after a docentes import', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $import = ImportData::factory()->create([
+            'establecimiento_id' => $establecimiento->id,
+            'tablas' => 'users,personas,empleados',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('Admin.padres.import.show', $import))
+            ->assertOk()
+            ->assertSee('Volver a empleados')
             ->assertDontSee('Volver a padres');
     });
 

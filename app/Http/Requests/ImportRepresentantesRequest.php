@@ -24,7 +24,7 @@ class ImportRepresentantesRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'tipo' => ['required', 'string', Rule::in(['padres', 'alumnos'])],
+            'tipo' => ['required', 'string', Rule::in(['padres', 'alumnos', 'docentes'])],
             'archivo' => [
                 'required',
                 'file',
@@ -41,8 +41,8 @@ class ImportRepresentantesRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'tipo.required' => 'Selecciona si importas padres o alumnos.',
-            'tipo.in' => 'Selecciona si importas padres o alumnos.',
+            'tipo.required' => 'Selecciona si importas padres, alumnos o docentes.',
+            'tipo.in' => 'Selecciona si importas padres, alumnos o docentes.',
             'archivo.required' => 'Selecciona un archivo Excel o CSV.',
             'archivo.mimes' => 'El archivo debe ser xlsx o csv.',
             'archivo.extensions' => 'El archivo debe ser xlsx o csv.',

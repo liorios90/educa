@@ -1,11 +1,16 @@
 @php
     $tipo = old('tipo', $tipo);
+    $cancelUrl = match ($tipo) {
+        'alumnos' => route('Admin.alumnos'),
+        'docentes' => route('Admin.empleados'),
+        default => route('Admin.padres'),
+    };
 @endphp
 
 <x-app-layout>
     <x-slot name="header">
         <h2 class="text-xl font-semibold leading-tight text-slate-800">
-            Importar padres o alumnos
+            Importar padres, alumnos o docentes
         </h2>
     </x-slot>
 
@@ -46,6 +51,17 @@
                                 >
                                 Alumnos
                             </label>
+                            <label class="flex items-center gap-2 text-sm text-slate-700">
+                                <input
+                                    type="radio"
+                                    name="tipo"
+                                    value="docentes"
+                                    class="border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500"
+                                    x-model="tipo"
+                                    @checked($tipo === 'docentes')
+                                >
+                                Docentes
+                            </label>
                         </div>
                         <x-input-error class="mt-2" :messages="$errors->get('tipo')" />
                     </fieldset>
@@ -65,6 +81,9 @@
                     <p class="text-xs text-slate-500" x-show="tipo === 'alumnos'">
                         En tipo_identificacion usa C (cédula), P (pasaporte) o R (RUC). identificacion_representante debe coincidir con un padre ya registrado en este instituto. La contraseña inicial de cada cuenta será la identificación del alumno.
                     </p>
+                    <p class="text-xs text-slate-500" x-show="tipo === 'docentes'">
+                        En tipo_identificacion usa C (cédula), P (pasaporte) o R (RUC). Cada docente se crea como empleado con rol Docente. La contraseña inicial de cada cuenta será la identificación. Los campos laborales que no vienen en el archivo se guardan como pendientes.
+                    </p>
 
                     <div>
                         <x-input-label for="archivo" value="Archivo" />
@@ -82,8 +101,8 @@
 
                 <div class="mt-6 flex items-center justify-end gap-4">
                     <a
-                        :href="tipo === 'alumnos' ? @js(route('Admin.alumnos')) : @js(route('Admin.padres'))"
-                        href="{{ $tipo === 'alumnos' ? route('Admin.alumnos') : route('Admin.padres') }}"
+                        :href="tipo === 'alumnos' ? @js(route('Admin.alumnos')) : (tipo === 'docentes' ? @js(route('Admin.empleados')) : @js(route('Admin.padres')))"
+                        href="{{ $cancelUrl }}"
                         class="text-sm text-slate-600 hover:text-slate-900"
                     >Cancelar</a>
                     <x-primary-button>Importar</x-primary-button>

@@ -17,7 +17,7 @@ class ImportRepresentantesController extends Controller
 
         $tipo = $request->string('tipo')->toString();
 
-        if (! in_array($tipo, ['padres', 'alumnos'], true)) {
+        if (! in_array($tipo, ['padres', 'alumnos', 'docentes'], true)) {
             $tipo = 'padres';
         }
 

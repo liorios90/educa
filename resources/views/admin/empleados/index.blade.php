@@ -4,9 +4,14 @@
             <h2 class="text-xl font-semibold leading-tight text-slate-800">
                 Empleados
             </h2>
-            <a href="{{ route('Admin.empleados.create') }}" class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800">
-                Nuevo empleado
-            </a>
+            <div class="flex items-center gap-3">
+                <a href="{{ route('Admin.padres.import', ['tipo' => 'docentes']) }}" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                    Importar Excel
+                </a>
+                <a href="{{ route('Admin.empleados.create') }}" class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800">
+                    Nuevo empleado
+                </a>
+            </div>
         </div>
     </x-slot>
 
@@ -24,7 +29,7 @@
                 <p class="mb-4 text-sm font-medium text-green-700">Empleado eliminado correctamente.</p>
             @endif
 
-            <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div class="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
                 <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
                     <thead class="bg-slate-50 text-slate-600">
                         <tr>
@@ -35,7 +40,7 @@
                             <th class="px-6 py-3 font-medium">Función</th>
                             <th class="px-6 py-3 font-medium">Roles</th>
                             <th class="px-6 py-3 font-medium">Correo</th>
-                            <th class="px-6 py-3 font-medium">Acciones</th>
+                            <th class="sticky right-0 bg-slate-50 px-6 py-3 font-medium">Acciones</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100 text-slate-800">
@@ -50,7 +55,7 @@
                                     {{ $empleado->persona?->user?->roles->map(fn ($role) => \App\Enums\Role::tryFrom($role->name)?->label() ?? $role->name)->join(', ') ?: '—' }}
                                 </td>
                                 <td class="px-6 py-3">{{ $empleado->persona?->user?->email ?? '—' }}</td>
-                                <td class="px-6 py-3">
+                                <td class="sticky right-0 whitespace-nowrap bg-white px-6 py-3">
                                     <div class="flex items-center gap-3">
                                         <a href="{{ route('Admin.empleados.edit', $empleado) }}" class="font-medium text-indigo-600 hover:text-indigo-500">
                                             Editar

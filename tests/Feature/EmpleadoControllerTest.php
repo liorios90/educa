@@ -56,14 +56,19 @@ describe('index', function () {
             'apellidos' => 'Mora',
             'establecimiento_id' => $establecimiento->id,
         ]);
-        Empleado::factory()->for($persona)->create();
+        $empleado = Empleado::factory()->for($persona)->create();
 
         $this->actingAs($admin)
             ->get(route('Admin.empleados'))
             ->assertOk()
             ->assertSee('Empleados')
+            ->assertSee('Importar Excel')
             ->assertSee('Luis')
-            ->assertSee('Mora');
+            ->assertSee('Mora')
+            ->assertSee('Editar')
+            ->assertSee('Eliminar')
+            ->assertSee(route('Admin.empleados.edit', $empleado), false)
+            ->assertSee(route('Admin.empleados.destroy', $empleado), false);
     });
 
     it('shows assigned roles in the empleados list', function () {

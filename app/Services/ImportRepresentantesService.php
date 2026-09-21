@@ -4,16 +4,19 @@ namespace App\Services;
 
 use App\Enums\Role;
 use App\Models\Alumno;
+use App\Models\Empleado;
 use App\Models\ImportData;
 use App\Models\Padre;
 use App\Models\Persona;
 use App\Models\Sys_Pais;
 use App\Models\Sys_Provincia;
+use App\Models\Sys_TipoContrato;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use RuntimeException;
 use Spatie\Permission\Models\Role as RoleModel;
 
 class ImportRepresentantesService
@@ -35,10 +38,9 @@ class ImportRepresentantesService
     {
         $establecimientoId = (int) $actor->establecimiento_id;
         $extension = strtolower($file->getClientOriginalExtension());
-        $esAlumnos = $tipo === 'alumnos';
         $import = ImportData::query()->create([
             'nombre' => Str::limit($file->getClientOriginalName(), 255, ''),
-            'tablas' => $esAlumnos ? 'users,personas,alumnos' : 'users,personas,padres',
+            'tablas' => $this->tablas($tipo),
             'tipo_archivo' => $extension,
             'mensaje' => 'Procesando importación.',
             'establecimiento_id' => $establecimientoId,
@@ -46,15 +48,13 @@ class ImportRepresentantesService
             'activo' => 1,
         ]);
 
-        $catalog = $this->catalogDefaults();
+        $catalog = $this->catalogDefaults($tipo);
 
         if ($catalog === null) {
             $import->detalles()->create([
                 'num_fila' => null,
                 'identificacion' => null,
-                'descripcion' => $esAlumnos
-                    ? 'No hay un país y una provincia en catálogos para completar los alumnos.'
-                    : 'No hay un país y una provincia en catálogos para completar los representantes.',
+                'descripcion' => $this->missingCatalogMessage($tipo),
             ]);
             $import->update([
                 'mensaje' => 'Importados: 0. Fallidos: 1.',
@@ -91,7 +91,7 @@ class ImportRepresentantesService
             return $import->load('detalles');
         }
 
-        $requiredColumns = $this->requiredColumns($esAlumnos);
+        $requiredColumns = $this->requiredColumns($tipo);
         $missingColumns = array_values(array_diff($requiredColumns, array_keys($rows[0]['values'])));
 
         if ($missingColumns !== []) {
@@ -107,7 +107,7 @@ class ImportRepresentantesService
             return $import->load('detalles');
         }
 
-        RoleModel::findOrCreate($esAlumnos ? Role::Alumno->value : Role::Padre->value, 'web');
+        RoleModel::findOrCreate($this->roleFor($tipo)->value, 'web');
 
         $imported = 0;
         $failed = 0;
@@ -118,7 +118,7 @@ class ImportRepresentantesService
         foreach ($rows as $row) {
             $values = $row['values'];
             $identificacion = $values['identificacion'] ?? '';
-            $error = $this->validateRow($values, $seenIdentificaciones, $seenEmails, $esAlumnos, $establecimientoId, $padres);
+            $error = $this->validateRow($values, $seenIdentificaciones, $seenEmails, $tipo, $establecimientoId, $padres);
 
             if ($error !== null) {
                 $import->detalles()->create([
@@ -136,8 +136,8 @@ class ImportRepresentantesService
             $seenEmails[$email] = true;
 
             try {
-                DB::transaction(function () use ($actor, $establecimientoId, $catalog, $values, $email, $identificacion, $esAlumnos, $padres): void {
-                    $this->persistRow($actor, $establecimientoId, $catalog, $values, $email, $identificacion, $esAlumnos, $padres);
+                DB::transaction(function () use ($actor, $establecimientoId, $catalog, $values, $email, $identificacion, $tipo, $padres): void {
+                    $this->persistRow($actor, $establecimientoId, $catalog, $values, $email, $identificacion, $tipo, $padres);
                 });
             } catch (\Throwable $exception) {
                 unset($seenIdentificaciones[$identificacion], $seenEmails[$email]);
@@ -169,9 +169,9 @@ class ImportRepresentantesService
     /**
      * @return list<string>
      */
-    private function requiredColumns(bool $esAlumnos): array
+    private function requiredColumns(string $tipo): array
     {
-        if (! $esAlumnos) {
+        if ($tipo !== 'alumnos') {
             return self::BASE_COLUMNS;
         }
 
@@ -188,11 +188,11 @@ class ImportRepresentantesService
         array $values,
         array $seenIdentificaciones,
         array $seenEmails,
-        bool $esAlumnos,
+        string $tipo,
         int $establecimientoId,
         array &$padres,
     ): ?string {
-        foreach ($this->requiredColumns($esAlumnos) as $column) {
+        foreach ($this->requiredColumns($tipo) as $column) {
             if (($values[$column] ?? '') === '') {
                 return 'Falta '.$column.'.';
             }
@@ -228,7 +228,7 @@ class ImportRepresentantesService
             return 'El correo ya está registrado.';
         }
 
-        if ($esAlumnos) {
+        if ($tipo === 'alumnos') {
             $identificacionRepresentante = $values['identificacion_representante'];
 
             if ($identificacionRepresentante === $values['identificacion']) {
@@ -244,7 +244,7 @@ class ImportRepresentantesService
     }
 
     /**
-     * @param  array{pais_id: int, provincia_id: int}  $catalog
+     * @param  array{pais_id: int, provincia_id: int, tipo_contrato_id?: int}  $catalog
      * @param  array<string, string>  $values
      * @param  array<string, Padre|null>  $padres
      */
@@ -255,7 +255,7 @@ class ImportRepresentantesService
         array $values,
         string $email,
         string $identificacion,
-        bool $esAlumnos,
+        string $tipo,
         array &$padres,
     ): void {
         $persona = $this->persistPersona(
@@ -265,26 +265,43 @@ class ImportRepresentantesService
             $values,
             $email,
             $identificacion,
-            $esAlumnos ? Role::Alumno : Role::Padre,
+            $this->roleFor($tipo),
         );
 
-        if (! $esAlumnos) {
-            Padre::query()->create([
-                'persona_id' => $persona->id,
-                'estado_civil_id' => 'No especificado',
-                'vive_con_estudiante' => 0,
-                'titulo' => 'No especificado',
-                'usuario' => (string) $actor->name,
-                'activo' => 1,
-            ]);
+        match ($tipo) {
+            'alumnos' => $this->persistAlumno($actor, $establecimientoId, $values, $persona, $padres),
+            'docentes' => $this->persistDocente($actor, $catalog, $persona),
+            default => $this->persistPadre($actor, $persona),
+        };
+    }
 
-            return;
-        }
+    private function persistPadre(User $actor, Persona $persona): void
+    {
+        Padre::query()->create([
+            'persona_id' => $persona->id,
+            'estado_civil_id' => 'No especificado',
+            'vive_con_estudiante' => 0,
+            'titulo' => 'No especificado',
+            'usuario' => (string) $actor->name,
+            'activo' => 1,
+        ]);
+    }
 
+    /**
+     * @param  array<string, string>  $values
+     * @param  array<string, Padre|null>  $padres
+     */
+    private function persistAlumno(
+        User $actor,
+        int $establecimientoId,
+        array $values,
+        Persona $persona,
+        array &$padres,
+    ): void {
         $padre = $this->padreOfEstablecimiento($values['identificacion_representante'], $establecimientoId, $padres);
 
         if ($padre === null) {
-            throw new \RuntimeException('No se encontró el representante con esa identificación en este instituto.');
+            throw new RuntimeException('No se encontró el representante con esa identificación en este instituto.');
         }
 
         Alumno::query()->create([
@@ -297,7 +314,33 @@ class ImportRepresentantesService
     }
 
     /**
-     * @param  array{pais_id: int, provincia_id: int}  $catalog
+     * @param  array{pais_id: int, provincia_id: int, tipo_contrato_id?: int}  $catalog
+     */
+    private function persistDocente(User $actor, array $catalog, Persona $persona): void
+    {
+        $tipoContratoId = $catalog['tipo_contrato_id'] ?? null;
+
+        if ($tipoContratoId === null) {
+            throw new RuntimeException('No hay un tipo de contrato en catálogos para completar los docentes.');
+        }
+
+        Empleado::query()->create([
+            'persona_id' => $persona->id,
+            'tipo_contrato_id' => $tipoContratoId,
+            'cargo_id' => null,
+            'funcion_id' => null,
+            'horas' => 0,
+            'anios_experiencia' => 0,
+            'anios_instituto' => 0,
+            'contacto_emergencia' => 'No especificado',
+            'contacto_num' => '-',
+            'usuario' => (string) $actor->name,
+            'activo' => 1,
+        ]);
+    }
+
+    /**
+     * @param  array{pais_id: int, provincia_id: int, tipo_contrato_id?: int}  $catalog
      * @param  array<string, string>  $values
      */
     private function persistPersona(
@@ -359,9 +402,9 @@ class ImportRepresentantesService
     }
 
     /**
-     * @return array{pais_id: int, provincia_id: int}|null
+     * @return array{pais_id: int, provincia_id: int, tipo_contrato_id?: int}|null
      */
-    private function catalogDefaults(): ?array
+    private function catalogDefaults(string $tipo): ?array
     {
         $pais = Sys_Pais::query()->orderBy('id')->first();
 
@@ -378,10 +421,55 @@ class ImportRepresentantesService
             return null;
         }
 
-        return [
+        $catalog = [
             'pais_id' => $pais->id,
             'provincia_id' => $provincia->id,
         ];
+
+        if ($tipo !== 'docentes') {
+            return $catalog;
+        }
+
+        $tipoContrato = Sys_TipoContrato::query()->orderBy('id')->first();
+
+        if ($tipoContrato === null) {
+            return null;
+        }
+
+        $catalog['tipo_contrato_id'] = $tipoContrato->id;
+
+        return $catalog;
+    }
+
+    private function missingCatalogMessage(string $tipo): string
+    {
+        if ($tipo === 'docentes' && Sys_Pais::query()->exists() && Sys_Provincia::query()->exists()) {
+            return 'No hay un tipo de contrato en catálogos para completar los docentes.';
+        }
+
+        return match ($tipo) {
+            'alumnos' => 'No hay un país y una provincia en catálogos para completar los alumnos.',
+            'docentes' => 'No hay un país y una provincia en catálogos para completar los docentes.',
+            default => 'No hay un país y una provincia en catálogos para completar los representantes.',
+        };
+    }
+
+    private function tablas(string $tipo): string
+    {
+        return match ($tipo) {
+            'alumnos' => 'users,personas,alumnos',
+            'docentes' => 'users,personas,empleados',
+            default => 'users,personas,padres',
+        };
+    }
+
+    private function roleFor(string $tipo): Role
+    {
+        return match ($tipo) {
+            'alumnos' => Role::Alumno,
+            'docentes' => Role::Docente,
+            default => Role::Padre,
+        };
     }
 
     private function tipoIdentificacionId(string $value): ?int

@@ -15,7 +15,15 @@ class ImportRepresentantesController extends Controller
     {
         $this->establecimientoId($request);
 
-        return view('admin.padres.import');
+        $tipo = $request->string('tipo')->toString();
+
+        if (! in_array($tipo, ['padres', 'alumnos'], true)) {
+            $tipo = 'padres';
+        }
+
+        return view('admin.padres.import', [
+            'tipo' => $tipo,
+        ]);
     }
 
     public function store(
@@ -27,11 +35,15 @@ class ImportRepresentantesController extends Controller
 
         abort_if($file === null || $actor === null, 403);
 
-        $import = $importRepresentantes->import($actor, $file);
+        $import = $importRepresentantes->import(
+            $actor,
+            $file,
+            $request->string('tipo')->toString(),
+        );
 
         return redirect()
             ->route('Admin.padres.import.show', $import)
-            ->with('status', 'representantes-imported');
+            ->with('status', 'import-processed');
     }
 
     public function show(Request $request, ImportData $importData): View

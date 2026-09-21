@@ -1,18 +1,22 @@
+@php
+    $esAlumnos = $importData->tablas === 'users,personas,alumnos';
+@endphp
+
 <x-app-layout>
     <x-slot name="header">
         <div class="flex items-center justify-between gap-4">
             <h2 class="text-xl font-semibold leading-tight text-slate-800">
                 Resultado de la importación
             </h2>
-            <a href="{{ route('Admin.padres') }}" class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800">
-                Volver a padres
+            <a href="{{ $esAlumnos ? route('Admin.alumnos') : route('Admin.padres') }}" class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800">
+                {{ $esAlumnos ? 'Volver a alumnos' : 'Volver a padres' }}
             </a>
         </div>
     </x-slot>
 
     <div class="py-8">
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            @if (session('status') === 'representantes-imported')
+            @if (session('status') === 'import-processed')
                 <p class="mb-4 text-sm font-medium text-green-700">La importación se procesó. Revisa el detalle de cada fila.</p>
             @endif
 

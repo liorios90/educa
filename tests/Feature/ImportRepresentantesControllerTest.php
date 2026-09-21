@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\Role;
+use App\Models\Alumno;
 use App\Models\Establecimiento;
 use App\Models\ImportData;
 use App\Models\Padre;
@@ -179,6 +180,22 @@ function representantesHeader(): array
     return ['tipo_identificacion', 'identificacion', 'email', 'nombres', 'apellidos'];
 }
 
+function alumnosHeader(): array
+{
+    return [...representantesHeader(), 'identificacion_representante'];
+}
+
+/**
+ * @return array{tipo: string, archivo: UploadedFile}
+ */
+function importPayload(UploadedFile $archivo, string $tipo = 'padres'): array
+{
+    return [
+        'tipo' => $tipo,
+        'archivo' => $archivo,
+    ];
+}
+
 describe('create', function () {
     it('allows administrators to open the import form', function () {
         $admin = adminOf(Establecimiento::factory()->create());
@@ -186,8 +203,21 @@ describe('create', function () {
         $this->actingAs($admin)
             ->get(route('Admin.padres.import'))
             ->assertOk()
-            ->assertSee('Importar representantes')
-            ->assertSee('tipo_identificacion');
+            ->assertSee('Importar padres o alumnos')
+            ->assertSee('Padres')
+            ->assertSee('Alumnos')
+            ->assertSee('tipo_identificacion')
+            ->assertSee('identificacion_representante');
+    });
+
+    it('preselects alumnos when the form is opened for alumnos', function () {
+        $admin = adminOf(Establecimiento::factory()->create());
+
+        $this->actingAs($admin)
+            ->get(route('Admin.padres.import', ['tipo' => 'alumnos']))
+            ->assertOk()
+            ->assertSee('value="alumnos"', false)
+            ->assertSee('checked', false);
     });
 
     it('forbids systems users from opening the import form', function () {
@@ -220,18 +250,16 @@ describe('store', function () {
         Sys_Provincia::factory()->create(['pais_id' => $pais->id]);
 
         $response = $this->actingAs($admin)
-            ->post(route('Admin.padres.import.store'), [
-                'archivo' => representantesCsv([
-                    representantesHeader(),
-                    ['C', '0911111111', 'ana.mora@example.com', 'Ana', 'Mora'],
-                    ['C', '0922222222', 'luis.vera@example.com', 'Luis', 'Vera'],
-                ]),
-            ]);
+            ->post(route('Admin.padres.import.store'), importPayload(representantesCsv([
+                representantesHeader(),
+                ['C', '0911111111', 'ana.mora@example.com', 'Ana', 'Mora'],
+                ['C', '0922222222', 'luis.vera@example.com', 'Luis', 'Vera'],
+            ])));
 
         $import = ImportData::query()->firstOrFail();
 
         $response->assertRedirect(route('Admin.padres.import.show', $import))
-            ->assertSessionHas('status', 'representantes-imported');
+            ->assertSessionHas('status', 'import-processed');
 
         expect($import->establecimiento_id)->toBe($establecimiento->id)
             ->and($import->usuario)->toBe('Director Andino')
@@ -273,12 +301,10 @@ describe('store', function () {
         Sys_Provincia::factory()->create(['pais_id' => $pais->id]);
 
         $this->actingAs($admin)
-            ->post(route('Admin.padres.import.store'), [
-                'archivo' => representantesXlsx([
-                    representantesHeader(),
-                    ['C', '0944444444', 'sofia.nunez@example.com', 'Sofía', 'Núñez'],
-                ]),
-            ]);
+            ->post(route('Admin.padres.import.store'), importPayload(representantesXlsx([
+                representantesHeader(),
+                ['C', '0944444444', 'sofia.nunez@example.com', 'Sofía', 'Núñez'],
+            ])));
 
         $import = ImportData::query()->firstOrFail();
 
@@ -296,15 +322,13 @@ describe('store', function () {
         User::factory()->create(['email' => 'ya.existe@example.com']);
 
         $this->actingAs($admin)
-            ->post(route('Admin.padres.import.store'), [
-                'archivo' => representantesCsv([
-                    representantesHeader(),
-                    ['C', '0911111111', 'ana.mora@example.com', 'Ana', 'Mora'],
-                    ['X', '0922222222', 'malo@example.com', 'Luis', 'Vera'],
-                    ['C', '0933333333', 'ya.existe@example.com', 'Eva', 'Sol'],
-                    ['C', '', 'sin.id@example.com', 'Pia', 'Rios'],
-                ]),
-            ]);
+            ->post(route('Admin.padres.import.store'), importPayload(representantesCsv([
+                representantesHeader(),
+                ['C', '0911111111', 'ana.mora@example.com', 'Ana', 'Mora'],
+                ['X', '0922222222', 'malo@example.com', 'Luis', 'Vera'],
+                ['C', '0933333333', 'ya.existe@example.com', 'Eva', 'Sol'],
+                ['C', '', 'sin.id@example.com', 'Pia', 'Rios'],
+            ])));
 
         $import = ImportData::query()->firstOrFail();
 
@@ -341,12 +365,10 @@ describe('store', function () {
         ]);
 
         $this->actingAs($admin)
-            ->post(route('Admin.padres.import.store'), [
-                'archivo' => representantesCsv([
-                    representantesHeader(),
-                    ['C', '0911111111', 'ana.mora@example.com', 'Ana', 'Mora'],
-                ]),
-            ]);
+            ->post(route('Admin.padres.import.store'), importPayload(representantesCsv([
+                representantesHeader(),
+                ['C', '0911111111', 'ana.mora@example.com', 'Ana', 'Mora'],
+            ])));
 
         $this->assertDatabaseMissing('users', ['email' => 'ana.mora@example.com']);
         $this->assertDatabaseHas('import_data_detalles', [
@@ -362,12 +384,10 @@ describe('store', function () {
         Sys_Provincia::factory()->create(['pais_id' => $pais->id]);
 
         $this->actingAs($admin)
-            ->post(route('Admin.padres.import.store'), [
-                'archivo' => representantesCsv([
-                    ['identificacion', 'nombres'],
-                    ['0911111111', 'Ana'],
-                ]),
-            ]);
+            ->post(route('Admin.padres.import.store'), importPayload(representantesCsv([
+                ['identificacion', 'nombres'],
+                ['0911111111', 'Ana'],
+            ])));
 
         $import = ImportData::query()->firstOrFail();
 
@@ -384,7 +404,7 @@ describe('store', function () {
 
         $this->actingAs($admin)
             ->from(route('Admin.padres.import'))
-            ->post(route('Admin.padres.import.store'), [])
+            ->post(route('Admin.padres.import.store'), ['tipo' => 'padres'])
             ->assertRedirect(route('Admin.padres.import'))
             ->assertSessionHasErrors('archivo');
 
@@ -395,10 +415,160 @@ describe('store', function () {
         $user = assignRole(User::factory()->create(), Role::Sistemas);
 
         $this->actingAs($user)
+            ->post(route('Admin.padres.import.store'), importPayload(representantesCsv([representantesHeader()])))
+            ->assertForbidden();
+    });
+
+    it('does not process the file when the import type is missing', function () {
+        $admin = adminOf(Establecimiento::factory()->create());
+
+        $this->actingAs($admin)
+            ->from(route('Admin.padres.import'))
             ->post(route('Admin.padres.import.store'), [
                 'archivo' => representantesCsv([representantesHeader()]),
             ])
-            ->assertForbidden();
+            ->assertRedirect(route('Admin.padres.import'))
+            ->assertSessionHasErrors('tipo');
+
+        expect(ImportData::query()->exists())->toBeFalse();
+    });
+
+    it('imports alumnos linked to a representante of the same establishment', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $pais = Sys_Pais::factory()->create();
+        $provincia = Sys_Provincia::factory()->create(['pais_id' => $pais->id]);
+        $padrePersona = Persona::factory()->create([
+            'identificacion' => '0911111111',
+            'establecimiento_id' => $establecimiento->id,
+            'nacionalidad_id' => $pais->id,
+            'provincia_id' => $provincia->id,
+        ]);
+        $padre = Padre::factory()->for($padrePersona)->create();
+
+        $response = $this->actingAs($admin)
+            ->post(route('Admin.padres.import.store'), importPayload(representantesCsv([
+                alumnosHeader(),
+                ['C', '0955555555', 'mateo.nunez@example.com', 'Mateo', 'Núñez', '0911111111'],
+            ]), 'alumnos'));
+
+        $import = ImportData::query()->firstOrFail();
+
+        $response->assertRedirect(route('Admin.padres.import.show', $import))
+            ->assertSessionHas('status', 'import-processed');
+
+        $alumnoUser = User::query()->where('email', 'mateo.nunez@example.com')->firstOrFail();
+        $persona = Persona::query()->where('identificacion', '0955555555')->firstOrFail();
+        $alumno = Alumno::query()->where('persona_id', $persona->id)->firstOrFail();
+
+        expect($import->tablas)->toBe('users,personas,alumnos')
+            ->and($import->mensaje)->toBe('Importados: 1. Fallidos: 0.')
+            ->and($alumnoUser->hasRole(Role::Alumno))->toBeTrue()
+            ->and($alumnoUser->establecimiento_id)->toBe($establecimiento->id)
+            ->and(Hash::check('0955555555', $alumnoUser->password))->toBeTrue()
+            ->and($persona->nombres)->toBe('Mateo')
+            ->and($persona->establecimiento_id)->toBe($establecimiento->id)
+            ->and($alumno->padre_id)->toBe($padre->id);
+
+        $this->assertDatabaseHas('import_data_detalles', [
+            'import_data_id' => $import->id,
+            'identificacion' => '0955555555',
+            'descripcion' => 'Importado correctamente',
+        ]);
+    });
+
+    it('imports alumnos from an excel file', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $pais = Sys_Pais::factory()->create();
+        $provincia = Sys_Provincia::factory()->create(['pais_id' => $pais->id]);
+        $padrePersona = Persona::factory()->create([
+            'identificacion' => '0911111111',
+            'establecimiento_id' => $establecimiento->id,
+            'nacionalidad_id' => $pais->id,
+            'provincia_id' => $provincia->id,
+        ]);
+        Padre::factory()->for($padrePersona)->create();
+
+        $this->actingAs($admin)
+            ->post(route('Admin.padres.import.store'), importPayload(representantesXlsx([
+                alumnosHeader(),
+                ['C', '0966666666', 'luna.vera@example.com', 'Luna', 'Vera', '0911111111'],
+            ]), 'alumnos'));
+
+        $import = ImportData::query()->firstOrFail();
+        $persona = Persona::query()->where('identificacion', '0966666666')->firstOrFail();
+
+        expect($import->tipo_archivo)->toBe('xlsx')
+            ->and($import->mensaje)->toBe('Importados: 1. Fallidos: 0.');
+        $this->assertDatabaseHas('users', ['email' => 'luna.vera@example.com']);
+        expect(Alumno::query()->where('persona_id', $persona->id)->exists())->toBeTrue();
+    });
+
+    it('does not import an alumno when the representante is missing', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $pais = Sys_Pais::factory()->create();
+        Sys_Provincia::factory()->create(['pais_id' => $pais->id]);
+
+        $this->actingAs($admin)
+            ->post(route('Admin.padres.import.store'), importPayload(representantesCsv([
+                alumnosHeader(),
+                ['C', '0955555555', 'mateo.nunez@example.com', 'Mateo', 'Núñez', '0911111111'],
+            ]), 'alumnos'));
+
+        $this->assertDatabaseMissing('users', ['email' => 'mateo.nunez@example.com']);
+        $this->assertDatabaseHas('import_data_detalles', [
+            'identificacion' => '0955555555',
+            'descripcion' => 'No se encontró el representante con esa identificación en este instituto.',
+        ]);
+    });
+
+    it('does not import an alumno when the representante belongs to another establishment', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $pais = Sys_Pais::factory()->create();
+        $provincia = Sys_Provincia::factory()->create(['pais_id' => $pais->id]);
+        $otherPersona = Persona::factory()->create([
+            'identificacion' => '0911111111',
+            'nacionalidad_id' => $pais->id,
+            'provincia_id' => $provincia->id,
+        ]);
+        Padre::factory()->for($otherPersona)->create();
+
+        $this->actingAs($admin)
+            ->post(route('Admin.padres.import.store'), importPayload(representantesCsv([
+                alumnosHeader(),
+                ['C', '0955555555', 'mateo.nunez@example.com', 'Mateo', 'Núñez', '0911111111'],
+            ]), 'alumnos'));
+
+        $this->assertDatabaseMissing('users', ['email' => 'mateo.nunez@example.com']);
+        $this->assertDatabaseHas('import_data_detalles', [
+            'identificacion' => '0955555555',
+            'descripcion' => 'No se encontró el representante con esa identificación en este instituto.',
+        ]);
+    });
+
+    it('does not create alumnos when identificacion_representante is missing from the file', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $pais = Sys_Pais::factory()->create();
+        Sys_Provincia::factory()->create(['pais_id' => $pais->id]);
+
+        $this->actingAs($admin)
+            ->post(route('Admin.padres.import.store'), importPayload(representantesCsv([
+                representantesHeader(),
+                ['C', '0955555555', 'mateo.nunez@example.com', 'Mateo', 'Núñez'],
+            ]), 'alumnos'));
+
+        $import = ImportData::query()->firstOrFail();
+
+        expect($import->mensaje)->toBe('Importados: 0. Fallidos: 1.');
+        $this->assertDatabaseHas('import_data_detalles', [
+            'import_data_id' => $import->id,
+            'descripcion' => 'Faltan columnas: identificacion_representante.',
+        ]);
+        $this->assertDatabaseMissing('users', ['email' => 'mateo.nunez@example.com']);
     });
 });
 
@@ -430,6 +600,21 @@ describe('show', function () {
             ->assertSee('El correo no es válido.')
             ->assertSee("<script>alert('xss')</script>")
             ->assertDontSee("<script>alert('xss')</script>", false);
+    });
+
+    it('links back to alumnos after an alumnos import', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $import = ImportData::factory()->create([
+            'establecimiento_id' => $establecimiento->id,
+            'tablas' => 'users,personas,alumnos',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('Admin.padres.import.show', $import))
+            ->assertOk()
+            ->assertSee('Volver a alumnos')
+            ->assertDontSee('Volver a padres');
     });
 
     it('returns 404 when viewing an import from another establishment', function () {

@@ -54,6 +54,7 @@ describe('index', function () {
             ->get(route('Admin.alumnos'))
             ->assertOk()
             ->assertSee('Alumnos')
+            ->assertSee('Importar Excel')
             ->assertSee('Ana')
             ->assertSee('Pérez');
     });

@@ -1,6 +1,7 @@
 <?php
 
 use App\Crud\CrudRegistry;
+use App\Http\Controllers\CurriculoController;
 use App\Http\Controllers\EstablecimientoController;
 use App\Http\Controllers\EstructuraController;
 use App\Http\Controllers\GenericCrudController;
@@ -44,6 +45,13 @@ Route::middleware(['auth', 'verified', 'role:Sistemas'])
         Route::post('/estructura/niveles/{nivel}/subniveles/{subnivel}/grados', [EstructuraController::class, 'storeGrado'])->name('estructura.grados.store')->scopeBindings()->whereNumber('nivel')->whereNumber('subnivel');
         Route::patch('/estructura/niveles/{nivel}/subniveles/{subnivel}/grados/{grado}', [EstructuraController::class, 'updateGrado'])->name('estructura.grados.update')->scopeBindings()->whereNumber('nivel')->whereNumber('subnivel')->whereNumber('grado');
         Route::delete('/estructura/niveles/{nivel}/subniveles/{subnivel}/grados/{grado}', [EstructuraController::class, 'destroyGrado'])->name('estructura.grados.destroy')->scopeBindings()->whereNumber('nivel')->whereNumber('subnivel')->whereNumber('grado');
+        Route::get('/curriculo', [CurriculoController::class, 'index'])->name('curriculo');
+        Route::post('/curriculo/niveles/{nivel}/subniveles/{subnivel}/areas', [CurriculoController::class, 'storeArea'])->name('curriculo.areas.store')->scopeBindings()->whereNumber('nivel')->whereNumber('subnivel');
+        Route::patch('/curriculo/niveles/{nivel}/subniveles/{subnivel}/areas/{area}', [CurriculoController::class, 'updateArea'])->name('curriculo.areas.update')->scopeBindings()->whereNumber('nivel')->whereNumber('subnivel')->whereNumber('area');
+        Route::delete('/curriculo/niveles/{nivel}/subniveles/{subnivel}/areas/{area}', [CurriculoController::class, 'destroyArea'])->name('curriculo.areas.destroy')->scopeBindings()->whereNumber('nivel')->whereNumber('subnivel')->whereNumber('area');
+        Route::post('/curriculo/niveles/{nivel}/subniveles/{subnivel}/areas/{area}/asignaturas', [CurriculoController::class, 'storeAsignatura'])->name('curriculo.asignaturas.store')->scopeBindings()->whereNumber('nivel')->whereNumber('subnivel')->whereNumber('area');
+        Route::patch('/curriculo/niveles/{nivel}/subniveles/{subnivel}/areas/{area}/asignaturas/{asignatura}', [CurriculoController::class, 'updateAsignatura'])->name('curriculo.asignaturas.update')->scopeBindings()->whereNumber('nivel')->whereNumber('subnivel')->whereNumber('area')->whereNumber('asignatura');
+        Route::delete('/curriculo/niveles/{nivel}/subniveles/{subnivel}/areas/{area}/asignaturas/{asignatura}', [CurriculoController::class, 'destroyAsignatura'])->name('curriculo.asignaturas.destroy')->scopeBindings()->whereNumber('nivel')->whereNumber('subnivel')->whereNumber('area')->whereNumber('asignatura');
         Route::get('/prueba', [SistemasController::class, 'prueba'])->name('prueba');
         Route::get('/prueba', [SistemasController::class, 'prueba2'])->name('prueba2');
         Route::get('/menu', [NavigationItemController::class, 'index'])->name('navigation-items.index');

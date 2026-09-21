@@ -2,6 +2,7 @@
 
 use App\Enums\Role;
 use App\Models\NavigationItem;
+use App\Models\Sys_Area;
 use App\Models\Sys_Grado;
 use App\Models\Sys_Nivel;
 use App\Models\Sys_Subnivel;
@@ -12,8 +13,8 @@ describe('index', function () {
     it('allows systems users to open the nested estructura screen', function () {
         $user = assignRole(User::factory()->create(), Role::Sistemas);
         $nivel = Sys_Nivel::factory()->create(['nombre' => 'Educación General Básica']);
-        $subnivel = Sys_Subnivel::factory()->for($nivel)->create(['nombre' => 'Básica Superior']);
-        Sys_Grado::factory()->for($subnivel)->create(['nombre' => '8vo Básica']);
+        $subnivel = Sys_Subnivel::factory()->for($nivel, 'nivel')->create(['nombre' => 'Básica Superior']);
+        Sys_Grado::factory()->for($subnivel, 'subnivel')->create(['nombre' => '8vo Básica']);
 
         $this->actingAs($user)
             ->get(route('sistemas.estructura'))
@@ -55,10 +56,10 @@ describe('index', function () {
         $nivel = Sys_Nivel::factory()->create([
             'nombre' => "<script>alert('nivel')</script>",
         ]);
-        $subnivel = Sys_Subnivel::factory()->for($nivel)->create([
+        $subnivel = Sys_Subnivel::factory()->for($nivel, 'nivel')->create([
             'nombre' => "<script>alert('subnivel')</script>",
         ]);
-        Sys_Grado::factory()->for($subnivel)->create([
+        Sys_Grado::factory()->for($subnivel, 'subnivel')->create([
             'nombre' => "<script>alert('grado')</script>",
         ]);
 
@@ -168,7 +169,7 @@ describe('niveles', function () {
     it('does not delete a nivel that has subniveles', function () {
         $actor = assignRole(User::factory()->create(), Role::Sistemas);
         $nivel = Sys_Nivel::factory()->create();
-        Sys_Subnivel::factory()->for($nivel)->create();
+        Sys_Subnivel::factory()->for($nivel, 'nivel')->create();
 
         $this->actingAs($actor)
             ->from(route('sistemas.estructura'))
@@ -214,7 +215,7 @@ describe('subniveles', function () {
     it('updates a subnivel', function () {
         $actor = assignRole(User::factory()->create(), Role::Sistemas);
         $nivel = Sys_Nivel::factory()->create();
-        $subnivel = Sys_Subnivel::factory()->for($nivel)->create(['nombre' => 'Superior']);
+        $subnivel = Sys_Subnivel::factory()->for($nivel, 'nivel')->create(['nombre' => 'Superior']);
 
         $this->actingAs($actor)
             ->patch(route('sistemas.estructura.subniveles.update', [$nivel, $subnivel]), [
@@ -231,7 +232,7 @@ describe('subniveles', function () {
         $actor = assignRole(User::factory()->create(), Role::Sistemas);
         $nivel = Sys_Nivel::factory()->create();
         $otroNivel = Sys_Nivel::factory()->create();
-        $subnivel = Sys_Subnivel::factory()->for($nivel)->create();
+        $subnivel = Sys_Subnivel::factory()->for($nivel, 'nivel')->create();
 
         $this->actingAs($actor)
             ->patch(route('sistemas.estructura.subniveles.update', [$otroNivel, $subnivel]), [
@@ -243,7 +244,7 @@ describe('subniveles', function () {
     it('deletes a subnivel without grados', function () {
         $actor = assignRole(User::factory()->create(), Role::Sistemas);
         $nivel = Sys_Nivel::factory()->create();
-        $subnivel = Sys_Subnivel::factory()->for($nivel)->create();
+        $subnivel = Sys_Subnivel::factory()->for($nivel, 'nivel')->create();
 
         $this->actingAs($actor)
             ->delete(route('sistemas.estructura.subniveles.destroy', [$nivel, $subnivel]))
@@ -256,13 +257,27 @@ describe('subniveles', function () {
     it('does not delete a subnivel that has grados', function () {
         $actor = assignRole(User::factory()->create(), Role::Sistemas);
         $nivel = Sys_Nivel::factory()->create();
-        $subnivel = Sys_Subnivel::factory()->for($nivel)->create();
-        Sys_Grado::factory()->for($subnivel)->create();
+        $subnivel = Sys_Subnivel::factory()->for($nivel, 'nivel')->create();
+        Sys_Grado::factory()->for($subnivel, 'subnivel')->create();
 
         $this->actingAs($actor)
             ->delete(route('sistemas.estructura.subniveles.destroy', [$nivel, $subnivel]))
             ->assertRedirect(route('sistemas.estructura', ['nivel' => $nivel->id, 'subnivel' => $subnivel->id]))
             ->assertSessionHas('error', 'No se puede eliminar el subnivel porque tiene grados asociados.');
+
+        $this->assertModelExists($subnivel);
+    });
+
+    it('does not delete a subnivel that has areas', function () {
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+        $nivel = Sys_Nivel::factory()->create();
+        $subnivel = Sys_Subnivel::factory()->for($nivel, 'nivel')->create();
+        Sys_Area::factory()->for($subnivel, 'subnivel')->create();
+
+        $this->actingAs($actor)
+            ->delete(route('sistemas.estructura.subniveles.destroy', [$nivel, $subnivel]))
+            ->assertRedirect(route('sistemas.estructura', ['nivel' => $nivel->id, 'subnivel' => $subnivel->id]))
+            ->assertSessionHas('error', 'No se puede eliminar el subnivel porque tiene áreas asociadas.');
 
         $this->assertModelExists($subnivel);
     });
@@ -272,7 +287,7 @@ describe('grados', function () {
     it('creates a grado for the selected subnivel', function () {
         $actor = assignRole(User::factory()->create(), Role::Sistemas);
         $nivel = Sys_Nivel::factory()->create();
-        $subnivel = Sys_Subnivel::factory()->for($nivel)->create();
+        $subnivel = Sys_Subnivel::factory()->for($nivel, 'nivel')->create();
 
         $this->actingAs($actor)
             ->post(route('sistemas.estructura.grados.store', [$nivel, $subnivel]), [
@@ -292,7 +307,7 @@ describe('grados', function () {
     it('rejects an empty grado payload', function () {
         $actor = assignRole(User::factory()->create(), Role::Sistemas);
         $nivel = Sys_Nivel::factory()->create();
-        $subnivel = Sys_Subnivel::factory()->for($nivel)->create();
+        $subnivel = Sys_Subnivel::factory()->for($nivel, 'nivel')->create();
 
         $this->actingAs($actor)
             ->from(route('sistemas.estructura', ['nivel' => $nivel->id, 'subnivel' => $subnivel->id]))
@@ -304,8 +319,8 @@ describe('grados', function () {
     it('updates a grado', function () {
         $actor = assignRole(User::factory()->create(), Role::Sistemas);
         $nivel = Sys_Nivel::factory()->create();
-        $subnivel = Sys_Subnivel::factory()->for($nivel)->create();
-        $grado = Sys_Grado::factory()->for($subnivel)->create(['nombre' => '8vo']);
+        $subnivel = Sys_Subnivel::factory()->for($nivel, 'nivel')->create();
+        $grado = Sys_Grado::factory()->for($subnivel, 'subnivel')->create(['nombre' => '8vo']);
 
         $this->actingAs($actor)
             ->patch(route('sistemas.estructura.grados.update', [$nivel, $subnivel, $grado]), [
@@ -321,9 +336,9 @@ describe('grados', function () {
     it('does not update a grado from another subnivel', function () {
         $actor = assignRole(User::factory()->create(), Role::Sistemas);
         $nivel = Sys_Nivel::factory()->create();
-        $subnivel = Sys_Subnivel::factory()->for($nivel)->create();
-        $otroSubnivel = Sys_Subnivel::factory()->for($nivel)->create();
-        $grado = Sys_Grado::factory()->for($subnivel)->create();
+        $subnivel = Sys_Subnivel::factory()->for($nivel, 'nivel')->create();
+        $otroSubnivel = Sys_Subnivel::factory()->for($nivel, 'nivel')->create();
+        $grado = Sys_Grado::factory()->for($subnivel, 'subnivel')->create();
 
         $this->actingAs($actor)
             ->patch(route('sistemas.estructura.grados.update', [$nivel, $otroSubnivel, $grado]), [
@@ -335,8 +350,8 @@ describe('grados', function () {
     it('deletes a grado', function () {
         $actor = assignRole(User::factory()->create(), Role::Sistemas);
         $nivel = Sys_Nivel::factory()->create();
-        $subnivel = Sys_Subnivel::factory()->for($nivel)->create();
-        $grado = Sys_Grado::factory()->for($subnivel)->create();
+        $subnivel = Sys_Subnivel::factory()->for($nivel, 'nivel')->create();
+        $grado = Sys_Grado::factory()->for($subnivel, 'subnivel')->create();
 
         $this->actingAs($actor)
             ->delete(route('sistemas.estructura.grados.destroy', [$nivel, $subnivel, $grado]))
@@ -356,5 +371,7 @@ it('seeds the estructura hub button for systems users', function () {
         ->get(route('navigation.hub', $estructura))
         ->assertOk()
         ->assertSee('Nivel - Subnivel - Grado')
-        ->assertSee(route('sistemas.estructura'), false);
+        ->assertSee('Áreas y asignaturas')
+        ->assertSee(route('sistemas.estructura'), false)
+        ->assertSee(route('sistemas.curriculo'), false);
 });

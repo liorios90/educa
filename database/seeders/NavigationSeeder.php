@@ -37,6 +37,7 @@ class NavigationSeeder extends Seeder
         $this->upsertItem('Diseñar reportes', 'sistemas.reports.index', 'cog', 6, false, [$sistemas->id]);
         $estructura = $this->upsertItem('Estructura', 'navigation.hub', 'home', 7, false, [$sistemas->id], isGroup: true);
         $this->upsertItem('Nivel - Subnivel - Grado', 'sistemas.estructura', 'home', 1, false, [$sistemas->id], parentId: $estructura->id);
+        $this->upsertItem('Áreas y asignaturas', 'sistemas.curriculo', 'home', 2, false, [$sistemas->id], parentId: $estructura->id);
         $this->upsertItem('Reportes', 'reports.index', 'home', 8, true, []);
         $this->upsertItem('Perfil', 'profile.edit', 'user', 9, true, []);
     }

@@ -88,6 +88,14 @@ class EstructuraController extends Controller
             );
         }
 
+        if ($subnivel->areas()->exists()) {
+            return $this->redirectToIndex(
+                nivel: $nivel,
+                subnivel: $subnivel,
+                error: 'No se puede eliminar el subnivel porque tiene áreas asociadas.',
+            );
+        }
+
         $subnivel->delete();
 
         return $this->redirectToIndex(nivel: $nivel, status: 'subnivel-deleted');

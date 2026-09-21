@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class Sys_Subnivel extends Model
 {
@@ -59,12 +60,30 @@ class Sys_Subnivel extends Model
     }
 
     /**
+     * @return HasMany<Sys_Area, $this>
+     */
+    public function areas(): HasMany
+    {
+        return $this->hasMany(Sys_Area::class, 'subnivel_id')->orderBy('orden')->orderBy('nombre')->orderBy('id');
+    }
+
+    /**
+     * @return HasManyThrough<Sys_Asignatura, Sys_Area, $this>
+     */
+    public function asignaturas(): HasManyThrough
+    {
+        return $this->hasManyThrough(Sys_Asignatura::class, Sys_Area::class, 'subnivel_id', 'area_id');
+    }
+
+    /**
      * @param  string  $childType
      */
     protected function childRouteBindingRelationshipName($childType): string
     {
-        return $childType === 'grado'
-            ? 'grados'
-            : parent::childRouteBindingRelationshipName($childType);
+        return match ($childType) {
+            'grado' => 'grados',
+            'area' => 'areas',
+            default => parent::childRouteBindingRelationshipName($childType),
+        };
     }
 }

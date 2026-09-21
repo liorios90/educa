@@ -4,9 +4,14 @@
             <h2 class="text-xl font-semibold leading-tight text-slate-800">
                 Padres de familia
             </h2>
-            <a href="{{ route('Admin.padres.create') }}" class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800">
-                Nuevo padre
-            </a>
+            <div class="flex items-center gap-3">
+                <a href="{{ route('Admin.padres.import') }}" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                    Importar Excel
+                </a>
+                <a href="{{ route('Admin.padres.create') }}" class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800">
+                    Nuevo padre
+                </a>
+            </div>
         </div>
     </x-slot>
 

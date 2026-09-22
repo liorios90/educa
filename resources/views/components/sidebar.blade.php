@@ -1,8 +1,3 @@
-@php
-    $roleLabel = $activeRole?->label()
-        ?? ($user->roles->first() ? (\App\Enums\Role::tryFrom($user->roles->first()->name)?->label() ?? $user->roles->first()->name) : 'Sin rol');
-@endphp
-
 <div
     x-show="sidebarOpen"
     x-transition.opacity
@@ -12,11 +7,27 @@
 ></div>
 
 <aside
+    id="app-sidebar"
     {{ $attributes->merge(['class' => 'fixed inset-y-0 left-0 z-40 flex w-72 -translate-x-full flex-col bg-slate-950 text-slate-200 shadow-xl transition-transform duration-200 ease-out lg:translate-x-0']) }}
     :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'"
+    :style="sidebarOpen ? { transform: 'translateX(0px)' } : { transform: 'translateX(-100%)' }"
 >
-    <div class="flex h-16 items-center gap-3 px-6">
-        <a href="{{ route('dashboard') }}" class="flex min-w-0 items-center gap-3 text-white">
+    <div class="flex h-16 items-center gap-2 px-3">
+        <button
+            type="button"
+            class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-slate-300 transition hover:bg-white/5 hover:text-white"
+            @click="sidebarOpen = false"
+            title="Cerrar menú"
+            aria-controls="app-sidebar"
+            :aria-expanded="sidebarOpen.toString()"
+        >
+            <span class="sr-only">Cerrar menú</span>
+            <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="m18.75 4.5-7.5 7.5 7.5 7.5m-6-15L5.25 12l7.5 7.5" />
+            </svg>
+        </button>
+
+        <a href="{{ route('dashboard') }}" class="flex min-w-0 flex-1 items-center gap-3 text-white">
             @if ($isSistemas)
                 <span class="truncate text-base font-semibold tracking-tight">{{ config('app.name', 'Educa') }}</span>
             @elseif ($establecimiento)
@@ -28,39 +39,46 @@
         </a>
     </div>
 
-    <nav class="flex flex-1 flex-col gap-1 px-4 py-4" aria-label="Menú principal">
+    <nav class="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-4 py-4" aria-label="Menú principal">
         @foreach ($items as $item)
-            <x-sidebar-link :href="$item->url()" :active="$item->isActive()" :icon="$item->icon">
-                {{ $item->label }}
-            </x-sidebar-link>
+            @if ($item->showsChildrenInSidebar())
+                <div x-data="{ open: {{ $item->isActive() ? 'true' : 'false' }} }" class="flex flex-col gap-1">
+                    <button
+                        type="button"
+                        class="group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition {{ $item->isActive() ? 'bg-white/10 text-white shadow-sm ring-1 ring-white/10' : 'text-slate-300 hover:bg-white/5 hover:text-white' }}"
+                        @click="open = ! open"
+                        :aria-expanded="open.toString()"
+                    >
+                        <x-sidebar-icon :name="$item->icon" class="{{ $item->isActive() ? 'text-indigo-300' : 'text-slate-400 group-hover:text-slate-200' }}" />
+                        <span class="min-w-0 flex-1 truncate">{{ $item->label }}</span>
+                        <svg
+                            class="h-4 w-4 shrink-0 text-slate-400 transition-transform duration-200"
+                            :class="open ? 'rotate-90' : ''"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke-width="1.5"
+                            stroke="currentColor"
+                            aria-hidden="true"
+                        >
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
+                        </svg>
+                    </button>
+                    <div x-show="open" x-cloak class="flex flex-col gap-1 border-l border-white/10 ml-5 pl-2">
+                        @forelse ($item->children as $child)
+                            <x-sidebar-link :href="$child->url()" :active="$child->isActive()" :icon="$child->icon" :nested="true">
+                                {{ $child->label }}
+                            </x-sidebar-link>
+                        @empty
+                            <p class="px-3 py-2 text-xs text-slate-500">Sin opciones</p>
+                        @endforelse
+                    </div>
+                </div>
+            @else
+                <x-sidebar-link :href="$item->url()" :active="$item->isActive()" :icon="$item->icon">
+                    {{ $item->label }}
+                </x-sidebar-link>
+            @endif
         @endforeach
     </nav>
-
-    <div class="mt-auto flex flex-col gap-3 border-t border-white/10 px-4 py-4">
-        <div class="flex items-center gap-3 rounded-xl px-2 py-1">
-            <div class="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-500/20 text-sm font-semibold text-indigo-200">
-                {{ strtoupper(mb_substr($user->name, 0, 1)) }}
-            </div>
-            <div class="min-w-0 flex-1">
-                <p class="truncate text-sm font-medium text-white">{{ $user->name }}</p>
-                <p class="truncate text-xs text-slate-400">{{ $roleLabel }}</p>
-            </div>
-        </div>
-
-        @if ($canSwitchRole)
-            <a href="{{ route('role.select') }}" class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white">
-                Cambiar rol
-            </a>
-        @endif
-
-        <form method="POST" action="{{ route('logout') }}">
-            @csrf
-            <button type="submit" class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white">
-                <svg class="h-5 w-5 text-slate-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
-                </svg>
-                Cerrar sesión
-            </button>
-        </form>
-    </div>
 </aside>

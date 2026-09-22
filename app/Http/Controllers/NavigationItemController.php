@@ -6,6 +6,7 @@ use App\Enums\Role as RoleName;
 use App\Http\Requests\StoreNavigationItemRequest;
 use App\Http\Requests\UpdateNavigationItemRequest;
 use App\Models\NavigationItem;
+use App\Navigation\NavigationIcons;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -109,13 +110,13 @@ class NavigationItemController extends Controller
     }
 
     /**
-     * @return array{roles: \Illuminate\Database\Eloquent\Collection<int, Role>, icons: list<string>, routeNames: Collection<int, string>}
+     * @return array{roles: \Illuminate\Database\Eloquent\Collection<int, Role>, icons: array<string, array{label: string, paths: list<string>}>, routeNames: Collection<int, string>}
      */
     private function formData(): array
     {
         return [
             'roles' => Role::query()->orderBy('name')->get(),
-            'icons' => NavigationItem::ICONS,
+            'icons' => NavigationIcons::catalog(),
             'routeNames' => collect(Route::getRoutes()->getRoutesByName())->keys()->sort()->values(),
         ];
     }
@@ -135,6 +136,7 @@ class NavigationItemController extends Controller
                 'is_active',
                 'visible_to_all',
                 'is_group',
+                'group_display',
             ]),
             'parent_id' => null,
             'route_name' => $isGroup ? 'navigation.hub' : $request->validated('route_name'),
@@ -237,7 +239,7 @@ class NavigationItemController extends Controller
 
     private function routeDisplaySql(string $table): string
     {
-        return "CASE WHEN {$table}.is_group THEN 'Botones' ELSE {$table}.route_name END";
+        return "CASE WHEN {$table}.is_group THEN CASE WHEN {$table}.group_display = 'sidebar' THEN 'Barra' ELSE 'Botones' END ELSE {$table}.route_name END";
     }
 
     private function visibilityDisplaySql(string $table): string

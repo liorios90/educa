@@ -2,8 +2,10 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\NavigationGroupDisplay;
 use App\Enums\Role;
 use App\Models\NavigationItem;
+use App\Navigation\NavigationIcons;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -28,6 +30,11 @@ class StoreNavigationItemRequest extends FormRequest
         return [
             'label' => ['required', 'string', 'max:255'],
             'is_group' => ['required', 'boolean', Rule::when($hasChildren, ['accepted'])],
+            'group_display' => [
+                Rule::requiredIf($this->boolean('is_group')),
+                'nullable',
+                Rule::enum(NavigationGroupDisplay::class),
+            ],
             'route_name' => [
                 Rule::requiredIf(! $this->boolean('is_group')),
                 'nullable',
@@ -35,7 +42,7 @@ class StoreNavigationItemRequest extends FormRequest
                 'max:255',
                 $this->existingRoute(),
             ],
-            'icon' => ['required', 'string', Rule::in(NavigationItem::ICONS)],
+            'icon' => ['required', 'string', Rule::in(NavigationIcons::names())],
             'sort_order' => ['required', 'integer', 'min:0'],
             'is_active' => ['required', 'boolean'],
             'visible_to_all' => ['required', 'boolean'],
@@ -57,10 +64,15 @@ class StoreNavigationItemRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        $isGroup = $this->boolean('is_group');
+
         $this->merge([
             'is_active' => $this->boolean('is_active'),
             'visible_to_all' => $this->boolean('visible_to_all'),
-            'is_group' => $this->boolean('is_group'),
+            'is_group' => $isGroup,
+            'group_display' => $isGroup
+                ? ($this->input('group_display') ?: NavigationGroupDisplay::Screen->value)
+                : NavigationGroupDisplay::Screen->value,
         ]);
     }
 

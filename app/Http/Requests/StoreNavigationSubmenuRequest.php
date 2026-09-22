@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Enums\Role;
 use App\Models\NavigationItem;
+use App\Navigation\NavigationIcons;
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -30,7 +31,7 @@ class StoreNavigationSubmenuRequest extends FormRequest
         return [
             'label' => ['required', 'string', 'max:255'],
             'route_name' => ['required', 'string', 'max:255', $this->existingRoute()],
-            'icon' => ['required', 'string', Rule::in(NavigationItem::ICONS)],
+            'icon' => ['required', 'string', Rule::in(NavigationIcons::names())],
             'sort_order' => ['required', 'integer', 'min:0'],
             'is_active' => ['required', 'boolean'],
         ];

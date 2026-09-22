@@ -6,7 +6,7 @@
     </x-slot>
 
     <div class="py-8">
-        <div class="mx-auto max-w-xl px-4 sm:px-6 lg:px-8">
+            <div class="mx-auto max-w-2xl px-4 sm:px-6 lg:px-8">
             <form method="POST" action="{{ route('sistemas.navigation-items.submenus.update', [$parent, $item]) }}" class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                 @csrf
                 @method('patch')

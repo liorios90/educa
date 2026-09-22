@@ -2,6 +2,7 @@
 
 namespace App\Navigation;
 
+use App\Enums\NavigationGroupDisplay;
 use App\Enums\Role;
 use App\Models\NavigationItem as NavigationItemModel;
 use App\Models\User;
@@ -11,6 +12,7 @@ class NavigationItem
 {
     /**
      * @param  list<Role>  $roles
+     * @param  list<self>  $children
      */
     public function __construct(
         public string $label,
@@ -18,6 +20,8 @@ class NavigationItem
         public string $icon,
         public array $roles = [],
         public ?int $groupId = null,
+        public NavigationGroupDisplay $groupDisplay = NavigationGroupDisplay::Screen,
+        public array $children = [],
     ) {}
 
     public function visibleTo(User $user): bool
@@ -34,8 +38,23 @@ class NavigationItem
         return $this->groupId !== null;
     }
 
+    public function showsChildrenInSidebar(): bool
+    {
+        return $this->isGroup() && $this->groupDisplay === NavigationGroupDisplay::Sidebar;
+    }
+
     public function isActive(): bool
     {
+        if ($this->showsChildrenInSidebar()) {
+            foreach ($this->children as $child) {
+                if ($child->isActive()) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         if ($this->isGroup()) {
             $current = Request::route('navigationItem');
             $currentId = $current instanceof NavigationItemModel
@@ -50,10 +69,24 @@ class NavigationItem
 
     public function url(): string
     {
+        if ($this->showsChildrenInSidebar()) {
+            return '#';
+        }
+
         if ($this->isGroup()) {
             return route('navigation.hub', $this->groupId);
         }
 
         return route($this->route);
+    }
+
+    /**
+     * @param  list<self>  $children
+     */
+    public function withChildren(array $children): self
+    {
+        $this->children = $children;
+
+        return $this;
     }
 }

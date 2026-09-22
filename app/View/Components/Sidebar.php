@@ -22,16 +22,13 @@ class Sidebar extends Component
         /** @var User $user */
         $user = Auth::user();
 
-        $user->loadMissing(['establecimiento', 'roles']);
+        $user->loadMissing('establecimiento');
         $activeRole = $this->activeRole->get($user);
         $showSchoolBranding = $activeRole?->requiresEstablecimiento() === true;
 
         return view('components.sidebar', [
             'items' => $this->navigation->itemsFor($user),
-            'user' => $user,
             'establecimiento' => $showSchoolBranding ? $user->establecimiento : null,
-            'activeRole' => $activeRole,
-            'canSwitchRole' => $user->roles->count() > 1,
             'isSistemas' => $activeRole === Role::Sistemas,
         ]);
     }

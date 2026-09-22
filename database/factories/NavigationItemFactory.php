@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\NavigationGroupDisplay;
 use App\Models\NavigationItem;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -23,6 +24,7 @@ class NavigationItemFactory extends Factory
             'is_active' => true,
             'visible_to_all' => false,
             'is_group' => false,
+            'group_display' => NavigationGroupDisplay::Screen,
             'parent_id' => null,
         ];
     }
@@ -38,6 +40,16 @@ class NavigationItemFactory extends Factory
     {
         return $this->state(fn (array $attributes): array => [
             'is_group' => true,
+            'group_display' => NavigationGroupDisplay::Screen,
+            'route_name' => 'navigation.hub',
+        ]);
+    }
+
+    public function sidebar(): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'is_group' => true,
+            'group_display' => NavigationGroupDisplay::Sidebar,
             'route_name' => 'navigation.hub',
         ]);
     }
@@ -47,6 +59,7 @@ class NavigationItemFactory extends Factory
         return $this->state(fn (array $attributes): array => [
             'parent_id' => $parent->id,
             'is_group' => false,
+            'group_display' => NavigationGroupDisplay::Screen,
         ]);
     }
 

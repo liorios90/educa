@@ -104,6 +104,15 @@ it('escapes the user name in the sidebar', function () {
         ->assertDontSee("<script>alert('xss')</script>", false);
 });
 
+it('renders controls to open and close the sidebar', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->get(route('dashboard'))
+        ->assertSee('Cerrar menú')
+        ->assertSee('Abrir menú');
+});
+
 it('returns only the links the user may see', function () {
     $this->seed(NavigationSeeder::class);
 

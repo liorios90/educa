@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreNavigationSubmenuRequest;
 use App\Models\NavigationItem;
+use App\Navigation\NavigationIcons;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Route;
@@ -84,12 +85,12 @@ class NavigationSubmenuController extends Controller
     }
 
     /**
-     * @return array{icons: list<string>, routeNames: Collection<int, string>}
+     * @return array{icons: array<string, array{label: string, paths: list<string>}>, routeNames: Collection<int, string>}
      */
     private function formData(): array
     {
         return [
-            'icons' => NavigationItem::ICONS,
+            'icons' => NavigationIcons::catalog(),
             'routeNames' => collect(Route::getRoutes()->getRoutesByName())->keys()->sort()->values(),
         ];
     }

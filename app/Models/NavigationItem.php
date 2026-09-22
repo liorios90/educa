@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\NavigationGroupDisplay;
 use App\Enums\Role;
 use App\Navigation\NavigationItem as MenuItem;
 use Database\Factories\NavigationItemFactory;
@@ -15,16 +16,18 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Spatie\Permission\Models\Role as RoleModel;
 
-#[Fillable(['parent_id', 'label', 'route_name', 'icon', 'sort_order', 'is_active', 'visible_to_all', 'is_group'])]
+#[Fillable(['parent_id', 'label', 'route_name', 'icon', 'sort_order', 'is_active', 'visible_to_all', 'is_group', 'group_display'])]
 class NavigationItem extends Model
 {
     /** @use HasFactory<NavigationItemFactory> */
     use HasFactory;
 
     /**
-     * @var list<string>
+     * @var array<string, mixed>
      */
-    public const ICONS = ['home', 'users', 'cog', 'user'];
+    protected $attributes = [
+        'group_display' => 'screen',
+    ];
 
     /**
      * @return array<string, string>
@@ -36,6 +39,7 @@ class NavigationItem extends Model
             'is_active' => 'boolean',
             'visible_to_all' => 'boolean',
             'is_group' => 'boolean',
+            'group_display' => NavigationGroupDisplay::class,
         ];
     }
 
@@ -83,6 +87,7 @@ class NavigationItem extends Model
         $this->update([
             'visible_to_all' => $parent->visible_to_all,
             'is_group' => false,
+            'group_display' => NavigationGroupDisplay::Screen,
         ]);
 
         $this->roles()->sync($parent->visible_to_all ? [] : $parent->roles()->pluck('id'));
@@ -90,7 +95,26 @@ class NavigationItem extends Model
 
     public function displayedRoute(): string
     {
-        return $this->is_group ? 'Botones' : $this->route_name;
+        if (! $this->is_group) {
+            return $this->route_name;
+        }
+
+        return $this->groupDisplay()->displayedRoute();
+    }
+
+    public function displaysChildrenInSidebar(): bool
+    {
+        return $this->is_group && $this->groupDisplay() === NavigationGroupDisplay::Sidebar;
+    }
+
+    public function displaysAsScreen(): bool
+    {
+        return $this->is_group && $this->groupDisplay() === NavigationGroupDisplay::Screen;
+    }
+
+    public function groupDisplay(): NavigationGroupDisplay
+    {
+        return $this->group_display ?? NavigationGroupDisplay::Screen;
     }
 
     public function displayedVisibility(): string
@@ -124,6 +148,7 @@ class NavigationItem extends Model
             $this->icon,
             $roles,
             $this->is_group ? $this->id : null,
+            $this->groupDisplay(),
         );
     }
 

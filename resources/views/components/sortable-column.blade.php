@@ -3,6 +3,7 @@
     'current',
     'direction',
     'route',
+    'filters' => [],
 ])
 
 @php
@@ -11,12 +12,13 @@
     $ariaSort = $isActive
         ? ($direction === 'asc' ? 'ascending' : 'descending')
         : 'none';
-    $query = array_merge(
-        request()->except(['sort', 'direction', 'page']),
+    $query = array_filter(
         [
+            ...$filters,
             'sort' => $field,
             'direction' => $nextDirection,
         ],
+        fn (mixed $value): bool => $value !== null && $value !== '',
     );
 @endphp
 

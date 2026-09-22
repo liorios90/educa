@@ -43,7 +43,7 @@ describe('index', function () {
     it('paginates menu options and keeps later items on the next page', function () {
         $user = assignRole(User::factory()->create(), Role::Sistemas);
 
-        foreach (range(1, 16) as $number) {
+        foreach (range(1, 11) as $number) {
             NavigationItem::factory()->create([
                 'sort_order' => $number,
                 'label' => 'Opcion '.str_pad((string) $number, 2, '0', STR_PAD_LEFT),
@@ -53,14 +53,16 @@ describe('index', function () {
         $this->actingAs($user)
             ->get(route('sistemas.navigation-items.index'))
             ->assertSee('Opcion 01')
-            ->assertSee('Opcion 15')
-            ->assertDontSee('Opcion 16')
+            ->assertSee('Opcion 10')
+            ->assertDontSee('Opcion 11')
+            ->assertSee('Mostrando 1–10 de 11')
             ->assertSee('page=2', false);
 
         $this->actingAs($user)
             ->get(route('sistemas.navigation-items.index', ['page' => 2]))
-            ->assertSee('Opcion 16')
-            ->assertDontSee('Opcion 01');
+            ->assertSee('Opcion 11')
+            ->assertDontSee('Opcion 01')
+            ->assertSee('Mostrando 11–11 de 11');
     });
 
     it('sorts menu options by the selected column', function () {
@@ -78,6 +80,97 @@ describe('index', function () {
             ->getContent();
 
         expect(strpos($html, 'Abeja'))->toBeLessThan(strpos($html, 'Zorro'));
+    });
+
+    it('sorts accented labels with the unaccented alphabet', function () {
+        $user = assignRole(User::factory()->create(), Role::Sistemas);
+        NavigationItem::factory()->create(['label' => 'Zorro', 'sort_order' => 1]);
+        NavigationItem::factory()->create(['label' => 'Áreas', 'sort_order' => 2]);
+        NavigationItem::factory()->create(['label' => 'Abeja', 'sort_order' => 3]);
+
+        $html = $this->actingAs($user)
+            ->get(route('sistemas.navigation-items.index', [
+                'sort' => 'label',
+                'direction' => 'asc',
+            ]))
+            ->assertOk()
+            ->getContent();
+
+        expect(strpos($html, 'Abeja'))->toBeLessThan(strpos($html, 'Áreas'))
+            ->and(strpos($html, 'Áreas'))->toBeLessThan(strpos($html, 'Zorro'));
+    });
+
+    it('sorts the route column by the displayed name', function () {
+        $user = assignRole(User::factory()->create(), Role::Sistemas);
+        NavigationItem::factory()->create([
+            'label' => 'Menu Profile',
+            'route_name' => 'profile.edit',
+            'sort_order' => 1,
+            'is_active' => false,
+        ]);
+        NavigationItem::factory()->group()->create([
+            'label' => 'Menu Catalogos',
+            'sort_order' => 2,
+            'is_active' => false,
+        ]);
+        NavigationItem::factory()->create([
+            'label' => 'Menu Dashboard',
+            'route_name' => 'dashboard',
+            'sort_order' => 3,
+            'is_active' => false,
+        ]);
+
+        $html = $this->actingAs($user)
+            ->get(route('sistemas.navigation-items.index', [
+                'sort' => 'route_name',
+                'direction' => 'asc',
+            ]))
+            ->assertOk()
+            ->assertSee('Botones')
+            ->getContent();
+
+        expect(strpos($html, 'Menu Catalogos'))->toBeLessThan(strpos($html, 'Menu Dashboard'))
+            ->and(strpos($html, 'Menu Dashboard'))->toBeLessThan(strpos($html, 'Menu Profile'));
+    });
+
+    it('sorts the visibility column by the displayed name', function () {
+        $user = assignRole(User::factory()->create(), Role::Sistemas);
+        $adminRole = RoleModel::findOrCreate(Role::Admin->value, 'web');
+        $sistemasRole = RoleModel::findOrCreate(Role::Sistemas->value, 'web');
+
+        NavigationItem::factory()->visibleToAll()->inactive()->create([
+            'label' => 'Vis Todos',
+            'sort_order' => 1,
+        ]);
+        $sistemas = NavigationItem::factory()->inactive()->create([
+            'label' => 'Vis Sistemas',
+            'sort_order' => 2,
+        ]);
+        $sistemas->roles()->sync([$sistemasRole->id]);
+        NavigationItem::factory()->inactive()->create([
+            'label' => 'Vis Vacio',
+            'sort_order' => 3,
+        ]);
+        $admin = NavigationItem::factory()->inactive()->create([
+            'label' => 'Vis Admin',
+            'sort_order' => 4,
+        ]);
+        $admin->roles()->sync([$adminRole->id]);
+
+        $html = $this->actingAs($user)
+            ->get(route('sistemas.navigation-items.index', [
+                'sort' => 'visible_to_all',
+                'direction' => 'asc',
+            ]))
+            ->assertOk()
+            ->assertSee('Administrador')
+            ->assertSee('Sin roles')
+            ->assertSee('Todos')
+            ->getContent();
+
+        expect(strpos($html, 'Vis Admin'))->toBeLessThan(strpos($html, 'Vis Vacio'))
+            ->and(strpos($html, 'Vis Vacio'))->toBeLessThan(strpos($html, 'Vis Sistemas'))
+            ->and(strpos($html, 'Vis Sistemas'))->toBeLessThan(strpos($html, 'Vis Todos'));
     });
 
     it('falls back to the default order when the sort query is invalid', function (array $query) {
@@ -111,6 +204,31 @@ describe('index', function () {
             ->assertSee('Limpiar');
     });
 
+    it('finds menu options without matching accents', function () {
+        $user = assignRole(User::factory()->create(), Role::Sistemas);
+        NavigationItem::factory()->create(['label' => 'Áreas y asignaturas']);
+        NavigationItem::factory()->create(['label' => 'Ayuda']);
+
+        $this->actingAs($user)
+            ->get(route('sistemas.navigation-items.index', ['q' => 'areas']))
+            ->assertOk()
+            ->assertSee('Áreas y asignaturas')
+            ->assertDontSee('Ayuda');
+    });
+
+    it('finds a group when the search matches a submenu', function () {
+        $user = assignRole(User::factory()->create(), Role::Sistemas);
+        $group = NavigationItem::factory()->group()->create(['label' => 'Catálogos']);
+        NavigationItem::factory()->childOf($group)->create(['label' => 'Jornadas']);
+        NavigationItem::factory()->create(['label' => 'Ayuda']);
+
+        $this->actingAs($user)
+            ->get(route('sistemas.navigation-items.index', ['q' => 'jornadas']))
+            ->assertOk()
+            ->assertSee('Catálogos')
+            ->assertDontSee('Ayuda');
+    });
+
     it('finds menu options by route name', function () {
         $user = assignRole(User::factory()->create(), Role::Sistemas);
         NavigationItem::factory()->create(['label' => 'Reportes', 'route_name' => 'reports.index']);
@@ -130,6 +248,34 @@ describe('index', function () {
             ->get(route('sistemas.navigation-items.index', ['q' => 'Reportes', 'sort' => 'label']))
             ->assertSee('q=Reportes', false)
             ->assertSee('sort=label', false);
+    });
+
+    it('keeps the search term on the next page', function () {
+        $user = assignRole(User::factory()->create(), Role::Sistemas);
+
+        foreach (range(1, 11) as $number) {
+            NavigationItem::factory()->create([
+                'sort_order' => $number,
+                'label' => 'Reporte '.str_pad((string) $number, 2, '0', STR_PAD_LEFT),
+            ]);
+        }
+
+        $this->actingAs($user)
+            ->get(route('sistemas.navigation-items.index', ['q' => 'Reporte', 'page' => 2]))
+            ->assertSee('Reporte 11')
+            ->assertDontSee('Reporte 01')
+            ->assertSee('q=Reporte', false);
+    });
+
+    it('does not copy unknown query parameters into sort links', function () {
+        $user = assignRole(User::factory()->create(), Role::Sistemas);
+        NavigationItem::factory()->create(['label' => 'Reportes']);
+
+        $this->actingAs($user)
+            ->get(route('sistemas.navigation-items.index', ['XDEBUG_SESSION' => '1']))
+            ->assertOk()
+            ->assertSee('sort=label', false)
+            ->assertDontSee('XDEBUG_SESSION', false);
     });
 
     it('does not treat the search term as sql', function () {

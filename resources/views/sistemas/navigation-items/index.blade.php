@@ -24,7 +24,7 @@
                 <p class="mb-4 text-sm font-medium text-green-700">Opción de menú eliminada correctamente.</p>
             @endif
 
-            <form method="GET" action="{{ route('sistemas.navigation-items.index') }}" class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <form method="GET" action="{{ route('sistemas.navigation-items.index') }}" class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center" role="search">
                 <input type="hidden" name="sort" value="{{ $sort }}">
                 <input type="hidden" name="direction" value="{{ $direction }}">
                 <x-text-input
@@ -33,8 +33,9 @@
                     type="search"
                     name="q"
                     :value="$search"
-                    placeholder="Buscar por texto, ruta o rol"
+                    placeholder="Buscar por texto, ruta, rol o submenú"
                     aria-label="Buscar opciones de menú"
+                    autocomplete="off"
                 />
                 <div class="flex items-center gap-3">
                     <x-primary-button>Buscar</x-primary-button>
@@ -46,17 +47,16 @@
                 </div>
             </form>
 
-            <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+            <div class="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
                 <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
                     <thead class="bg-slate-50 text-slate-600">
                         <tr>
-                            <x-sortable-column field="sort_order" :current="$sort" :direction="$direction" route="sistemas.navigation-items.index">Orden</x-sortable-column>
-                            <x-sortable-column field="label" :current="$sort" :direction="$direction" route="sistemas.navigation-items.index">Texto</x-sortable-column>
-                            <x-sortable-column field="route_name" :current="$sort" :direction="$direction" route="sistemas.navigation-items.index">Ruta</x-sortable-column>
-                            <!-- <x-sortable-column field="is_group" :current="$sort" :direction="$direction" route="sistemas.navigation-items.index">Tipo</x-sortable-column> -->
-                            <x-sortable-column field="visible_to_all" :current="$sort" :direction="$direction" route="sistemas.navigation-items.index">Visible para</x-sortable-column>
-                            <x-sortable-column field="is_active" :current="$sort" :direction="$direction" route="sistemas.navigation-items.index">Estado</x-sortable-column>
-                            <th class="px-6 py-3 font-medium">Acciones</th>
+                            <x-sortable-column field="sort_order" :current="$sort" :direction="$direction" route="sistemas.navigation-items.index" :filters="['q' => $search]">Orden</x-sortable-column>
+                            <x-sortable-column field="label" :current="$sort" :direction="$direction" route="sistemas.navigation-items.index" :filters="['q' => $search]">Texto</x-sortable-column>
+                            <x-sortable-column field="route_name" :current="$sort" :direction="$direction" route="sistemas.navigation-items.index" :filters="['q' => $search]">Ruta</x-sortable-column>
+                            <x-sortable-column field="visible_to_all" :current="$sort" :direction="$direction" route="sistemas.navigation-items.index" :filters="['q' => $search]">Visible para</x-sortable-column>
+                            <x-sortable-column field="is_active" :current="$sort" :direction="$direction" route="sistemas.navigation-items.index" :filters="['q' => $search]">Estado</x-sortable-column>
+                            <th class="sticky right-0 bg-slate-50 px-6 py-3 font-medium">Acciones</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100 text-slate-800">
@@ -64,17 +64,10 @@
                             <tr>
                                 <td class="px-6 py-3">{{ $item->sort_order }}</td>
                                 <td class="px-6 py-3">{{ $item->label }}</td>
-                                <td class="px-6 py-3">{{ $item->is_group ? 'Botones' : $item->route_name }}</td>
-                                <!-- <td class="px-6 py-3">{{ $item->is_group ? 'Grupo' : 'Enlace' }}</td> -->
-                                <td class="px-6 py-3">
-                                    @if ($item->visible_to_all)
-                                        Todos
-                                    @else
-                                        {{ $item->roles->map(fn ($role) => \App\Enums\Role::tryFrom($role->name)?->label() ?? $role->name)->join(', ') ?: 'Sin roles' }}
-                                    @endif
-                                </td>
+                                <td class="px-6 py-3">{{ $item->displayedRoute() }}</td>
+                                <td class="px-6 py-3">{{ $item->displayedVisibility() }}</td>
                                 <td class="px-6 py-3">{{ $item->is_active ? 'Activa' : 'Oculta' }}</td>
-                                <td class="px-6 py-3">
+                                <td class="sticky right-0 bg-white px-6 py-3">
                                     <div class="flex items-center gap-3">
                                         @if ($item->is_group)
                                             <a href="{{ route('sistemas.navigation-items.submenus.index', $item) }}" class="font-medium text-indigo-600 hover:text-indigo-500">
@@ -96,7 +89,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="7" class="px-6 py-8 text-center text-slate-500">
+                                <td colspan="6" class="px-6 py-8 text-center text-slate-500">
                                     @if ($search !== '')
                                         No hay opciones que coincidan con «{{ $search }}».
                                     @else
@@ -109,9 +102,14 @@
                 </table>
             </div>
 
-            @if ($items->hasPages())
-                <div class="mt-4">
-                    {{ $items->links() }}
+            @if ($items->total() > 0)
+                <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <p class="text-sm text-slate-500">
+                        Mostrando {{ $items->firstItem() }}–{{ $items->lastItem() }} de {{ $items->total() }}
+                    </p>
+                    @if ($items->hasPages())
+                        {{ $items->links() }}
+                    @endif
                 </div>
             @endif
         </div>

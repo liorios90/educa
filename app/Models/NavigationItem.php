@@ -88,6 +88,25 @@ class NavigationItem extends Model
         $this->roles()->sync($parent->visible_to_all ? [] : $parent->roles()->pluck('id'));
     }
 
+    public function displayedRoute(): string
+    {
+        return $this->is_group ? 'Botones' : $this->route_name;
+    }
+
+    public function displayedVisibility(): string
+    {
+        if ($this->visible_to_all) {
+            return 'Todos';
+        }
+
+        $labels = $this->roles
+            ->map(fn (RoleModel $role): string => Role::tryFrom($role->name)?->label() ?? $role->name)
+            ->sort(SORT_NATURAL | SORT_FLAG_CASE)
+            ->values();
+
+        return $labels->isNotEmpty() ? $labels->implode(', ') : 'Sin roles';
+    }
+
     public function toMenuItem(): MenuItem
     {
         /** @var list<Role> $roles */

@@ -3,6 +3,7 @@
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AlumnoController;
 use App\Http\Controllers\EmpleadoController;
+use App\Http\Controllers\EstablecimientoEstructuraController;
 use App\Http\Controllers\ImportRepresentantesController;
 use App\Http\Controllers\PadreController;
 use Illuminate\Support\Facades\Route;
@@ -28,6 +29,8 @@ Route::middleware(['auth', 'verified', 'role:Admin'])
         Route::get('alumnos/{alumno}/editar', [AlumnoController::class, 'edit'])->name('alumnos.edit');
         Route::patch('alumnos/{alumno}', [AlumnoController::class, 'update'])->name('alumnos.update');
         Route::delete('alumnos/{alumno}', [AlumnoController::class, 'destroy'])->name('alumnos.destroy');
+        Route::get('estructura', [EstablecimientoEstructuraController::class, 'edit'])->name('estructura');
+        Route::put('estructura', [EstablecimientoEstructuraController::class, 'update'])->name('estructura.update');
         Route::get('empleados', [EmpleadoController::class, 'index'])->name('empleados');
         Route::get('empleados/crear', [EmpleadoController::class, 'create'])->name('empleados.create');
         Route::post('empleados', [EmpleadoController::class, 'store'])->name('empleados.store');

@@ -25,6 +25,34 @@ describe('index', function () {
             ->assertSee('Matutina');
     });
 
+    it('shows a back link when the catalog belongs to a button hub', function () {
+        $user = assignRole(User::factory()->create(), Role::Sistemas);
+        $group = NavigationItem::factory()->group()->create();
+        NavigationItem::factory()->childOf($group)->create([
+            'route_name' => 'sistemas.crud.jornadas.index',
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('sistemas.crud.jornadas.index'))
+            ->assertOk()
+            ->assertSee('Volver')
+            ->assertSee(route('navigation.hub', $group), false);
+    });
+
+    it('hides the back link when the catalog is in the left sidebar', function () {
+        $user = assignRole(User::factory()->create(), Role::Sistemas);
+        $group = NavigationItem::factory()->sidebar()->create();
+        NavigationItem::factory()->childOf($group)->create([
+            'route_name' => 'sistemas.crud.jornadas.index',
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('sistemas.crud.jornadas.index'))
+            ->assertOk()
+            ->assertDontSee('Volver')
+            ->assertDontSee(route('navigation.hub', $group), false);
+    });
+
     it('allows systems users to open the modalidades catalog', function () {
         $user = assignRole(User::factory()->create(), Role::Sistemas);
         Sys_Modalidad::factory()->create(['nombre' => 'Presencial']);

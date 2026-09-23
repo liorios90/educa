@@ -16,11 +16,6 @@ class GenericCrudController extends Controller
     public function index(): View
     {
         $definition = $this->definition();
-        $menuItem = NavigationItem::query()
-            ->where('route_name', $definition->routeName('index'))
-            ->whereNotNull('parent_id')
-            ->first();
-
         $query = $definition->query();
         $relations = $definition->listRelations();
 
@@ -34,9 +29,7 @@ class GenericCrudController extends Controller
                 ->orderBy($definition->orderBy)
                 ->orderBy('id')
                 ->get(),
-            'backUrl' => $menuItem !== null
-                ? route('navigation.hub', $menuItem->parent_id)
-                : null,
+            'backUrl' => NavigationItem::hubBackUrlForRoute($definition->routeName('index')),
         ]);
     }
 

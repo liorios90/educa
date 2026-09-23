@@ -21,6 +21,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             RoleSeeder::class,
             NavigationSeeder::class,
+            EstructuraEducativaSeeder::class,
         ]);
 
         User::factory()->create([

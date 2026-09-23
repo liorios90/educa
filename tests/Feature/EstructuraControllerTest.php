@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\Role;
+use App\Models\Establecimiento;
 use App\Models\NavigationItem;
 use App\Models\Sys_Area;
 use App\Models\Sys_Grado;
@@ -91,6 +92,25 @@ describe('index', function () {
             ->assertSee('Volver')
             ->assertSee(route('navigation.hub', $group), false);
     });
+
+    it('hides the back link when the parent is a sidebar submenu', function () {
+        $user = assignRole(User::factory()->create(), Role::Sistemas);
+        $group = NavigationItem::factory()->sidebar()->create([
+            'label' => 'Estructura',
+            'visible_to_all' => false,
+        ]);
+        $group->roles()->sync($user->roles->pluck('id'));
+        NavigationItem::factory()->childOf($group)->create([
+            'label' => 'Nivel - Subnivel - Grado',
+            'route_name' => 'sistemas.estructura',
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('sistemas.estructura'))
+            ->assertOk()
+            ->assertDontSee('Volver')
+            ->assertDontSee(route('navigation.hub', $group), false);
+    });
 });
 
 describe('niveles', function () {
@@ -176,6 +196,21 @@ describe('niveles', function () {
             ->delete(route('sistemas.estructura.niveles.destroy', $nivel))
             ->assertRedirect(route('sistemas.estructura', ['nivel' => $nivel->id]))
             ->assertSessionHas('error', 'No se puede eliminar el nivel porque tiene subniveles asociados.');
+
+        $this->assertModelExists($nivel);
+    });
+
+    it('does not delete a nivel that is used by an establishment', function () {
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+        $nivel = Sys_Nivel::factory()->create();
+        $establecimiento = Establecimiento::factory()->create();
+        $establecimiento->niveles()->attach($nivel->id);
+
+        $this->actingAs($actor)
+            ->from(route('sistemas.estructura'))
+            ->delete(route('sistemas.estructura.niveles.destroy', $nivel))
+            ->assertRedirect(route('sistemas.estructura', ['nivel' => $nivel->id]))
+            ->assertSessionHas('error', 'No se puede eliminar el nivel porque está en uso por un establecimiento.');
 
         $this->assertModelExists($nivel);
     });
@@ -281,6 +316,21 @@ describe('subniveles', function () {
 
         $this->assertModelExists($subnivel);
     });
+
+    it('does not delete a subnivel that is used by an establishment', function () {
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+        $nivel = Sys_Nivel::factory()->create();
+        $subnivel = Sys_Subnivel::factory()->for($nivel, 'nivel')->create();
+        $establecimiento = Establecimiento::factory()->create();
+        $establecimiento->subniveles()->attach($subnivel->id, ['nivel_id' => $subnivel->nivel_id]);
+
+        $this->actingAs($actor)
+            ->delete(route('sistemas.estructura.subniveles.destroy', [$nivel, $subnivel]))
+            ->assertRedirect(route('sistemas.estructura', ['nivel' => $nivel->id, 'subnivel' => $subnivel->id]))
+            ->assertSessionHas('error', 'No se puede eliminar el subnivel porque está en uso por un establecimiento.');
+
+        $this->assertModelExists($subnivel);
+    });
 });
 
 describe('grados', function () {
@@ -360,12 +410,32 @@ describe('grados', function () {
 
         $this->assertModelMissing($grado);
     });
+
+    it('does not delete a grado that is used by an establishment', function () {
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+        $nivel = Sys_Nivel::factory()->create();
+        $subnivel = Sys_Subnivel::factory()->for($nivel, 'nivel')->create();
+        $grado = Sys_Grado::factory()->for($subnivel, 'subnivel')->create();
+        $establecimiento = Establecimiento::factory()->create();
+        $establecimiento->grados()->attach($grado->id, ['subnivel_id' => $grado->subnivel_id]);
+
+        $this->actingAs($actor)
+            ->delete(route('sistemas.estructura.grados.destroy', [$nivel, $subnivel, $grado]))
+            ->assertRedirect(route('sistemas.estructura', ['nivel' => $nivel->id, 'subnivel' => $subnivel->id]))
+            ->assertSessionHas('error', 'No se puede eliminar el grado porque está en uso por un establecimiento.');
+
+        $this->assertModelExists($grado);
+    });
 });
 
 it('seeds the estructura hub button for systems users', function () {
     $this->seed(NavigationSeeder::class);
     $user = assignRole(User::factory()->create(), Role::Sistemas);
-    $estructura = NavigationItem::query()->where('label', 'Estructura')->whereNull('parent_id')->firstOrFail();
+    $estructura = NavigationItem::query()
+        ->where('label', 'Estructura')
+        ->where('route_name', 'navigation.hub')
+        ->whereNull('parent_id')
+        ->firstOrFail();
 
     $this->actingAs($user)
         ->get(route('navigation.hub', $estructura))

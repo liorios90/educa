@@ -17,20 +17,12 @@ class EstructuraController extends Controller
 {
     public function index(Request $request): View
     {
-        $menuItem = NavigationItem::query()
-            ->where('route_name', 'sistemas.estructura')
-            ->whereNotNull('parent_id')
-            ->first();
-
         return view('sistemas.estructura.index', [
             'niveles' => Sys_Nivel::query()
                 ->with(['subniveles.grados'])
-                ->orderBy('nombre')
                 ->orderBy('id')
                 ->get(),
-            'backUrl' => $menuItem !== null
-                ? route('navigation.hub', $menuItem->parent_id)
-                : null,
+            'backUrl' => NavigationItem::hubBackUrlForRoute('sistemas.estructura'),
             'openNivelId' => $request->integer('nivel') ?: null,
             'openSubnivelId' => $request->integer('subnivel') ?: null,
         ]);
@@ -56,6 +48,13 @@ class EstructuraController extends Controller
             return $this->redirectToIndex(
                 nivel: $nivel,
                 error: 'No se puede eliminar el nivel porque tiene subniveles asociados.',
+            );
+        }
+
+        if ($nivel->establecimientos()->exists()) {
+            return $this->redirectToIndex(
+                nivel: $nivel,
+                error: 'No se puede eliminar el nivel porque está en uso por un establecimiento.',
             );
         }
 
@@ -96,6 +95,14 @@ class EstructuraController extends Controller
             );
         }
 
+        if ($subnivel->establecimientos()->exists()) {
+            return $this->redirectToIndex(
+                nivel: $nivel,
+                subnivel: $subnivel,
+                error: 'No se puede eliminar el subnivel porque está en uso por un establecimiento.',
+            );
+        }
+
         $subnivel->delete();
 
         return $this->redirectToIndex(nivel: $nivel, status: 'subnivel-deleted');
@@ -117,6 +124,14 @@ class EstructuraController extends Controller
 
     public function destroyGrado(Sys_Nivel $nivel, Sys_Subnivel $subnivel, Sys_Grado $grado): RedirectResponse
     {
+        if ($grado->establecimientos()->exists()) {
+            return $this->redirectToIndex(
+                nivel: $nivel,
+                subnivel: $subnivel,
+                error: 'No se puede eliminar el grado porque está en uso por un establecimiento.',
+            );
+        }
+
         $grado->delete();
 
         return $this->redirectToIndex(nivel: $nivel, subnivel: $subnivel, status: 'grado-deleted');

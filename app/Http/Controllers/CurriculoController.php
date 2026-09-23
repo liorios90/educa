@@ -17,20 +17,12 @@ class CurriculoController extends Controller
 {
     public function index(Request $request): View
     {
-        $menuItem = NavigationItem::query()
-            ->where('route_name', 'sistemas.curriculo')
-            ->whereNotNull('parent_id')
-            ->first();
-
         return view('sistemas.curriculo.index', [
             'niveles' => Sys_Nivel::query()
                 ->with(['subniveles.areas.asignaturas'])
-                ->orderBy('nombre')
                 ->orderBy('id')
                 ->get(),
-            'backUrl' => $menuItem !== null
-                ? route('navigation.hub', $menuItem->parent_id)
-                : null,
+            'backUrl' => NavigationItem::hubBackUrlForRoute('sistemas.curriculo'),
             'openNivelId' => $request->integer('nivel') ?: null,
             'openSubnivelId' => $request->integer('subnivel') ?: null,
             'openAreaId' => $request->integer('area') ?: null,

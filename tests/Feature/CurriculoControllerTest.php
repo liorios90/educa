@@ -100,6 +100,25 @@ describe('index', function () {
             ->assertSee('Volver')
             ->assertSee(route('navigation.hub', $group), false);
     });
+
+    it('hides the back link when the parent is a sidebar submenu', function () {
+        $user = assignRole(User::factory()->create(), Role::Sistemas);
+        $group = NavigationItem::factory()->sidebar()->create([
+            'label' => 'Estructura',
+            'visible_to_all' => false,
+        ]);
+        $group->roles()->sync($user->roles->pluck('id'));
+        NavigationItem::factory()->childOf($group)->create([
+            'label' => 'Áreas y asignaturas',
+            'route_name' => 'sistemas.curriculo',
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('sistemas.curriculo'))
+            ->assertOk()
+            ->assertDontSee('Volver')
+            ->assertDontSee(route('navigation.hub', $group), false);
+    });
 });
 
 describe('areas', function () {
@@ -380,7 +399,11 @@ describe('asignaturas', function () {
 it('seeds the curriculo hub button for systems users', function () {
     $this->seed(NavigationSeeder::class);
     $user = assignRole(User::factory()->create(), Role::Sistemas);
-    $estructura = NavigationItem::query()->where('label', 'Estructura')->whereNull('parent_id')->firstOrFail();
+    $estructura = NavigationItem::query()
+        ->where('label', 'Estructura')
+        ->where('route_name', 'navigation.hub')
+        ->whereNull('parent_id')
+        ->firstOrFail();
 
     $this->actingAs($user)
         ->get(route('navigation.hub', $estructura))

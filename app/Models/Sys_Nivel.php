@@ -5,6 +5,7 @@ namespace App\Models;
 use Database\Factories\SysNivelFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Sys_Nivel extends Model
@@ -33,7 +34,16 @@ class Sys_Nivel extends Model
      */
     public function subniveles(): HasMany
     {
-        return $this->hasMany(Sys_Subnivel::class, 'nivel_id')->orderBy('nombre')->orderBy('id');
+        return $this->hasMany(Sys_Subnivel::class, 'nivel_id')->orderBy('id');
+    }
+
+    /**
+     * @return BelongsToMany<Establecimiento, $this>
+     */
+    public function establecimientos(): BelongsToMany
+    {
+        return $this->belongsToMany(Establecimiento::class, 'establecimiento_niveles', 'nivel_id', 'establecimiento_id')
+            ->withTimestamps();
     }
 
     /**

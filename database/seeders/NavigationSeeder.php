@@ -22,6 +22,7 @@ class NavigationSeeder extends Seeder
         $this->upsertItem('Padres', 'Admin.padres', 'users', 3, false, [$admin->id]);
         $this->upsertItem('Alumnos', 'Admin.alumnos', 'users', 4, false, [$admin->id]);
         $this->upsertItem('Empleados', 'Admin.empleados', 'users', 5, false, [$admin->id]);
+        $this->upsertItem('Estructura', 'Admin.estructura', 'building-library', 6, false, [$admin->id]);
         $this->upsertItem('Sistemas', 'sistemas.home', 'cog', 3, false, [$sistemas->id]);
         $this->upsertItem('Menú', 'sistemas.navigation-items.index', 'cog', 4, false, [$sistemas->id]);
         $catalogos = $this->upsertItem('Catálogos', 'navigation.hub', 'cog', 5, false, [$sistemas->id], isGroup: true);

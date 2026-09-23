@@ -112,6 +112,28 @@ class NavigationItem extends Model
         return $this->is_group && $this->groupDisplay() === NavigationGroupDisplay::Screen;
     }
 
+    public function hubBackUrl(): ?string
+    {
+        $parent = $this->parent;
+
+        if (! $parent instanceof self || ! $parent->displaysAsScreen()) {
+            return null;
+        }
+
+        return route('navigation.hub', $parent);
+    }
+
+    public static function hubBackUrlForRoute(string $routeName): ?string
+    {
+        $item = static::query()
+            ->with('parent')
+            ->where('route_name', $routeName)
+            ->whereNotNull('parent_id')
+            ->first();
+
+        return $item?->hubBackUrl();
+    }
+
     public function groupDisplay(): NavigationGroupDisplay
     {
         return $this->group_display ?? NavigationGroupDisplay::Screen;

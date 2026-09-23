@@ -34,7 +34,7 @@
 >
     <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
         <div>
-            <x-input-label for="nombre" value="Nombre:::" />
+            <x-input-label for="nombre" value="Nombre" />
             <x-text-input id="nombre" class="mt-1 block w-full" type="text" name="nombre" :value="old('nombre', $establecimiento?->nombre)" required autofocus />
             <x-input-error class="mt-2" :messages="$errors->get('nombre')" />
         </div>

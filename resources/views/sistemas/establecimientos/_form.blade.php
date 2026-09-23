@@ -186,7 +186,7 @@
     </div>
 
     <div class="space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
-        <div>
+        <div> 
             <p class="text-sm font-medium text-slate-800">Usuario administrador</p>
             <p class="mt-1 text-xs text-slate-500">Este usuario entra con el rol Administrador y queda ligado a este establecimiento.</p>
         </div>

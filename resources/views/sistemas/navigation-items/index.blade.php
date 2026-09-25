@@ -71,7 +71,7 @@
                                     <div class="flex items-center gap-3">
                                         @if ($item->is_group)
                                             <a href="{{ route('sistemas.navigation-items.submenus.index', $item) }}" class="font-medium text-indigo-600 hover:text-indigo-500">
-                                                Submenús ss
+                                                Submenús
                                             </a>
                                         @endif
                                         <a href="{{ route('sistemas.navigation-items.edit', $item) }}" class="font-medium text-indigo-600 hover:text-indigo-500">

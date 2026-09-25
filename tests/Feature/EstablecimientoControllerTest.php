@@ -2,8 +2,11 @@
 
 use App\Enums\Role;
 use App\Models\Establecimiento;
+use App\Models\EstablecimientoModalidad;
 use App\Models\Sys_Circuito;
 use App\Models\Sys_Distrito;
+use App\Models\Sys_Jornada;
+use App\Models\Sys_Modalidad;
 use App\Models\Sys_Zona;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
@@ -15,7 +18,7 @@ use Illuminate\Support\Facades\Storage;
  */
 function establecimientoPayload(Sys_Zona $zona, Sys_Distrito $distrito, Sys_Circuito $circuito, array $overrides = []): array
 {
-    return [
+    $payload = [
         'nombre' => 'UE Los Andes',
         'descripcion' => 'Establecimiento de prueba',
         'direccion' => 'Av. Principal 123',
@@ -34,6 +37,17 @@ function establecimientoPayload(Sys_Zona $zona, Sys_Distrito $distrito, Sys_Circ
         'admin_email' => 'director.andes@example.com',
         'admin_password' => 'password',
         'admin_password_confirmation' => 'password',
+    ];
+
+    if (! array_key_exists('modalidades', $overrides) && ! array_key_exists('jornadas', $overrides)) {
+        $modalidad = Sys_Modalidad::factory()->create();
+        $jornada = Sys_Jornada::factory()->create();
+        $payload['modalidades'] = [$modalidad->id];
+        $payload['jornadas'] = [$modalidad->id => [$jornada->id]];
+    }
+
+    return [
+        ...$payload,
         ...$overrides,
     ];
 }
@@ -126,6 +140,31 @@ describe('create', function () {
             ->assertSee('Nombre del administrador')
             ->assertSee('Correo del administrador');
     });
+
+    it('shows modalidades and jornadas from the national catalog', function () {
+        $user = assignRole(User::factory()->create(), Role::Sistemas);
+        $modalidad = Sys_Modalidad::factory()->create(['nombre' => 'Presencial']);
+        Sys_Jornada::factory()->create(['nombre' => 'Matutina']);
+
+        $this->actingAs($user)
+            ->get(route('sistemas.establecimientos.create'))
+            ->assertOk()
+            ->assertSee('Modalidades y jornadas')
+            ->assertSee('Presencial')
+            ->assertSee('Matutina')
+            ->assertSee('name="modalidades[]"', false)
+            ->assertSee('name="jornadas['.$modalidad->id.'][]"', false);
+    });
+
+    it('escapes modalidad names on the create form', function () {
+        $user = assignRole(User::factory()->create(), Role::Sistemas);
+        Sys_Modalidad::factory()->create(['nombre' => "<script>alert('xss')</script>"]);
+
+        $this->actingAs($user)
+            ->get(route('sistemas.establecimientos.create'))
+            ->assertSee("<script>alert('xss')</script>")
+            ->assertDontSee("<script>alert('xss')</script>", false);
+    });
 });
 
 describe('store', function () {
@@ -161,6 +200,66 @@ describe('store', function () {
         Storage::disk('public')->assertExists($establecimiento->logo);
     });
 
+    it('creates an establecimiento with modalidades and jornadas per modalidad', function () {
+        Storage::fake('public');
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+        $zona = Sys_Zona::factory()->create();
+        $distrito = Sys_Distrito::factory()->create(['zona_id' => $zona->id]);
+        $circuito = Sys_Circuito::factory()->create(['distrito_id' => $distrito->id]);
+        $presencial = Sys_Modalidad::factory()->create(['nombre' => 'Presencial']);
+        $virtual = Sys_Modalidad::factory()->create(['nombre' => 'Virtual']);
+        $matutina = Sys_Jornada::factory()->create(['nombre' => 'Matutina']);
+        $vespertina = Sys_Jornada::factory()->create(['nombre' => 'Vespertina']);
+        $otro = Sys_Jornada::factory()->create(['nombre' => 'Otro']);
+
+        $this->actingAs($actor)
+            ->post(route('sistemas.establecimientos.store'), establecimientoPayload($zona, $distrito, $circuito, [
+                'modalidades' => [$presencial->id, $virtual->id],
+                'jornadas' => [
+                    $presencial->id => [$matutina->id, $vespertina->id],
+                    $virtual->id => [$otro->id],
+                ],
+            ]))
+            ->assertRedirect(route('sistemas.establecimientos'))
+            ->assertSessionHasNoErrors();
+
+        $establecimiento = Establecimiento::query()->where('email', 'andes@example.com')->firstOrFail();
+        $ofertas = $establecimiento->establecimientoModalidades()->with('jornadas')->get()->keyBy('modalidad_id');
+
+        expect($ofertas->keys()->sort()->values()->all())->toBe([$presencial->id, $virtual->id])
+            ->and($ofertas[$presencial->id]->jornadas->pluck('id')->sort()->values()->all())->toBe([$matutina->id, $vespertina->id])
+            ->and($ofertas[$virtual->id]->jornadas->pluck('id')->all())->toBe([$otro->id]);
+    });
+
+    it('ignores jornadas of modalidades that were not selected', function () {
+        Storage::fake('public');
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+        $zona = Sys_Zona::factory()->create();
+        $distrito = Sys_Distrito::factory()->create(['zona_id' => $zona->id]);
+        $circuito = Sys_Circuito::factory()->create(['distrito_id' => $distrito->id]);
+        $presencial = Sys_Modalidad::factory()->create();
+        $semipresencial = Sys_Modalidad::factory()->create();
+        $matutina = Sys_Jornada::factory()->create();
+        $nocturna = Sys_Jornada::factory()->create();
+
+        $this->actingAs($actor)
+            ->post(route('sistemas.establecimientos.store'), establecimientoPayload($zona, $distrito, $circuito, [
+                'modalidades' => [$presencial->id],
+                'jornadas' => [
+                    $presencial->id => [$matutina->id],
+                    $semipresencial->id => [$nocturna->id],
+                ],
+            ]))
+            ->assertRedirect(route('sistemas.establecimientos'));
+
+        $establecimiento = Establecimiento::query()->where('email', 'andes@example.com')->firstOrFail();
+
+        expect($establecimiento->establecimientoModalidades()->pluck('modalidad_id')->all())->toBe([$presencial->id]);
+        $this->assertDatabaseMissing('establecimiento_modalidad_jornadas', [
+            'jornada_id' => $nocturna->id,
+        ]);
+    });
+
     it('does not create the establecimiento when the administrator email is already taken', function () {
         Storage::fake('public');
         $actor = assignRole(User::factory()->create(), Role::Sistemas);
@@ -185,7 +284,7 @@ describe('store', function () {
             ->from(route('sistemas.establecimientos.create'))
             ->post(route('sistemas.establecimientos.store'), [])
             ->assertRedirect(route('sistemas.establecimientos.create'))
-            ->assertSessionHasErrors(['nombre', 'zona_id', 'distrito_id', 'circuito_id', 'regimen', 'logo', 'admin_name', 'admin_email', 'admin_password']);
+            ->assertSessionHasErrors(['nombre', 'zona_id', 'distrito_id', 'circuito_id', 'regimen', 'logo', 'admin_name', 'admin_email', 'admin_password', 'modalidades', 'jornadas']);
     });
 
     it('rejects a distrito that does not belong to the zona', function () {
@@ -222,6 +321,30 @@ describe('store', function () {
 
         $this->assertDatabaseMissing('establecimientos', ['email' => 'andes@example.com']);
     });
+
+    it('rejects a modalidad without a jornada', function () {
+        Storage::fake('public');
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+        $zona = Sys_Zona::factory()->create();
+        $distrito = Sys_Distrito::factory()->create(['zona_id' => $zona->id]);
+        $circuito = Sys_Circuito::factory()->create(['distrito_id' => $distrito->id]);
+        $modalidad = Sys_Modalidad::factory()->create();
+
+        $this->actingAs($actor)
+            ->from(route('sistemas.establecimientos.create'))
+            ->post(route('sistemas.establecimientos.store'), establecimientoPayload($zona, $distrito, $circuito, [
+                'modalidades' => [$modalidad->id],
+                'jornadas' => [
+                    $modalidad->id => [],
+                ],
+            ]))
+            ->assertRedirect(route('sistemas.establecimientos.create'))
+            ->assertSessionHasErrors([
+                'jornadas.'.$modalidad->id => 'Selecciona al menos una jornada para cada modalidad marcada.',
+            ]);
+
+        $this->assertDatabaseMissing('establecimientos', ['email' => 'andes@example.com']);
+    });
 });
 
 describe('update', function () {
@@ -246,6 +369,68 @@ describe('update', function () {
             ->assertSessionHas('status', 'establecimiento-updated');
 
         expect($establecimiento->fresh()->nombre)->toBe('UE Nueva');
+    });
+
+    it('prefills selected modalidades and jornadas on the edit form', function () {
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+        $establecimiento = Establecimiento::factory()->create();
+        $modalidad = Sys_Modalidad::factory()->create(['nombre' => 'Semipresencial']);
+        $jornada = Sys_Jornada::factory()->create(['nombre' => 'Nocturna']);
+        $oferta = EstablecimientoModalidad::factory()->create([
+            'establecimiento_id' => $establecimiento->id,
+            'modalidad_id' => $modalidad->id,
+        ]);
+        $oferta->jornadas()->attach($jornada->id);
+
+        $this->actingAs($actor)
+            ->get(route('sistemas.establecimientos.edit', $establecimiento))
+            ->assertOk()
+            ->assertSee('Semipresencial')
+            ->assertSee('Nocturna')
+            ->assertViewHas('selectedModalidadIds', [(string) $modalidad->id])
+            ->assertViewHas('selectedJornadasPorModalidad', [
+                (string) $modalidad->id => [(string) $jornada->id],
+            ]);
+    });
+
+    it('replaces modalidades and jornadas when the establecimiento is updated', function () {
+        Storage::fake('public');
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+        $establecimiento = Establecimiento::factory()->create();
+        $presencial = Sys_Modalidad::factory()->create();
+        $virtual = Sys_Modalidad::factory()->create();
+        $matutina = Sys_Jornada::factory()->create();
+        $otro = Sys_Jornada::factory()->create();
+        $oferta = EstablecimientoModalidad::factory()->create([
+            'establecimiento_id' => $establecimiento->id,
+            'modalidad_id' => $presencial->id,
+        ]);
+        $oferta->jornadas()->attach($matutina->id);
+        $zona = $establecimiento->zona;
+        $distrito = $establecimiento->distrito;
+        $circuito = $establecimiento->circuito;
+
+        $this->actingAs($actor)
+            ->patch(
+                route('sistemas.establecimientos.update', $establecimiento),
+                establecimientoPayload($zona, $distrito, $circuito, [
+                    'codigo_amie' => $establecimiento->codigo_amie,
+                    'email' => $establecimiento->email,
+                    'modalidades' => [$virtual->id],
+                    'jornadas' => [
+                        $virtual->id => [$otro->id],
+                    ],
+                ]),
+            )
+            ->assertRedirect(route('sistemas.establecimientos'))
+            ->assertSessionHasNoErrors();
+
+        $establecimiento->refresh();
+        $ofertas = $establecimiento->establecimientoModalidades()->with('jornadas')->get();
+
+        expect($ofertas)->toHaveCount(1)
+            ->and($ofertas->first()->modalidad_id)->toBe($virtual->id)
+            ->and($ofertas->first()->jornadas->pluck('id')->all())->toBe([$otro->id]);
     });
 
     it('prefills the administrator on the edit form', function () {

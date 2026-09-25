@@ -5,7 +5,7 @@
                 Estructura educativa
             </h2>
             <p class="mt-1 text-sm text-slate-500">
-                {{ $establecimiento->nombre }}
+                {{ $establecimiento->nombre }} · {{ $oferta->etiqueta() }}
             </p>
         </div>
     </x-slot>
@@ -49,13 +49,19 @@
     >
         <div class="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
             @if (session('status') === 'estructura-updated')
-                <p class="mb-4 text-sm font-medium text-green-700">Estructura del establecimiento guardada correctamente.</p>
+                <p class="mb-4 text-sm font-medium text-green-700">Estructura de la jornada guardada correctamente.</p>
             @endif
+
+            <p class="mb-4">
+                <a href="{{ route('Admin.estructura') }}" class="text-sm font-medium text-indigo-600 hover:text-indigo-500">
+                    Volver a modalidades y jornadas
+                </a>
+            </p>
 
             <section class="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                 <h3 class="text-base font-semibold text-slate-800">Catálogo nacional</h3>
                 <p class="mt-2 text-sm leading-6 text-slate-600">
-                    Cada pestaña es un nivel de Sistemas. Marca los grados que ofrece el establecimiento.
+                    Cada pestaña es un nivel de Sistemas. Marca los grados que ofrece esta jornada.
                     El subnivel y el nivel se graban solos. El nombre oficial queda para reportes;
                     si quieres, puedes poner un nombre propio para usar dentro del colegio.
                 </p>
@@ -65,7 +71,7 @@
             <x-input-error class="mb-4" :messages="$errors->get('nombre_grados')" />
             <x-input-error class="mb-4" :messages="$errors->get('nombre_subniveles')" />
 
-            <form method="POST" action="{{ route('Admin.estructura.update') }}">
+            <form method="POST" action="{{ route('Admin.estructura.update', $oferta) }}">
                 @csrf
                 @method('PUT')
 

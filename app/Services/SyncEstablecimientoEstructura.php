@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Establecimiento;
+use App\Models\EstablecimientoModalidadJornada;
 use App\Models\Sys_Grado;
 use Illuminate\Support\Facades\DB;
 
@@ -15,6 +16,7 @@ class SyncEstablecimientoEstructura
      */
     public function handle(
         Establecimiento $establecimiento,
+        EstablecimientoModalidadJornada $oferta,
         array $gradoIds,
         array $nombresGrados = [],
         array $nombresSubniveles = [],
@@ -24,7 +26,7 @@ class SyncEstablecimientoEstructura
             ->whereIn('id', $gradoIds)
             ->get();
 
-        $nivelIds = [];
+        $nivelSync = [];
         $subnivelSync = [];
         $gradoSync = [];
 
@@ -35,23 +37,25 @@ class SyncEstablecimientoEstructura
                 continue;
             }
 
-            $nivelIds[] = (int) $nivelId;
+            $pivotEstablecimiento = ['establecimiento_id' => $establecimiento->id];
+
+            $nivelSync[(int) $nivelId] = $pivotEstablecimiento;
             $subnivelSync[(int) $grado->subnivel_id] = [
+                ...$pivotEstablecimiento,
                 'nivel_id' => (int) $nivelId,
                 'nombre' => $nombresSubniveles[(int) $grado->subnivel_id] ?? null,
             ];
             $gradoSync[(int) $grado->id] = [
+                ...$pivotEstablecimiento,
                 'subnivel_id' => (int) $grado->subnivel_id,
                 'nombre' => $nombresGrados[(int) $grado->id] ?? null,
             ];
         }
 
-        $nivelIds = array_values(array_unique($nivelIds));
-
-        DB::transaction(function () use ($establecimiento, $nivelIds, $subnivelSync, $gradoSync): void {
-            $establecimiento->niveles()->sync($nivelIds);
-            $establecimiento->subniveles()->sync($subnivelSync);
-            $establecimiento->grados()->sync($gradoSync);
+        DB::transaction(function () use ($oferta, $nivelSync, $subnivelSync, $gradoSync): void {
+            $oferta->niveles()->sync($nivelSync);
+            $oferta->subniveles()->sync($subnivelSync);
+            $oferta->grados()->sync($gradoSync);
         });
     }
 }

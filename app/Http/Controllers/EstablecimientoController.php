@@ -7,8 +7,11 @@ use App\Http\Requests\UpsertEstablecimientoRequest;
 use App\Models\Establecimiento;
 use App\Models\Sys_Circuito;
 use App\Models\Sys_Distrito;
+use App\Models\Sys_Jornada;
+use App\Models\Sys_Modalidad;
 use App\Models\Sys_Zona;
 use App\Models\User;
+use App\Services\SyncEstablecimientoModalidades;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
@@ -18,6 +21,8 @@ use Spatie\Permission\Models\Role as RoleModel;
 
 class EstablecimientoController extends Controller
 {
+    public function __construct(private SyncEstablecimientoModalidades $syncModalidades) {}
+
     public function index(): View
     {
         return view('sistemas.establecimientos.index', [
@@ -30,7 +35,7 @@ class EstablecimientoController extends Controller
 
     public function create(): View
     {
-        return view('sistemas.establecimientos.create', $this->catalogOptions());
+        return view('sistemas.establecimientos.create', $this->formOptions());
     }
 
     public function store(UpsertEstablecimientoRequest $request): RedirectResponse
@@ -38,6 +43,7 @@ class EstablecimientoController extends Controller
         DB::transaction(function () use ($request): void {
             $establecimiento = Establecimiento::query()->create($this->attributesFrom($request));
             $this->syncAdministrador($establecimiento, $request);
+            $this->syncModalidades->handle($establecimiento, $request->jornadasPorModalidad());
         });
 
         return redirect()
@@ -48,7 +54,7 @@ class EstablecimientoController extends Controller
     public function edit(Establecimiento $establecimiento): View
     {
         return view('sistemas.establecimientos.edit', [
-            ...$this->catalogOptions(),
+            ...$this->formOptions($establecimiento),
             'establecimiento' => $establecimiento,
             'administrador' => $establecimiento->administrador(),
         ]);
@@ -59,6 +65,7 @@ class EstablecimientoController extends Controller
         DB::transaction(function () use ($request, $establecimiento): void {
             $establecimiento->update($this->attributesFrom($request, $establecimiento));
             $this->syncAdministrador($establecimiento, $request);
+            $this->syncModalidades->handle($establecimiento, $request->jornadasPorModalidad());
         });
 
         return redirect()
@@ -82,7 +89,28 @@ class EstablecimientoController extends Controller
      * @return array{
      *     zonas: list<array{id: int, nombre: string}>,
      *     distritos: list<array{id: int, nombre: string, zona_id: int}>,
-     *     circuitos: list<array{id: int, nombre: string, distrito_id: int|null}>
+     *     circuitos: list<array{id: int, nombre: string, distrito_id: int|null}>,
+     *     modalidades: list<array{id: int, nombre: string}>,
+     *     jornadas: list<array{id: int, nombre: string}>,
+     *     selectedModalidadIds: list<string>,
+     *     selectedJornadasPorModalidad: array<string, list<string>>
+     * }
+     */
+    private function formOptions(?Establecimiento $establecimiento = null): array
+    {
+        return [
+            ...$this->catalogOptions(),
+            ...$this->selectedOfertas($establecimiento),
+        ];
+    }
+
+    /**
+     * @return array{
+     *     zonas: list<array{id: int, nombre: string}>,
+     *     distritos: list<array{id: int, nombre: string, zona_id: int}>,
+     *     circuitos: list<array{id: int, nombre: string, distrito_id: int|null}>,
+     *     modalidades: list<array{id: int, nombre: string}>,
+     *     jornadas: list<array{id: int, nombre: string}>
      * }
      */
     private function catalogOptions(): array
@@ -117,7 +145,94 @@ class EstablecimientoController extends Controller
                 ])
                 ->values()
                 ->all(),
+            'modalidades' => Sys_Modalidad::query()
+                ->orderBy('id')
+                ->get(['id', 'nombre'])
+                ->map(fn (Sys_Modalidad $modalidad): array => [
+                    'id' => $modalidad->id,
+                    'nombre' => $modalidad->nombre,
+                ])
+                ->values()
+                ->all(),
+            'jornadas' => Sys_Jornada::query()
+                ->orderBy('id')
+                ->get(['id', 'nombre'])
+                ->map(fn (Sys_Jornada $jornada): array => [
+                    'id' => $jornada->id,
+                    'nombre' => $jornada->nombre,
+                ])
+                ->values()
+                ->all(),
         ];
+    }
+
+    /**
+     * @return array{
+     *     selectedModalidadIds: list<string>,
+     *     selectedJornadasPorModalidad: array<string, list<string>>
+     * }
+     */
+    private function selectedOfertas(?Establecimiento $establecimiento): array
+    {
+        $modalidadIds = old('modalidades');
+        $jornadas = old('jornadas');
+
+        if (is_array($modalidadIds)) {
+            return [
+                'selectedModalidadIds' => array_map(strval(...), $modalidadIds),
+                'selectedJornadasPorModalidad' => $this->stringIdsByModalidad(is_array($jornadas) ? $jornadas : []),
+            ];
+        }
+
+        if ($establecimiento === null) {
+            return [
+                'selectedModalidadIds' => [],
+                'selectedJornadasPorModalidad' => [],
+            ];
+        }
+
+        $ofertas = $establecimiento->establecimientoModalidades()
+            ->with('jornadas')
+            ->orderBy('id')
+            ->get();
+
+        $selectedJornadas = [];
+
+        foreach ($ofertas as $oferta) {
+            $selectedJornadas[(string) $oferta->modalidad_id] = $oferta->jornadas
+                ->pluck('id')
+                ->map(fn (mixed $id): string => (string) $id)
+                ->values()
+                ->all();
+        }
+
+        return [
+            'selectedModalidadIds' => $ofertas
+                ->pluck('modalidad_id')
+                ->map(fn (mixed $id): string => (string) $id)
+                ->values()
+                ->all(),
+            'selectedJornadasPorModalidad' => $selectedJornadas,
+        ];
+    }
+
+    /**
+     * @param  array<int|string, mixed>  $jornadas
+     * @return array<string, list<string>>
+     */
+    private function stringIdsByModalidad(array $jornadas): array
+    {
+        $selected = [];
+
+        foreach ($jornadas as $modalidadId => $jornadaIds) {
+            if (! is_array($jornadaIds)) {
+                continue;
+            }
+
+            $selected[(string) $modalidadId] = array_map(strval(...), $jornadaIds);
+        }
+
+        return $selected;
     }
 
     /**

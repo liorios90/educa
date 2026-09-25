@@ -51,6 +51,11 @@ class UpsertEstablecimientoRequest extends FormRequest
             'zona_id' => ['required', 'integer', 'exists:sys_zonas,id'],
             'distrito_id' => ['required', 'integer', 'exists:sys_distritos,id'],
             'circuito_id' => ['required', 'integer', 'exists:sys_circuitos,id'],
+            'modalidades' => ['required', 'array', 'min:1'],
+            'modalidades.*' => ['integer', 'distinct', Rule::exists('sys_modalidades', 'id')],
+            'jornadas' => ['required', 'array'],
+            'jornadas.*' => ['array'],
+            'jornadas.*.*' => ['integer', 'distinct', Rule::exists('sys_jornadas', 'id')],
             'admin_name' => ['required', 'string', 'max:255'],
             'admin_email' => [
                 'required',
@@ -104,6 +109,22 @@ class UpsertEstablecimientoRequest extends FormRequest
                     $validator->errors()->add('circuito_id', 'El circuito no pertenece al distrito seleccionado.');
                 }
             },
+            function (Validator $validator): void {
+                if ($validator->errors()->hasAny(['modalidades', 'modalidades.*', 'jornadas', 'jornadas.*', 'jornadas.*.*'])) {
+                    return;
+                }
+
+                foreach ($this->intIdsFromInput('modalidades') as $modalidadId) {
+                    $jornadaIds = $this->intIdsFromInput('jornadas.'.$modalidadId);
+
+                    if ($jornadaIds === []) {
+                        $validator->errors()->add(
+                            'jornadas.'.$modalidadId,
+                            'Selecciona al menos una jornada para cada modalidad marcada.',
+                        );
+                    }
+                }
+            },
         ];
     }
 
@@ -116,7 +137,58 @@ class UpsertEstablecimientoRequest extends FormRequest
             'admin_name.required' => 'Indica el nombre del administrador del establecimiento.',
             'admin_email.required' => 'Indica el correo del administrador del establecimiento.',
             'admin_password.required' => 'Indica la contraseña del administrador del establecimiento.',
+            'modalidades.required' => 'Selecciona al menos una modalidad.',
+            'modalidades.min' => 'Selecciona al menos una modalidad.',
+            'modalidades.*.exists' => 'La modalidad seleccionada no existe en el catálogo de sistemas.',
+            'jornadas.required' => 'Selecciona las jornadas de cada modalidad.',
+            'jornadas.*.*.exists' => 'La jornada seleccionada no existe en el catálogo de sistemas.',
         ];
+    }
+
+    /**
+     * @return array<int, list<int>>
+     */
+    public function jornadasPorModalidad(): array
+    {
+        $raw = $this->validated('jornadas') ?? [];
+        $ofertas = [];
+
+        foreach ($this->intIds('modalidades') as $modalidadId) {
+            $ofertas[$modalidadId] = $this->intIdsFromList($raw[$modalidadId] ?? $raw[(string) $modalidadId] ?? []);
+        }
+
+        return $ofertas;
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function intIds(string $key): array
+    {
+        /** @var list<int|string>|null $values */
+        $values = $this->validated($key);
+
+        return $this->intIdsFromList($values ?? []);
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function intIdsFromInput(string $key): array
+    {
+        /** @var list<int|string> $values */
+        $values = $this->input($key, []);
+
+        return $this->intIdsFromList(is_array($values) ? $values : []);
+    }
+
+    /**
+     * @param  list<int|string>  $values
+     * @return list<int>
+     */
+    private function intIdsFromList(array $values): array
+    {
+        return array_values(array_unique(array_map(intval(...), $values)));
     }
 
     private function administrador(): ?User

@@ -62,6 +62,23 @@ class Establecimiento extends Model
     }
 
     /**
+     * @return HasMany<EstablecimientoModalidad, $this>
+     */
+    public function establecimientoModalidades(): HasMany
+    {
+        return $this->hasMany(EstablecimientoModalidad::class);
+    }
+
+    /**
+     * @return BelongsToMany<Sys_Modalidad, $this>
+     */
+    public function modalidades(): BelongsToMany
+    {
+        return $this->belongsToMany(Sys_Modalidad::class, 'establecimiento_modalidades', 'establecimiento_id', 'modalidad_id')
+            ->withTimestamps();
+    }
+
+    /**
      * @return HasMany<User, $this>
      */
     public function users(): HasMany

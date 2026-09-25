@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\SyncEstablecimientoEstructuraRequest;
 use App\Models\Establecimiento;
+use App\Models\EstablecimientoModalidadJornada;
 use App\Models\Sys_Nivel;
 use App\Services\SyncEstablecimientoEstructura;
 use Illuminate\Database\Eloquent\Model;
@@ -14,36 +15,66 @@ use Illuminate\View\View;
 
 class EstablecimientoEstructuraController extends Controller
 {
-    public function edit(Request $request): View
+    public function index(Request $request): View
     {
-        $establecimiento = $this->establecimiento($request)->load([
+        $establecimiento = $this->establecimiento($request);
+
+        return view('admin.estructura.index', [
+            'establecimiento' => $establecimiento,
+            'modalidades' => $establecimiento->establecimientoModalidades()
+                ->with([
+                    'modalidad',
+                    'establecimientoJornadas' => fn ($query) => $query
+                        ->with('jornada')
+                        ->withCount('grados')
+                        ->orderBy('id'),
+                ])
+                ->orderBy('id')
+                ->get(),
+        ]);
+    }
+
+    public function edit(Request $request, EstablecimientoModalidadJornada $oferta): View
+    {
+        $establecimiento = $this->establecimiento($request);
+        $oferta = $this->ofertaDelEstablecimiento($establecimiento, $oferta)->load([
+            'jornada',
+            'establecimientoModalidad.modalidad',
             'grados',
             'subniveles',
         ]);
 
         return view('admin.estructura.edit', [
             'establecimiento' => $establecimiento,
+            'oferta' => $oferta,
             'niveles' => Sys_Nivel::query()
                 ->with(['subniveles.grados'])
                 ->orderBy('id')
                 ->get(),
-            'selectedGradoIds' => $this->selectedIds(old('grados', $establecimiento->grados->modelKeys())),
-            'nombresGrados' => $this->nombresMap(old('nombre_grados', $this->pivotNombres($establecimiento->grados))),
-            'nombresSubniveles' => $this->nombresMap(old('nombre_subniveles', $this->pivotNombres($establecimiento->subniveles))),
+            'selectedGradoIds' => $this->selectedIds(old('grados', $oferta->grados->modelKeys())),
+            'nombresGrados' => $this->nombresMap(old('nombre_grados', $this->pivotNombres($oferta->grados))),
+            'nombresSubniveles' => $this->nombresMap(old('nombre_subniveles', $this->pivotNombres($oferta->subniveles))),
         ]);
     }
 
-    public function update(SyncEstablecimientoEstructuraRequest $request, SyncEstablecimientoEstructura $sync): RedirectResponse
-    {
+    public function update(
+        SyncEstablecimientoEstructuraRequest $request,
+        EstablecimientoModalidadJornada $oferta,
+        SyncEstablecimientoEstructura $sync,
+    ): RedirectResponse {
+        $establecimiento = $this->establecimiento($request);
+        $oferta = $this->ofertaDelEstablecimiento($establecimiento, $oferta);
+
         $sync->handle(
-            $this->establecimiento($request),
+            $establecimiento,
+            $oferta,
             $request->gradoIds(),
             $request->nombresGrados(),
             $request->nombresSubniveles(),
         );
 
         return redirect()
-            ->route('Admin.estructura')
+            ->route('Admin.estructura.edit', $oferta)
             ->with('status', 'estructura-updated');
     }
 
@@ -54,6 +85,20 @@ class EstablecimientoEstructuraController extends Controller
         abort_if($establecimientoId === null, 403);
 
         return Establecimiento::query()->findOrFail($establecimientoId);
+    }
+
+    private function ofertaDelEstablecimiento(
+        Establecimiento $establecimiento,
+        EstablecimientoModalidadJornada $oferta,
+    ): EstablecimientoModalidadJornada {
+        $oferta->loadMissing('establecimientoModalidad');
+
+        abort_unless(
+            (int) $oferta->establecimientoModalidad?->establecimiento_id === (int) $establecimiento->id,
+            404,
+        );
+
+        return $oferta;
     }
 
     /**

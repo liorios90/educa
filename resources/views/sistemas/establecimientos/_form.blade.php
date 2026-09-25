@@ -3,6 +3,10 @@
 
     $establecimiento = $establecimiento ?? null;
     $administrador = $administrador ?? null;
+    $modalidades = $modalidades ?? [];
+    $jornadas = $jornadas ?? [];
+    $selectedModalidadIds = $selectedModalidadIds ?? [];
+    $selectedJornadasPorModalidad = $selectedJornadasPorModalidad ?? [];
     $zonaId = old('zona_id', $establecimiento?->zona_id);
     $distritoId = old('distrito_id', $establecimiento?->distrito_id);
     $circuitoId = old('circuito_id', $establecimiento?->circuito_id);
@@ -102,6 +106,73 @@
             @endforeach
         </select>
         <x-input-error class="mt-2" :messages="$errors->get('regimen')" />
+    </div>
+
+    <div class="space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <div>
+            <p class="text-sm font-medium text-slate-800">Modalidades y jornadas</p>
+            <p class="mt-1 text-xs text-slate-500">
+                Marca las modalidades que ofrece el establecimiento. En cada modalidad indica las jornadas.
+            </p>
+        </div>
+        <x-input-error :messages="$errors->get('modalidades')" />
+        <x-input-error :messages="$errors->get('jornadas')" />
+
+        @if ($modalidades === [])
+            <p class="text-sm text-slate-500">Sistemas aún no ha definido las modalidades y jornadas del catálogo nacional.</p>
+        @else
+            <div
+                class="space-y-4"
+                x-data="{
+                    modalidades: @js($selectedModalidadIds),
+                    selectedModalidad(id) {
+                        return this.modalidades.map(String).includes(String(id))
+                    },
+                }"
+            >
+                @foreach ($modalidades as $modalidad)
+                    @php
+                        $modalidadId = (string) $modalidad['id'];
+                        $jornadasSeleccionadas = $selectedJornadasPorModalidad[$modalidadId] ?? [];
+                    @endphp
+                    <section class="rounded-xl border border-slate-200 bg-white p-4">
+                        <label class="flex items-center gap-2 text-sm font-medium text-slate-800">
+                            <input
+                                type="checkbox"
+                                name="modalidades[]"
+                                value="{{ $modalidad['id'] }}"
+                                class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500"
+                                x-model="modalidades"
+                                @checked(in_array($modalidadId, $selectedModalidadIds, true))
+                            >
+                            {{ $modalidad['nombre'] }}
+                        </label>
+                        <div
+                            class="mt-3"
+                            x-cloak
+                            x-show="selectedModalidad({{ $modalidad['id'] }})"
+                        >
+                            <p class="mb-2 text-xs font-medium text-slate-500">Jornadas</p>
+                            <div class="grid grid-cols-1 gap-2 md:grid-cols-2">
+                                @foreach ($jornadas as $jornada)
+                                    <label class="flex items-center gap-2 text-sm text-slate-700">
+                                        <input
+                                            type="checkbox"
+                                            name="jornadas[{{ $modalidad['id'] }}][]"
+                                            value="{{ $jornada['id'] }}"
+                                            class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500"
+                                            @checked(in_array((string) $jornada['id'], $jornadasSeleccionadas, true))
+                                        >
+                                        {{ $jornada['nombre'] }}
+                                    </label>
+                                @endforeach
+                            </div>
+                            <x-input-error class="mt-2" :messages="$errors->get('jornadas.'.$modalidad['id'])" />
+                        </div>
+                    </section>
+                @endforeach
+            </div>
+        @endif
     </div>
 
     <div class="grid grid-cols-1 gap-6 md:grid-cols-3">

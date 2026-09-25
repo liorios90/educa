@@ -19,6 +19,7 @@ class EstablecimientoGrado extends Model
      */
     protected $fillable = [
         'establecimiento_id',
+        'establecimiento_modalidad_jornada_id',
         'subnivel_id',
         'grado_id',
         'nombre',
@@ -35,6 +36,14 @@ class EstablecimientoGrado extends Model
     public function establecimiento(): BelongsTo
     {
         return $this->belongsTo(Establecimiento::class);
+    }
+
+    /**
+     * @return BelongsTo<EstablecimientoModalidadJornada, $this>
+     */
+    public function oferta(): BelongsTo
+    {
+        return $this->belongsTo(EstablecimientoModalidadJornada::class, 'establecimiento_modalidad_jornada_id');
     }
 
     /**

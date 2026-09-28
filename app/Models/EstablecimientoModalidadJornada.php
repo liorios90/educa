@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class EstablecimientoModalidadJornada extends Model
 {
@@ -42,6 +43,22 @@ class EstablecimientoModalidadJornada extends Model
     public function jornada(): BelongsTo
     {
         return $this->belongsTo(Sys_Jornada::class, 'jornada_id');
+    }
+
+    /**
+     * @return HasMany<EstablecimientoAsignatura, $this>
+     */
+    public function malla(): HasMany
+    {
+        return $this->hasMany(EstablecimientoAsignatura::class, 'establecimiento_modalidad_jornada_id');
+    }
+
+    /**
+     * @return HasMany<EstablecimientoAreaLibreta, $this>
+     */
+    public function areaLibretas(): HasMany
+    {
+        return $this->hasMany(EstablecimientoAreaLibreta::class, 'establecimiento_modalidad_jornada_id');
     }
 
     /**

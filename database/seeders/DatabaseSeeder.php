@@ -22,6 +22,7 @@ class DatabaseSeeder extends Seeder
             RoleSeeder::class,
             NavigationSeeder::class,
             EstructuraEducativaSeeder::class,
+            CurriculoEducativoSeeder::class,
             ModalidadJornadaSeeder::class,
         ]);
 

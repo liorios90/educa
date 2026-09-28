@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\DB;
 
 class SyncEstablecimientoEstructura
 {
+    public function __construct(private SyncEstablecimientoAsignaturas $asignaturas) {}
+
     /**
      * @param  list<int>  $gradoIds
      * @param  array<int, string|null>  $nombresGrados
@@ -56,6 +58,11 @@ class SyncEstablecimientoEstructura
             $oferta->niveles()->sync($nivelSync);
             $oferta->subniveles()->sync($subnivelSync);
             $oferta->grados()->sync($gradoSync);
+
+            $this->asignaturas->pruneGradosFueraDeOferta(
+                $oferta,
+                array_map(intval(...), array_keys($gradoSync)),
+            );
         });
     }
 }

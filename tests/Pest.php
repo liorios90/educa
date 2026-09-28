@@ -2,6 +2,13 @@
 
 use App\Enums\Role;
 use App\Models\Establecimiento;
+use App\Models\EstablecimientoModalidad;
+use App\Models\EstablecimientoModalidadJornada;
+use App\Models\Sys_Grado;
+use App\Models\Sys_Jornada;
+use App\Models\Sys_Modalidad;
+use App\Models\Sys_Nivel;
+use App\Models\Sys_Subnivel;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Role as RoleModel;
@@ -62,4 +69,37 @@ function adminOf(Establecimiento $establecimiento): User
         'name' => 'Director Andino',
         'establecimiento_id' => $establecimiento->id,
     ]), Role::Admin);
+}
+
+/**
+ * @return array{nivel: Sys_Nivel, subnivel: Sys_Subnivel, grado: Sys_Grado}
+ */
+function catalogoEstructura(array $nombres = []): array
+{
+    $nivel = Sys_Nivel::factory()->create(['nombre' => $nombres['nivel'] ?? 'Educación Inicial']);
+    $subnivel = Sys_Subnivel::factory()->for($nivel, 'nivel')->create(['nombre' => $nombres['subnivel'] ?? 'Inicial 2']);
+    $grado = Sys_Grado::factory()->for($subnivel, 'subnivel')->create(['nombre' => $nombres['grado'] ?? 'Segundo de inicial']);
+
+    return compact('nivel', 'subnivel', 'grado');
+}
+
+function ofertaDe(Establecimiento $establecimiento, array $nombres = []): EstablecimientoModalidadJornada
+{
+    $modalidadNombre = $nombres['modalidad'] ?? 'Presencial';
+    $catalogoModalidad = Sys_Modalidad::query()->where('nombre', $modalidadNombre)->first()
+        ?? Sys_Modalidad::factory()->create(['nombre' => $modalidadNombre]);
+
+    $establecimientoModalidad = EstablecimientoModalidad::query()->firstOrCreate([
+        'establecimiento_id' => $establecimiento->id,
+        'modalidad_id' => $catalogoModalidad->id,
+    ]);
+
+    $jornadaNombre = $nombres['jornada'] ?? 'Matutina';
+    $catalogoJornada = Sys_Jornada::query()->where('nombre', $jornadaNombre)->first()
+        ?? Sys_Jornada::factory()->create(['nombre' => $jornadaNombre]);
+
+    return EstablecimientoModalidadJornada::factory()->create([
+        'establecimiento_modalidad_id' => $establecimientoModalidad->id,
+        'jornada_id' => $catalogoJornada->id,
+    ]);
 }

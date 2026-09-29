@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\Role;
+use App\Enums\TipoCalificacion;
 use App\Models\Establecimiento;
 use App\Models\NavigationItem;
 use App\Models\Sys_Area;
@@ -11,7 +12,7 @@ use App\Models\User;
 use Database\Seeders\NavigationSeeder;
 
 describe('index', function () {
-    it('allows systems users to open the nested estructura screen', function () {
+    it('allows systems users to open the niveles screen', function () {
         $user = assignRole(User::factory()->create(), Role::Sistemas);
         $nivel = Sys_Nivel::factory()->create(['nombre' => 'Educación General Básica']);
         $subnivel = Sys_Subnivel::factory()->for($nivel, 'nivel')->create(['nombre' => 'Básica Superior']);
@@ -20,13 +21,15 @@ describe('index', function () {
         $this->actingAs($user)
             ->get(route('sistemas.estructura'))
             ->assertOk()
-            ->assertSee('Niveles, subniveles y grados')
+            ->assertSee('Niveles')
             ->assertSee('Nuevo nivel')
             ->assertSee('Educación General Básica')
-            ->assertSee('Básica Superior')
-            ->assertSee('8vo Básica')
-            ->assertSee('Crear subnivel')
-            ->assertSee('Crear grado');
+            ->assertSee('Subniveles')
+            ->assertSee(route('sistemas.estructura.niveles.show', $nivel), false)
+            ->assertDontSee('Básica Superior')
+            ->assertDontSee('8vo Básica')
+            ->assertDontSee('Crear subnivel')
+            ->assertDontSee('Crear grado');
     });
 
     it('forbids administrators from creating a nivel', function () {
@@ -52,26 +55,16 @@ describe('index', function () {
             ->assertRedirect(route('login'));
     });
 
-    it('escapes field values in the estructura tree', function () {
+    it('escapes nivel names on the niveles screen', function () {
         $user = assignRole(User::factory()->create(), Role::Sistemas);
-        $nivel = Sys_Nivel::factory()->create([
+        Sys_Nivel::factory()->create([
             'nombre' => "<script>alert('nivel')</script>",
-        ]);
-        $subnivel = Sys_Subnivel::factory()->for($nivel, 'nivel')->create([
-            'nombre' => "<script>alert('subnivel')</script>",
-        ]);
-        Sys_Grado::factory()->for($subnivel, 'subnivel')->create([
-            'nombre' => "<script>alert('grado')</script>",
         ]);
 
         $this->actingAs($user)
             ->get(route('sistemas.estructura'))
             ->assertSee("<script>alert('nivel')</script>")
-            ->assertDontSee("<script>alert('nivel')</script>", false)
-            ->assertSee("<script>alert('subnivel')</script>")
-            ->assertDontSee("<script>alert('subnivel')</script>", false)
-            ->assertSee("<script>alert('grado')</script>")
-            ->assertDontSee("<script>alert('grado')</script>", false);
+            ->assertDontSee("<script>alert('nivel')</script>", false);
     });
 
     it('shows a back link to the parent hub when the menu item exists', function () {
@@ -113,6 +106,106 @@ describe('index', function () {
     });
 });
 
+describe('subniveles screen', function () {
+    it('shows the subniveles of a nivel and their grados in a modal', function () {
+        $user = assignRole(User::factory()->create(), Role::Sistemas);
+        $nivel = Sys_Nivel::factory()->create(['nombre' => 'Educación General Básica']);
+        $subnivel = Sys_Subnivel::factory()->for($nivel, 'nivel')->create(['nombre' => 'Básica Superior']);
+        Sys_Grado::factory()->for($subnivel, 'subnivel')->create(['nombre' => '8vo Básica']);
+
+        $this->actingAs($user)
+            ->get(route('sistemas.estructura.niveles.show', $nivel))
+            ->assertOk()
+            ->assertSee('Subniveles')
+            ->assertSee('Educación General Básica')
+            ->assertSee('Básica Superior')
+            ->assertSee('Crear subnivel')
+            ->assertSee('Grados')
+            ->assertSee('8vo Básica')
+            ->assertSee('Crear grado')
+            ->assertSee('Cerrar');
+    });
+
+    it('escapes subnivel names on the subniveles screen', function () {
+        $user = assignRole(User::factory()->create(), Role::Sistemas);
+        $nivel = Sys_Nivel::factory()->create();
+        Sys_Subnivel::factory()->for($nivel, 'nivel')->create([
+            'nombre' => "<script>alert('subnivel')</script>",
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('sistemas.estructura.niveles.show', $nivel))
+            ->assertSee("<script>alert('subnivel')</script>")
+            ->assertDontSee("<script>alert('subnivel')</script>", false);
+    });
+
+    it('forbids administrators from opening subniveles', function () {
+        $user = assignRole(User::factory()->create(), Role::Admin);
+        $nivel = Sys_Nivel::factory()->create();
+
+        $this->actingAs($user)
+            ->get(route('sistemas.estructura.niveles.show', $nivel))
+            ->assertForbidden();
+    });
+});
+
+describe('grados screen', function () {
+    it('opens the grados modal of a subnivel', function () {
+        $user = assignRole(User::factory()->create(), Role::Sistemas);
+        $nivel = Sys_Nivel::factory()->create(['nombre' => 'Educación General Básica']);
+        $subnivel = Sys_Subnivel::factory()->for($nivel, 'nivel')->create(['nombre' => 'Básica Superior']);
+        Sys_Grado::factory()->for($subnivel, 'subnivel')->create(['nombre' => '8vo Básica']);
+
+        $this->actingAs($user)
+            ->get(route('sistemas.estructura.niveles.show', ['nivel' => $nivel, 'grados' => $subnivel->id]))
+            ->assertOk()
+            ->assertSee('Grados')
+            ->assertSee('Educación General Básica')
+            ->assertSee('Básica Superior')
+            ->assertSee('8vo Básica')
+            ->assertSee('Crear grado')
+            ->assertSee('Editar grado');
+    });
+
+    it('redirects the old grados url to the subniveles screen with the modal open', function () {
+        $user = assignRole(User::factory()->create(), Role::Sistemas);
+        $nivel = Sys_Nivel::factory()->create();
+        $subnivel = Sys_Subnivel::factory()->for($nivel, 'nivel')->create();
+
+        $this->actingAs($user)
+            ->get(route('sistemas.estructura.subniveles.show', [$nivel, $subnivel]))
+            ->assertRedirect(route('sistemas.estructura.niveles.show', [
+                'nivel' => $nivel,
+                'grados' => $subnivel->id,
+            ]));
+    });
+
+    it('escapes grado names in the grados modal', function () {
+        $user = assignRole(User::factory()->create(), Role::Sistemas);
+        $nivel = Sys_Nivel::factory()->create();
+        $subnivel = Sys_Subnivel::factory()->for($nivel, 'nivel')->create();
+        Sys_Grado::factory()->for($subnivel, 'subnivel')->create([
+            'nombre' => "<script>alert('grado')</script>",
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('sistemas.estructura.niveles.show', $nivel))
+            ->assertSee("<script>alert('grado')</script>")
+            ->assertDontSee("<script>alert('grado')</script>", false);
+    });
+
+    it('returns 404 when opening a subnivel of another nivel', function () {
+        $user = assignRole(User::factory()->create(), Role::Sistemas);
+        $nivel = Sys_Nivel::factory()->create();
+        $otroNivel = Sys_Nivel::factory()->create();
+        $subnivel = Sys_Subnivel::factory()->for($nivel, 'nivel')->create();
+
+        $this->actingAs($user)
+            ->get(route('sistemas.estructura.subniveles.show', [$otroNivel, $subnivel]))
+            ->assertNotFound();
+    });
+});
+
 describe('niveles', function () {
     it('creates a nivel and redirects so subniveles can be added', function () {
         $actor = assignRole(User::factory()->create(), Role::Sistemas);
@@ -126,7 +219,7 @@ describe('niveles', function () {
         $nivel = Sys_Nivel::query()->where('nombre', 'Bachillerato')->firstOrFail();
 
         $response
-            ->assertRedirect(route('sistemas.estructura', ['nivel' => $nivel->id]))
+            ->assertRedirect(route('sistemas.estructura.niveles.show', $nivel))
             ->assertSessionHas('status', 'nivel-created');
 
         $this->assertDatabaseHas('sys_niveles', [
@@ -168,7 +261,7 @@ describe('niveles', function () {
                 'nombre' => 'Educación Básica',
                 'descripcion' => 'Actualizado',
             ])
-            ->assertRedirect(route('sistemas.estructura', ['nivel' => $nivel->id]))
+            ->assertRedirect(route('sistemas.estructura'))
             ->assertSessionHas('status', 'nivel-updated');
 
         expect($nivel->fresh()->nombre)->toBe('Educación Básica');
@@ -194,7 +287,7 @@ describe('niveles', function () {
         $this->actingAs($actor)
             ->from(route('sistemas.estructura'))
             ->delete(route('sistemas.estructura.niveles.destroy', $nivel))
-            ->assertRedirect(route('sistemas.estructura', ['nivel' => $nivel->id]))
+            ->assertRedirect(route('sistemas.estructura'))
             ->assertSessionHas('error', 'No se puede eliminar el nivel porque tiene subniveles asociados.');
 
         $this->assertModelExists($nivel);
@@ -209,7 +302,7 @@ describe('niveles', function () {
         $this->actingAs($actor)
             ->from(route('sistemas.estructura'))
             ->delete(route('sistemas.estructura.niveles.destroy', $nivel))
-            ->assertRedirect(route('sistemas.estructura', ['nivel' => $nivel->id]))
+            ->assertRedirect(route('sistemas.estructura'))
             ->assertSessionHas('error', 'No se puede eliminar el nivel porque está en uso por un establecimiento.');
 
         $this->assertModelExists($nivel);
@@ -225,12 +318,16 @@ describe('subniveles', function () {
             ->post(route('sistemas.estructura.subniveles.store', $nivel), [
                 'nombre' => 'Básica Superior',
                 'descripcion' => 'Octavo a décimo',
+                'tipo_calificacion' => TipoCalificacion::Calificacion->value,
             ]);
 
         $subnivel = Sys_Subnivel::query()->where('nombre', 'Básica Superior')->firstOrFail();
 
         $response
-            ->assertRedirect(route('sistemas.estructura', ['nivel' => $nivel->id, 'subnivel' => $subnivel->id]))
+            ->assertRedirect(route('sistemas.estructura.niveles.show', [
+                'nivel' => $nivel,
+                'grados' => $subnivel->id,
+            ]))
             ->assertSessionHas('status', 'subnivel-created');
 
         expect($subnivel->nivel_id)->toBe($nivel->id);
@@ -241,9 +338,9 @@ describe('subniveles', function () {
         $nivel = Sys_Nivel::factory()->create();
 
         $this->actingAs($actor)
-            ->from(route('sistemas.estructura', ['nivel' => $nivel->id]))
+            ->from(route('sistemas.estructura.niveles.show', $nivel))
             ->post(route('sistemas.estructura.subniveles.store', $nivel), [])
-            ->assertRedirect(route('sistemas.estructura', ['nivel' => $nivel->id]))
+            ->assertRedirect(route('sistemas.estructura.niveles.show', $nivel))
             ->assertSessionHasErrorsIn('subnivel-create-'.$nivel->id, 'nombre');
     });
 
@@ -256,8 +353,9 @@ describe('subniveles', function () {
             ->patch(route('sistemas.estructura.subniveles.update', [$nivel, $subnivel]), [
                 'nombre' => 'Básica Superior',
                 'descripcion' => 'Actualizado',
+                'tipo_calificacion' => TipoCalificacion::Calificacion->value,
             ])
-            ->assertRedirect(route('sistemas.estructura', ['nivel' => $nivel->id, 'subnivel' => $subnivel->id]))
+            ->assertRedirect(route('sistemas.estructura.niveles.show', $nivel))
             ->assertSessionHas('status', 'subnivel-updated');
 
         expect($subnivel->fresh()->nombre)->toBe('Básica Superior');
@@ -283,7 +381,7 @@ describe('subniveles', function () {
 
         $this->actingAs($actor)
             ->delete(route('sistemas.estructura.subniveles.destroy', [$nivel, $subnivel]))
-            ->assertRedirect(route('sistemas.estructura', ['nivel' => $nivel->id]))
+            ->assertRedirect(route('sistemas.estructura.niveles.show', $nivel))
             ->assertSessionHas('status', 'subnivel-deleted');
 
         $this->assertModelMissing($subnivel);
@@ -297,7 +395,7 @@ describe('subniveles', function () {
 
         $this->actingAs($actor)
             ->delete(route('sistemas.estructura.subniveles.destroy', [$nivel, $subnivel]))
-            ->assertRedirect(route('sistemas.estructura', ['nivel' => $nivel->id, 'subnivel' => $subnivel->id]))
+            ->assertRedirect(route('sistemas.estructura.niveles.show', $nivel))
             ->assertSessionHas('error', 'No se puede eliminar el subnivel porque tiene grados asociados.');
 
         $this->assertModelExists($subnivel);
@@ -311,7 +409,7 @@ describe('subniveles', function () {
 
         $this->actingAs($actor)
             ->delete(route('sistemas.estructura.subniveles.destroy', [$nivel, $subnivel]))
-            ->assertRedirect(route('sistemas.estructura', ['nivel' => $nivel->id, 'subnivel' => $subnivel->id]))
+            ->assertRedirect(route('sistemas.estructura.niveles.show', $nivel))
             ->assertSessionHas('error', 'No se puede eliminar el subnivel porque tiene áreas asociadas.');
 
         $this->assertModelExists($subnivel);
@@ -326,7 +424,7 @@ describe('subniveles', function () {
 
         $this->actingAs($actor)
             ->delete(route('sistemas.estructura.subniveles.destroy', [$nivel, $subnivel]))
-            ->assertRedirect(route('sistemas.estructura', ['nivel' => $nivel->id, 'subnivel' => $subnivel->id]))
+            ->assertRedirect(route('sistemas.estructura.niveles.show', $nivel))
             ->assertSessionHas('error', 'No se puede eliminar el subnivel porque está en uso por un establecimiento.');
 
         $this->assertModelExists($subnivel);
@@ -344,7 +442,10 @@ describe('grados', function () {
                 'nombre' => '8vo Básica',
                 'descripcion' => 'Octavo año',
             ])
-            ->assertRedirect(route('sistemas.estructura', ['nivel' => $nivel->id, 'subnivel' => $subnivel->id]))
+            ->assertRedirect(route('sistemas.estructura.niveles.show', [
+                'nivel' => $nivel,
+                'grados' => $subnivel->id,
+            ]))
             ->assertSessionHas('status', 'grado-created');
 
         $this->assertDatabaseHas('sys_grados', [
@@ -360,9 +461,9 @@ describe('grados', function () {
         $subnivel = Sys_Subnivel::factory()->for($nivel, 'nivel')->create();
 
         $this->actingAs($actor)
-            ->from(route('sistemas.estructura', ['nivel' => $nivel->id, 'subnivel' => $subnivel->id]))
+            ->from(route('sistemas.estructura.niveles.show', ['nivel' => $nivel, 'grados' => $subnivel->id]))
             ->post(route('sistemas.estructura.grados.store', [$nivel, $subnivel]), [])
-            ->assertRedirect(route('sistemas.estructura', ['nivel' => $nivel->id, 'subnivel' => $subnivel->id]))
+            ->assertRedirect(route('sistemas.estructura.niveles.show', ['nivel' => $nivel, 'grados' => $subnivel->id]))
             ->assertSessionHasErrorsIn('grado-create-'.$subnivel->id, 'nombre');
     });
 
@@ -377,7 +478,10 @@ describe('grados', function () {
                 'nombre' => '8vo Básica',
                 'descripcion' => 'Actualizado',
             ])
-            ->assertRedirect(route('sistemas.estructura', ['nivel' => $nivel->id, 'subnivel' => $subnivel->id]))
+            ->assertRedirect(route('sistemas.estructura.niveles.show', [
+                'nivel' => $nivel,
+                'grados' => $subnivel->id,
+            ]))
             ->assertSessionHas('status', 'grado-updated');
 
         expect($grado->fresh()->nombre)->toBe('8vo Básica');
@@ -405,7 +509,10 @@ describe('grados', function () {
 
         $this->actingAs($actor)
             ->delete(route('sistemas.estructura.grados.destroy', [$nivel, $subnivel, $grado]))
-            ->assertRedirect(route('sistemas.estructura', ['nivel' => $nivel->id, 'subnivel' => $subnivel->id]))
+            ->assertRedirect(route('sistemas.estructura.niveles.show', [
+                'nivel' => $nivel,
+                'grados' => $subnivel->id,
+            ]))
             ->assertSessionHas('status', 'grado-deleted');
 
         $this->assertModelMissing($grado);
@@ -421,7 +528,10 @@ describe('grados', function () {
 
         $this->actingAs($actor)
             ->delete(route('sistemas.estructura.grados.destroy', [$nivel, $subnivel, $grado]))
-            ->assertRedirect(route('sistemas.estructura', ['nivel' => $nivel->id, 'subnivel' => $subnivel->id]))
+            ->assertRedirect(route('sistemas.estructura.niveles.show', [
+                'nivel' => $nivel,
+                'grados' => $subnivel->id,
+            ]))
             ->assertSessionHas('error', 'No se puede eliminar el grado porque está en uso por un establecimiento.');
 
         $this->assertModelExists($grado);

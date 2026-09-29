@@ -48,6 +48,9 @@
                                 <td class="px-6 py-3">{{ $establecimiento->circuito?->nombre ?? '—' }}</td>
                                 <td class="px-6 py-3">
                                     <div class="flex items-center gap-3">
+                                        <a href="{{ route('sistemas.establecimientos.periodos', $establecimiento) }}" class="font-medium text-indigo-600 hover:text-indigo-500">
+                                            Periodos
+                                        </a>
                                         <a href="{{ route('sistemas.establecimientos.edit', $establecimiento) }}" class="font-medium text-indigo-600 hover:text-indigo-500">
                                             Editar
                                         </a>

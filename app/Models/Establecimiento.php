@@ -87,6 +87,14 @@ class Establecimiento extends Model
     }
 
     /**
+     * @return HasMany<EstablecimientoPeriodo, $this>
+     */
+    public function periodos(): HasMany
+    {
+        return $this->hasMany(EstablecimientoPeriodo::class);
+    }
+
+    /**
      * @return HasMany<EstablecimientoNivel, $this>
      */
     public function establecimientoNiveles(): HasMany

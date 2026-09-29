@@ -3,6 +3,7 @@
 use App\Crud\CrudRegistry;
 use App\Http\Controllers\CurriculoController;
 use App\Http\Controllers\EstablecimientoController;
+use App\Http\Controllers\EstablecimientoPeriodoController;
 use App\Http\Controllers\EstructuraController;
 use App\Http\Controllers\GenericCrudController;
 use App\Http\Controllers\NavigationItemController;
@@ -35,7 +36,13 @@ Route::middleware(['auth', 'verified', 'role:Sistemas'])
         Route::get('/establecimientos/{establecimiento}/editar', [EstablecimientoController::class, 'edit'])->name('establecimientos.edit');
         Route::patch('/establecimientos/{establecimiento}', [EstablecimientoController::class, 'update'])->name('establecimientos.update');
         Route::delete('/establecimientos/{establecimiento}', [EstablecimientoController::class, 'destroy'])->name('establecimientos.destroy');
+        Route::get('/establecimientos/{establecimiento}/periodos', [EstablecimientoPeriodoController::class, 'index'])->name('establecimientos.periodos')->whereNumber('establecimiento');
+        Route::post('/establecimientos/{establecimiento}/periodos', [EstablecimientoPeriodoController::class, 'store'])->name('establecimientos.periodos.store')->whereNumber('establecimiento');
+        Route::patch('/establecimientos/{establecimiento}/periodos/{periodo}', [EstablecimientoPeriodoController::class, 'update'])->name('establecimientos.periodos.update')->scopeBindings()->whereNumber('establecimiento')->whereNumber('periodo');
+        Route::delete('/establecimientos/{establecimiento}/periodos/{periodo}', [EstablecimientoPeriodoController::class, 'destroy'])->name('establecimientos.periodos.destroy')->scopeBindings()->whereNumber('establecimiento')->whereNumber('periodo');
         Route::get('/estructura', [EstructuraController::class, 'index'])->name('estructura');
+        Route::get('/estructura/niveles/{nivel}', [EstructuraController::class, 'showNivel'])->name('estructura.niveles.show')->whereNumber('nivel');
+        Route::get('/estructura/niveles/{nivel}/subniveles/{subnivel}', [EstructuraController::class, 'showSubnivel'])->name('estructura.subniveles.show')->scopeBindings()->whereNumber('nivel')->whereNumber('subnivel');
         Route::post('/estructura/niveles', [EstructuraController::class, 'storeNivel'])->name('estructura.niveles.store');
         Route::patch('/estructura/niveles/{nivel}', [EstructuraController::class, 'updateNivel'])->name('estructura.niveles.update')->whereNumber('nivel');
         Route::delete('/estructura/niveles/{nivel}', [EstructuraController::class, 'destroyNivel'])->name('estructura.niveles.destroy')->whereNumber('nivel');

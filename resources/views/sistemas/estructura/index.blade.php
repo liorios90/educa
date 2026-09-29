@@ -1,10 +1,6 @@
 <x-app-layout>
     @php
-        $openNivelId = $openNivelId ?: null;
-        $openSubnivelId = $openSubnivelId ?: null;
         $editingNivelId = null;
-        $editingSubnivelId = null;
-        $editingGradoId = null;
         $nivelCreateBag = $errors->getBag('nivel-create');
         $nivelCreateNombre = $nivelCreateBag->isNotEmpty() ? old('nombre') : '';
         $nivelCreateSiglas = $nivelCreateBag->isNotEmpty() ? old('siglas') : '';
@@ -12,125 +8,26 @@
 
         foreach ($niveles as $nivel) {
             if ($errors->getBag('nivel-'.$nivel->id)->isNotEmpty()) {
-                $openNivelId = $nivel->id;
                 $editingNivelId = $nivel->id;
-            }
-
-            if ($errors->getBag('subnivel-create-'.$nivel->id)->isNotEmpty()) {
-                $openNivelId = $nivel->id;
-            }
-
-            foreach ($nivel->subniveles as $subnivel) {
-                if ($errors->getBag('subnivel-'.$subnivel->id)->isNotEmpty()) {
-                    $openNivelId = $nivel->id;
-                    $openSubnivelId = $subnivel->id;
-                    $editingSubnivelId = $subnivel->id;
-                }
-
-                if ($errors->getBag('grado-create-'.$subnivel->id)->isNotEmpty()) {
-                    $openNivelId = $nivel->id;
-                    $openSubnivelId = $subnivel->id;
-                }
-
-                foreach ($subnivel->grados as $grado) {
-                    if ($errors->getBag('grado-'.$grado->id)->isNotEmpty()) {
-                        $openNivelId = $nivel->id;
-                        $openSubnivelId = $subnivel->id;
-                        $editingGradoId = $grado->id;
-                    }
-                }
             }
         }
     @endphp
 
     <x-slot name="header">
         <h2 class="text-xl font-semibold leading-tight text-slate-800">
-            Niveles, subniveles y grados
+            Niveles
         </h2>
     </x-slot>
 
-    <div
-        class="py-8"
-        x-data="{
-            openNivelId: @js($openNivelId),
-            openSubnivelId: @js($openSubnivelId),
-            editingNivelId: @js($editingNivelId),
-            editingSubnivelId: @js($editingSubnivelId),
-            editingGradoId: @js($editingGradoId),
-            toggleNivel(id) {
-                if (this.openNivelId === id) {
-                    this.openNivelId = null
-                    this.openSubnivelId = null
-                    this.editingNivelId = null
-                    this.editingSubnivelId = null
-                    this.editingGradoId = null
-                    return
-                }
-
-                this.openNivelId = id
-            },
-            editNivel(id) {
-                this.openNivelId = id
-                this.editingNivelId = id
-            },
-            toggleSubnivel(nivelId, subnivelId) {
-                this.openNivelId = nivelId
-
-                if (this.openSubnivelId === subnivelId) {
-                    this.openSubnivelId = null
-                    this.editingSubnivelId = null
-                    this.editingGradoId = null
-                    return
-                }
-
-                this.openSubnivelId = subnivelId
-            },
-            editSubnivel(nivelId, subnivelId) {
-                this.openNivelId = nivelId
-                this.openSubnivelId = subnivelId
-                this.editingSubnivelId = subnivelId
-            },
-            editGrado(nivelId, subnivelId, gradoId) {
-                this.openNivelId = nivelId
-                this.openSubnivelId = subnivelId
-                this.editingGradoId = gradoId
-            },
-        }"
-    >
+    <div class="py-8" x-data="{ editingNivelId: @js($editingNivelId) }">
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            @if (session('status') === 'nivel-created')
-                <p class="mb-4 text-sm font-medium text-green-700">Nivel creado correctamente. Ya puedes agregar subniveles.</p>
-            @endif
-            @if (session('status') === 'nivel-updated')
-                <p class="mb-4 text-sm font-medium text-green-700">Nivel actualizado correctamente.</p>
-            @endif
-            @if (session('status') === 'nivel-deleted')
-                <p class="mb-4 text-sm font-medium text-green-700">Nivel eliminado correctamente.</p>
-            @endif
-            @if (session('status') === 'subnivel-created')
-                <p class="mb-4 text-sm font-medium text-green-700">Subnivel creado correctamente. Ya puedes agregar grados.</p>
-            @endif
-            @if (session('status') === 'subnivel-updated')
-                <p class="mb-4 text-sm font-medium text-green-700">Subnivel actualizado correctamente.</p>
-            @endif
-            @if (session('status') === 'subnivel-deleted')
-                <p class="mb-4 text-sm font-medium text-green-700">Subnivel eliminado correctamente.</p>
-            @endif
-            @if (session('status') === 'grado-created')
-                <p class="mb-4 text-sm font-medium text-green-700">Grado creado correctamente.</p>
-            @endif
-            @if (session('status') === 'grado-updated')
-                <p class="mb-4 text-sm font-medium text-green-700">Grado actualizado correctamente.</p>
-            @endif
-            @if (session('status') === 'grado-deleted')
-                <p class="mb-4 text-sm font-medium text-green-700">Grado eliminado correctamente.</p>
-            @endif
-            @if (session('error'))
-                <p class="mb-4 text-sm font-medium text-red-700">{{ session('error') }}</p>
-            @endif
+            @include('sistemas.estructura._status')
 
             <section class="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                 <h3 class="text-base font-semibold text-slate-800">Nuevo nivel</h3>
+                <p class="mt-2 text-sm text-slate-500">
+                    Crea el nivel y luego entra a él para definir sus subniveles y grados.
+                </p>
                 <form method="POST" action="{{ route('sistemas.estructura.niveles.store') }}" class="mt-4 flex flex-col gap-4 md:flex-row md:flex-wrap md:items-end">
                     @csrf
                     <div class="md:min-w-48 md:flex-1">

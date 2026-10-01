@@ -1,6 +1,5 @@
 @php
     $areaBag = $errors->getBag('area-'.$area->id);
-    $asignaturaCreateBag = $errors->getBag('asignatura-create-'.$area->id);
     $areaCodigo = $areaBag->isNotEmpty() ? old('codigo', $area->codigo) : $area->codigo;
     $areaNombre = $areaBag->isNotEmpty() ? old('nombre', $area->nombre) : $area->nombre;
     $areaDescripcion = $areaBag->isNotEmpty() ? old('descripcion', $area->descripcion) : $area->descripcion;
@@ -8,14 +7,6 @@
     $areaLibreta = $areaBag->isNotEmpty()
         ? (bool) old('aparece_en_libreta', $area->aparece_en_libreta)
         : $area->aparece_en_libreta;
-    $asignaturaCreateCodigo = $asignaturaCreateBag->isNotEmpty() ? old('codigo') : '';
-    $asignaturaCreateNombre = $asignaturaCreateBag->isNotEmpty() ? old('nombre') : '';
-    $asignaturaCreateDescripcion = $asignaturaCreateBag->isNotEmpty() ? old('descripcion') : '';
-    $asignaturaCreateOrden = $asignaturaCreateBag->isNotEmpty() ? old('orden', 0) : 0;
-    $asignaturaCreateHoras = $asignaturaCreateBag->isNotEmpty() ? old('horas_semanales') : '';
-    $asignaturaCreateLibreta = $asignaturaCreateBag->isNotEmpty()
-        ? (bool) old('aparece_en_libreta', true)
-        : true;
 @endphp
 
 <article class="overflow-hidden rounded-lg border border-slate-200 bg-white">
@@ -114,6 +105,12 @@
                 <x-secondary-button type="button" x-on:click="editingAreaId = null">Cancelar</x-secondary-button>
             </div>
         </form>
+
+        <div class="flex justify-end">
+            <x-primary-button type="button" x-on:click="$dispatch('open-modal', 'asignatura-create-{{ $area->id }}')">
+                Crear asignatura
+            </x-primary-button>
+        </div>
 
         <div class="overflow-x-auto rounded-lg border border-slate-200 bg-white">
             <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
@@ -218,48 +215,14 @@
                 </tbody>
             </table>
         </div>
-
-        <form method="POST" action="{{ route('sistemas.curriculo.asignaturas.store', [$nivel, $subnivel, $area]) }}" class="flex flex-col gap-4 rounded-lg border border-indigo-100 bg-white p-4 md:flex-row md:flex-wrap md:items-end">
-            @csrf
-            <div class="md:w-28">
-                <x-input-label :for="'codigo-asignatura-create-'.$area->id" value="Código" />
-                <x-text-input :id="'codigo-asignatura-create-'.$area->id" class="mt-1 block w-full" type="text" name="codigo" :value="$asignaturaCreateCodigo" maxlength="20" />
-                <x-input-error class="mt-2" :messages="$asignaturaCreateBag->get('codigo')" />
-            </div>
-            <div class="md:min-w-40 md:flex-1">
-                <x-input-label :for="'nombre-asignatura-create-'.$area->id" value="Nueva asignatura" />
-                <x-text-input :id="'nombre-asignatura-create-'.$area->id" class="mt-1 block w-full" type="text" name="nombre" :value="$asignaturaCreateNombre" required />
-                <x-input-error class="mt-2" :messages="$asignaturaCreateBag->get('nombre')" />
-            </div>
-            <div class="md:min-w-40 md:flex-1">
-                <x-input-label :for="'descripcion-asignatura-create-'.$area->id" value="Descripción" />
-                <x-text-input :id="'descripcion-asignatura-create-'.$area->id" class="mt-1 block w-full" type="text" name="descripcion" :value="$asignaturaCreateDescripcion" />
-                <x-input-error class="mt-2" :messages="$asignaturaCreateBag->get('descripcion')" />
-            </div>
-            <div class="md:w-24">
-                <x-input-label :for="'orden-asignatura-create-'.$area->id" value="Orden" />
-                <x-text-input :id="'orden-asignatura-create-'.$area->id" class="mt-1 block w-full" type="number" name="orden" :value="$asignaturaCreateOrden" min="0" max="999" required />
-                <x-input-error class="mt-2" :messages="$asignaturaCreateBag->get('orden')" />
-            </div>
-            <div class="md:w-28">
-                <x-input-label :for="'horas-asignatura-create-'.$area->id" value="Horas semanales" />
-                <x-text-input :id="'horas-asignatura-create-'.$area->id" class="mt-1 block w-full" type="number" name="horas_semanales" :value="$asignaturaCreateHoras" min="0" max="40" />
-                <x-input-error class="mt-2" :messages="$asignaturaCreateBag->get('horas_semanales')" />
-            </div>
-            <label class="flex items-center gap-2 text-sm text-slate-700 md:mb-1">
-                <input type="hidden" name="aparece_en_libreta" value="0">
-                <input
-                    id="libreta-asignatura-create-{{ $area->id }}"
-                    type="checkbox"
-                    name="aparece_en_libreta"
-                    value="1"
-                    class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500"
-                    @checked($asignaturaCreateLibreta)
-                >
-                En libreta
-            </label>
-            <x-primary-button>Crear asignatura</x-primary-button>
-        </form>
         </div>
     </div>
 </article>
+
+<template x-teleport="body">
+    @include('sistemas.curriculo._asignatura-create-modal', [
+        'nivel' => $nivel,
+        'subnivel' => $subnivel,
+        'area' => $area,
+    ])
+</template>

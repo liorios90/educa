@@ -26,6 +26,8 @@ describe('index', function () {
             ->assertSee('Lengua y Literatura')
             ->assertSee('Crear área')
             ->assertSee('Crear asignatura')
+            ->assertSee("dispatch('open-modal', 'asignatura-create-{$area->id}')", false)
+            ->assertSee('Nueva asignatura')
             ->assertSee('En las libretas del Ministerio de Educación')
             ->assertSee(route('sistemas.estructura'), false);
     });
@@ -305,6 +307,15 @@ describe('asignaturas', function () {
             'aparece_en_libreta' => true,
             'area_id' => $area->id,
         ]);
+
+        $this->actingAs($actor)
+            ->get(route('sistemas.curriculo', [
+                'nivel' => $nivel->id,
+                'subnivel' => $subnivel->id,
+                'area' => $area->id,
+            ]))
+            ->assertOk()
+            ->assertSee('Álgebra');
     });
 
     it('rejects an empty asignatura payload', function () {

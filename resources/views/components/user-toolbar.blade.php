@@ -2,6 +2,12 @@
     <div class="min-w-0 max-w-[9rem] text-right sm:max-w-xs">
         <p class="truncate text-xs font-semibold uppercase tracking-wide text-slate-800">{{ $user->name }}</p>
         <p class="truncate text-[11px] text-slate-500">{{ $roleLabel }}</p>
+        @if ($ofertaLabel)
+            <p class="truncate text-[11px] text-slate-500">{{ $ofertaLabel }}</p>
+        @endif
+        @if ($periodoLabel)
+            <p class="truncate text-[11px] text-slate-500">{{ $periodoLabel }}</p>
+        @endif
     </div>
 
     <div class="flex items-center gap-0.5">
@@ -25,6 +31,19 @@
                 <span class="sr-only">Cambiar rol</span>
                 <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+                </svg>
+            </a>
+        @endif
+
+        @if ($canSwitchOferta)
+            <a
+                href="{{ route('oferta.select') }}"
+                class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-indigo-700"
+                title="Cambiar modalidad y jornada"
+            >
+                <span class="sr-only">Cambiar modalidad y jornada</span>
+                <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                 </svg>
             </a>
         @endif

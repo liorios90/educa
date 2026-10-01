@@ -54,6 +54,12 @@
                         Régimen {{ $establecimiento->regimen }}
                     @endif
                 </p>
+                @if ($ofertaLabel)
+                    <p class="mt-2 text-sm font-medium text-slate-600">{{ $ofertaLabel }}</p>
+                @endif
+                @if ($periodoLabel)
+                    <p class="mt-1 text-sm text-slate-500">{{ $periodoLabel }}</p>
+                @endif
             </div>
         </div>
     </section>

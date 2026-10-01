@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Auth\ActiveOferta;
+use App\Auth\ActivePeriodo;
 use App\Auth\ActiveRole;
 use App\Enums\Role;
 use App\Http\Controllers\Controller;
@@ -13,7 +15,11 @@ use Illuminate\View\View;
 
 class ActiveRoleController extends Controller
 {
-    public function __construct(private ActiveRole $activeRole) {}
+    public function __construct(
+        private ActiveRole $activeRole,
+        private ActiveOferta $activeOferta,
+        private ActivePeriodo $activePeriodo,
+    ) {}
 
     public function create(Request $request): View|RedirectResponse
     {
@@ -26,7 +32,7 @@ class ActiveRoleController extends Controller
                 $this->activeRole->set($roles->first());
             }
 
-            return redirect()->intended(route('dashboard', absolute: false));
+            return $this->redirectAfterRole($user);
         }
 
         return view('auth.select-role', [
@@ -39,7 +45,20 @@ class ActiveRoleController extends Controller
     {
         /** @var Role $role */
         $role = $request->enum('role', Role::class);
+        $this->activeOferta->clear();
+        $this->activePeriodo->clear();
         $this->activeRole->set($role);
+
+        return $this->redirectAfterRole($request->user());
+    }
+
+    private function redirectAfterRole(User $user): RedirectResponse
+    {
+        $this->activeOferta->sync($user);
+
+        if ($this->activeOferta->needsSelection($user)) {
+            return redirect()->route('oferta.select');
+        }
 
         return redirect()->intended(route('dashboard', absolute: false));
     }

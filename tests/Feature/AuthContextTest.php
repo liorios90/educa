@@ -24,7 +24,8 @@ it('stores the user in the session after login', function () {
         'roles' => [],
     ])
         ->and(session(AuthContext::USER_KEY))->not->toHaveKey('password')
-        ->and(session(AuthContext::ESTABLECIMIENTO_KEY))->toBeNull();
+        ->and(session(AuthContext::ESTABLECIMIENTO_KEY))->toBeNull()
+        ->and(session(AuthContext::PERIODO_KEY))->toBeNull();
 });
 
 it('stores the establishment in the session when the user belongs to one', function () {
@@ -58,7 +59,8 @@ it('stores the establishment in the session when the user belongs to one', funct
             'codigo_amie' => '17H00001',
             'regimen' => 'Sierra',
             'logo' => 'establecimientos/logos/ue-andes.png',
-        ]);
+        ])
+        ->and(session(AuthContext::PERIODO_KEY))->toBeNull();
 });
 
 it('does not store credentials in the session after a failed login', function () {
@@ -71,7 +73,8 @@ it('does not store credentials in the session after a failed login', function ()
 
     $this->assertGuest();
     expect(session(AuthContext::USER_KEY))->toBeNull()
-        ->and(session(AuthContext::ESTABLECIMIENTO_KEY))->toBeNull();
+        ->and(session(AuthContext::ESTABLECIMIENTO_KEY))->toBeNull()
+        ->and(session(AuthContext::PERIODO_KEY))->toBeNull();
 });
 
 it('stores user and establishment in the session before a multi-role user chooses a role', function () {
@@ -101,7 +104,8 @@ it('stores user and establishment in the session before a multi-role user choose
         ->and(session(AuthContext::ESTABLECIMIENTO_KEY))->toMatchArray([
             'id' => $establecimiento->id,
             'nombre' => 'UE Multi Rol',
-        ]);
+        ])
+        ->and(session(AuthContext::PERIODO_KEY))->toBeNull();
 });
 
 it('hydrates the session context when it is missing on an authenticated request', function () {
@@ -121,5 +125,6 @@ it('hydrates the session context when it is missing on an authenticated request'
         'establecimiento_id' => null,
         'roles' => [Role::Sistemas->value],
     ])
-        ->and(session(AuthContext::ESTABLECIMIENTO_KEY))->toBeNull();
+        ->and(session(AuthContext::ESTABLECIMIENTO_KEY))->toBeNull()
+        ->and(session(AuthContext::PERIODO_KEY))->toBeNull();
 });

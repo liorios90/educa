@@ -45,6 +45,7 @@ describe('index', function () {
         gradoEnOferta($establecimiento, $matutina, $estructura);
 
         $this->actingAs($admin)
+            ->withSession(activeOfertaSession($matutina))
             ->get(route('Admin.asignaturas'))
             ->assertOk()
             ->assertSee('Asignaturas')
@@ -336,6 +337,7 @@ describe('update', function () {
         }
 
         $this->actingAs($admin)
+            ->withSession(activeOfertaSession($matutina))
             ->put(route('Admin.asignaturas.update', $matutina), [])
             ->assertRedirect(route('Admin.asignaturas.edit', $matutina));
 
@@ -526,6 +528,7 @@ describe('update', function () {
         }
 
         $this->actingAs($admin)
+            ->withSession(activeOfertaSession($matutina))
             ->put(route('Admin.asignaturas.update', $matutina), [])
             ->assertRedirect(route('Admin.asignaturas.edit', $matutina));
 

@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Auth\ActiveOferta;
+use App\Auth\ActivePeriodo;
 use App\Auth\ActiveRole;
 use App\Auth\AuthContext;
 use App\Http\Controllers\Controller;
@@ -25,12 +27,14 @@ class AuthenticatedSessionController extends Controller
     /**
      * Handle an incoming authentication request.
      */
-    public function store(LoginRequest $request, ActiveRole $activeRole, AuthContext $authContext): RedirectResponse
+    public function store(LoginRequest $request, ActiveRole $activeRole, ActiveOferta $activeOferta, ActivePeriodo $activePeriodo, AuthContext $authContext): RedirectResponse
     {
         $request->authenticate();
 
         $request->session()->regenerate();
         $activeRole->clear();
+        $activeOferta->clear();
+        $activePeriodo->clear();
 
         $user = $request->user();
 
@@ -46,6 +50,14 @@ class AuthenticatedSessionController extends Controller
 
         if ($roles->count() === 1) {
             $activeRole->set($roles->first());
+        }
+
+        if ($user instanceof User) {
+            $activeOferta->sync($user);
+
+            if ($activeOferta->needsSelection($user)) {
+                return redirect()->route('oferta.select');
+            }
         }
 
         return redirect()->intended(route('dashboard', absolute: false));

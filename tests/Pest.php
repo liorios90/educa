@@ -1,9 +1,12 @@
 <?php
 
+use App\Auth\ActiveOferta;
+use App\Auth\ActivePeriodo;
 use App\Enums\Role;
 use App\Models\Establecimiento;
 use App\Models\EstablecimientoModalidad;
 use App\Models\EstablecimientoModalidadJornada;
+use App\Models\EstablecimientoPeriodo;
 use App\Models\Sys_Grado;
 use App\Models\Sys_Jornada;
 use App\Models\Sys_Modalidad;
@@ -102,4 +105,31 @@ function ofertaDe(Establecimiento $establecimiento, array $nombres = []): Establ
         'establecimiento_modalidad_id' => $establecimientoModalidad->id,
         'jornada_id' => $catalogoJornada->id,
     ]);
+}
+
+/**
+ * @return array<string, int>
+ */
+function activeOfertaSession(EstablecimientoModalidadJornada $oferta): array
+{
+    return [ActiveOferta::SESSION_KEY => $oferta->id];
+}
+
+function periodoActivoDe(EstablecimientoModalidadJornada $oferta, array $atributos = []): EstablecimientoPeriodo
+{
+    $oferta->loadMissing('establecimientoModalidad');
+
+    return EstablecimientoPeriodo::factory()->activo()->create([
+        'establecimiento_id' => $oferta->establecimientoModalidad->establecimiento_id,
+        'establecimiento_modalidad_jornada_id' => $oferta->id,
+        ...$atributos,
+    ]);
+}
+
+/**
+ * @return array<string, int>
+ */
+function activePeriodoSession(EstablecimientoPeriodo $periodo): array
+{
+    return [ActivePeriodo::SESSION_KEY => $periodo->id];
 }

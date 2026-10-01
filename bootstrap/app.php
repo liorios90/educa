@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureActiveOferta;
 use App\Http\Middleware\EnsureActiveRole;
 use App\Http\Middleware\EnsureRoleIsActive;
 use Illuminate\Foundation\Application;
@@ -23,6 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
         $middleware->web(append: [
             EnsureActiveRole::class,
+            EnsureActiveOferta::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

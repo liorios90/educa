@@ -2,6 +2,8 @@
 
 namespace App\View\Components;
 
+use App\Auth\ActiveOferta;
+use App\Auth\ActivePeriodo;
 use App\Auth\ActiveRole;
 use App\Enums\Role;
 use App\Models\Establecimiento;
@@ -15,7 +17,11 @@ class EstablecimientoInicio extends Component
 {
     public const SISTEMAS_LOGO_PATH = 'establecimientos/logos/dm2.jpeg';
 
-    public function __construct(private ActiveRole $activeRole) {}
+    public function __construct(
+        private ActiveRole $activeRole,
+        private ActiveOferta $activeOferta,
+        private ActivePeriodo $activePeriodo,
+    ) {}
 
     public static function sistemasLogoUrl(): ?string
     {
@@ -36,6 +42,8 @@ class EstablecimientoInicio extends Component
                 'establecimiento' => null,
                 'isSistemas' => true,
                 'logoUrl' => self::sistemasLogoUrl(),
+                'ofertaLabel' => null,
+                'periodoLabel' => null,
             ]);
         }
 
@@ -46,10 +54,15 @@ class EstablecimientoInicio extends Component
             $establecimiento = $user->establecimiento;
         }
 
+        $oferta = $user instanceof User ? $this->activeOferta->get($user) : null;
+        $periodo = $user instanceof User ? $this->activePeriodo->get($user) : null;
+
         return view('components.establecimiento-inicio', [
             'establecimiento' => $establecimiento instanceof Establecimiento ? $establecimiento : null,
             'isSistemas' => false,
             'logoUrl' => $establecimiento instanceof Establecimiento ? $establecimiento->logoUrl() : null,
+            'ofertaLabel' => $oferta?->etiqueta(),
+            'periodoLabel' => $periodo?->nombre,
         ]);
     }
 }

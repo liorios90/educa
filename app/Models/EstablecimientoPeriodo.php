@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use Database\Factories\EstablecimientoPeriodoFactory;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -64,6 +66,12 @@ class EstablecimientoPeriodo extends Model
     public function oferta(): BelongsTo
     {
         return $this->belongsTo(EstablecimientoModalidadJornada::class, 'establecimiento_modalidad_jornada_id');
+    }
+
+    #[Scope]
+    protected function activo(Builder $query): Builder
+    {
+        return $query->where('activo', true);
     }
 
     public function activarEnOferta(): void

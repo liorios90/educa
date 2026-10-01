@@ -31,6 +31,7 @@ describe('index', function () {
         ]);
 
         $this->actingAs($admin)
+            ->withSession(activeOfertaSession($matutina))
             ->get(route('Admin.estructura'))
             ->assertOk()
             ->assertSee('Estructura educativa')
@@ -202,6 +203,7 @@ describe('edit', function () {
         ]);
 
         $this->actingAs($admin)
+            ->withSession(activeOfertaSession($matutina))
             ->get(route('Admin.estructura.edit', $matutina))
             ->assertOk()
             ->assertViewHas('selectedGradoIds', []);
@@ -491,6 +493,7 @@ describe('update', function () {
         }
 
         $this->actingAs($admin)
+            ->withSession(activeOfertaSession($matutina))
             ->put(route('Admin.estructura.update', $matutina), [])
             ->assertRedirect(route('Admin.estructura.edit', $matutina))
             ->assertSessionHas('status', 'estructura-updated');
@@ -588,6 +591,7 @@ describe('update', function () {
         }
 
         $this->actingAs($admin)
+            ->withSession(activeOfertaSession($matutina))
             ->put(route('Admin.estructura.update', $matutina), [
                 'grados' => [$propia['grado']->id],
             ])

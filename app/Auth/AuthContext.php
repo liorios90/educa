@@ -3,6 +3,7 @@
 namespace App\Auth;
 
 use App\Models\Establecimiento;
+use App\Models\EstablecimientoPeriodo;
 use App\Models\User;
 
 class AuthContext
@@ -11,6 +12,8 @@ class AuthContext
 
     public const ESTABLECIMIENTO_KEY = 'auth_establecimiento';
 
+    public const PERIODO_KEY = 'auth_periodo';
+
     public function remember(User $user): void
     {
         $user->loadMissing(['establecimiento', 'roles']);
@@ -18,6 +21,7 @@ class AuthContext
         session([
             self::USER_KEY => $this->userPayload($user),
             self::ESTABLECIMIENTO_KEY => $this->establecimientoPayload($user->establecimiento),
+            self::PERIODO_KEY => $this->periodo(),
         ]);
     }
 
@@ -48,9 +52,31 @@ class AuthContext
         return is_array($establecimiento) ? $establecimiento : null;
     }
 
+    /**
+     * @return array{
+     *     id: int,
+     *     nombre: string,
+     *     fecha_inicio: string|null,
+     *     fecha_fin: string|null,
+     *     establecimiento_id: int,
+     *     establecimiento_modalidad_jornada_id: int
+     * }|null
+     */
+    public function periodo(): ?array
+    {
+        $periodo = session(self::PERIODO_KEY);
+
+        return is_array($periodo) ? $periodo : null;
+    }
+
+    public function rememberPeriodo(?EstablecimientoPeriodo $periodo): void
+    {
+        session([self::PERIODO_KEY => $this->periodoPayload($periodo)]);
+    }
+
     public function clear(): void
     {
-        session()->forget([self::USER_KEY, self::ESTABLECIMIENTO_KEY]);
+        session()->forget([self::USER_KEY, self::ESTABLECIMIENTO_KEY, self::PERIODO_KEY]);
     }
 
     /**
@@ -110,6 +136,32 @@ class AuthContext
             'zona_id' => $establecimiento->zona_id,
             'distrito_id' => $establecimiento->distrito_id,
             'circuito_id' => $establecimiento->circuito_id,
+        ];
+    }
+
+    /**
+     * @return array{
+     *     id: int,
+     *     nombre: string,
+     *     fecha_inicio: string|null,
+     *     fecha_fin: string|null,
+     *     establecimiento_id: int,
+     *     establecimiento_modalidad_jornada_id: int
+     * }|null
+     */
+    private function periodoPayload(?EstablecimientoPeriodo $periodo): ?array
+    {
+        if (! $periodo instanceof EstablecimientoPeriodo) {
+            return null;
+        }
+
+        return [
+            'id' => $periodo->id,
+            'nombre' => $periodo->nombre,
+            'fecha_inicio' => $periodo->fecha_inicio?->toDateString(),
+            'fecha_fin' => $periodo->fecha_fin?->toDateString(),
+            'establecimiento_id' => $periodo->establecimiento_id,
+            'establecimiento_modalidad_jornada_id' => $periodo->establecimiento_modalidad_jornada_id,
         ];
     }
 }

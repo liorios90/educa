@@ -154,33 +154,26 @@ it('rejects an empty modalidad and jornada selection', function () {
         ->assertSessionHasErrors(['establecimiento_modalidad_id', 'oferta']);
 });
 
-it('sends an administrator to choose the only configured oferta after login', function () {
+it('enters with the only modalidad and jornada after login', function () {
     $establecimiento = Establecimiento::factory()->create();
     $admin = adminOf($establecimiento);
     $oferta = ofertaDe($establecimiento);
-    $periodo = periodoActivoDe($oferta);
+    $periodo = periodoActivoDe($oferta, ['nombre' => '2026-2027']);
 
     $this->post('/login', [
         'email' => $admin->email,
         'password' => 'password',
     ])
-        ->assertRedirect(route('oferta.select'));
-
-    expect(session(ActiveOferta::SESSION_KEY))->toBeNull();
-
-    $this->get(route('oferta.select'))
-        ->assertOk()
-        ->assertSee('Presencial')
-        ->assertSee('Matutina');
-
-    $this->post(route('oferta.store'), [
-        'establecimiento_modalidad_id' => $oferta->establecimiento_modalidad_id,
-        'oferta' => $oferta->id,
-    ])
         ->assertRedirect(route('dashboard', absolute: false));
 
     expect(session(ActiveOferta::SESSION_KEY))->toBe($oferta->id)
-        ->and(session(ActivePeriodo::SESSION_KEY))->toBe($periodo->id);
+        ->and(session(ActivePeriodo::SESSION_KEY))->toBe($periodo->id)
+        ->and(session(AuthContext::PERIODO_KEY))->toMatchArray([
+            'id' => $periodo->id,
+            'nombre' => '2026-2027',
+            'establecimiento_id' => $establecimiento->id,
+            'establecimiento_modalidad_jornada_id' => $oferta->id,
+        ]);
 });
 
 it('does not ask for an oferta when the establishment has none configured', function () {
@@ -336,6 +329,47 @@ it('does not let an administrator enter when the oferta has no active period', f
     expect(session(ActiveOferta::SESSION_KEY))->toBeNull()
         ->and(session(ActivePeriodo::SESSION_KEY))->toBeNull()
         ->and(session(AuthContext::PERIODO_KEY))->toBeNull();
+});
+
+it('does not let an administrator enter the only oferta when it has no active period', function () {
+    $establecimiento = Establecimiento::factory()->create();
+    $admin = adminOf($establecimiento);
+    ofertaDe($establecimiento);
+
+    $this->post('/login', [
+        'email' => $admin->email,
+        'password' => 'password',
+    ])
+        ->assertRedirect(route('oferta.select'))
+        ->assertSessionHasErrors(['periodo' => 'No existe ningún periodo activo.']);
+
+    $this->get(route('oferta.select'))
+        ->assertOk()
+        ->assertSee('No existe ningún periodo activo.');
+});
+
+it('enters with the only oferta after a multi-role user chooses administrator', function () {
+    $establecimiento = Establecimiento::factory()->create();
+    $user = User::factory()->create([
+        'establecimiento_id' => $establecimiento->id,
+    ]);
+    assignRole($user, Role::Admin);
+    assignRole($user, Role::Sistemas);
+    $oferta = ofertaDe($establecimiento);
+    $periodo = periodoActivoDe($oferta);
+
+    $this->post('/login', [
+        'email' => $user->email,
+        'password' => 'password',
+    ])
+        ->assertRedirect(route('role.select'));
+
+    $this->post(route('role.store'), ['role' => Role::Admin->value])
+        ->assertRedirect(route('dashboard', absolute: false));
+
+    expect(session(ActiveRole::SESSION_KEY))->toBe(Role::Admin->value)
+        ->and(session(ActiveOferta::SESSION_KEY))->toBe($oferta->id)
+        ->and(session(ActivePeriodo::SESSION_KEY))->toBe($periodo->id);
 });
 
 it('does not treat an inactive period as the active period of the oferta', function () {

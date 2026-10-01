@@ -55,9 +55,16 @@ class ActiveRoleController extends Controller
     private function redirectAfterRole(User $user): RedirectResponse
     {
         $this->activeOferta->sync($user);
+        $this->activePeriodo->sync($user);
 
         if ($this->activeOferta->needsSelection($user)) {
             return redirect()->route('oferta.select');
+        }
+
+        if ($this->activePeriodo->missing($user)) {
+            return redirect()
+                ->route('oferta.select')
+                ->withErrors(['periodo' => 'No existe ningún periodo activo.']);
         }
 
         return redirect()->intended(route('dashboard', absolute: false));

@@ -54,9 +54,16 @@ class AuthenticatedSessionController extends Controller
 
         if ($user instanceof User) {
             $activeOferta->sync($user);
+            $activePeriodo->sync($user);
 
             if ($activeOferta->needsSelection($user)) {
                 return redirect()->route('oferta.select');
+            }
+
+            if ($activePeriodo->missing($user)) {
+                return redirect()
+                    ->route('oferta.select')
+                    ->withErrors(['periodo' => 'No existe ningún periodo activo.']);
             }
         }
 

@@ -24,6 +24,7 @@ class EnsureActiveOferta
         }
 
         $this->activeOferta->sync($user);
+        $this->activePeriodo->sync($user);
 
         if ($this->activeOferta->needsSelection($user) && $request->routeIs('dashboard')) {
             return redirect()->guest(route('oferta.select'));

@@ -67,6 +67,27 @@ class ActivePeriodo
         $this->authContext->rememberPeriodo(null);
     }
 
+    public function sync(User $user): void
+    {
+        $oferta = $this->activeOferta->get($user);
+
+        if ($oferta === null) {
+            $this->clear();
+
+            return;
+        }
+
+        if ($this->get($user) !== null) {
+            return;
+        }
+
+        $periodo = $this->forOferta($oferta);
+
+        if ($periodo instanceof EstablecimientoPeriodo) {
+            $this->set($periodo);
+        }
+    }
+
     public function missing(User $user): bool
     {
         return $this->activeOferta->appliesTo($user)

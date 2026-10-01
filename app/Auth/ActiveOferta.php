@@ -104,13 +104,31 @@ class ActiveOferta
 
     public function sync(User $user): void
     {
-        if (! $this->appliesTo($user) || $this->available($user)->isEmpty()) {
+        if (! $this->appliesTo($user)) {
             $this->clear();
+
+            return;
+        }
+
+        $ofertas = $this->available($user);
+
+        if ($ofertas->isEmpty()) {
+            $this->clear();
+
+            return;
+        }
+
+        if ($this->get($user) !== null) {
+            return;
+        }
+
+        if ($ofertas->count() === 1) {
+            $this->set($ofertas->first());
         }
     }
 
     public function canSwitch(User $user): bool
     {
-        return $this->appliesTo($user) && $this->available($user)->isNotEmpty();
+        return $this->appliesTo($user) && $this->available($user)->count() > 1;
     }
 }

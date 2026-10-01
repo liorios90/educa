@@ -26,8 +26,13 @@ class ActiveOfertaController extends Controller
         $user->loadMissing('establecimiento');
 
         $this->activeOferta->sync($user);
+        $this->activePeriodo->sync($user);
 
-        if (! $this->activeOferta->canSwitch($user) && ! $this->activeOferta->needsSelection($user)) {
+        if (
+            ! $this->activeOferta->canSwitch($user)
+            && ! $this->activeOferta->needsSelection($user)
+            && ! $this->activePeriodo->missing($user)
+        ) {
             return redirect()->intended(route('dashboard', absolute: false));
         }
 

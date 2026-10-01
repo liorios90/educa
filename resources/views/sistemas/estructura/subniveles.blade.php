@@ -1,18 +1,7 @@
-@php
-    use App\Enums\TipoCalificacion;
-@endphp
-
 <x-app-layout>
     @php
         $editingSubnivelId = null;
         $openGradosId = $openGradosId ?? null;
-        $subnivelCreateBag = $errors->getBag('subnivel-create-'.$nivel->id);
-        $subnivelCreateNombre = $subnivelCreateBag->isNotEmpty() ? old('nombre') : '';
-        $subnivelCreateSiglas = $subnivelCreateBag->isNotEmpty() ? old('siglas') : '';
-        $subnivelCreateDescripcion = $subnivelCreateBag->isNotEmpty() ? old('descripcion') : '';
-        $subnivelCreateTipo = $subnivelCreateBag->isNotEmpty()
-            ? old('tipo_calificacion')
-            : TipoCalificacion::Calificacion->value;
 
         foreach ($nivel->subniveles as $subnivel) {
             if ($errors->getBag('subnivel-'.$subnivel->id)->isNotEmpty()) {
@@ -52,45 +41,11 @@
                 {{ $nivel->nombre }}
             </p>
 
-            <section class="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                <h3 class="text-base font-semibold text-slate-800">Nuevo subnivel</h3>
-                <form method="POST" action="{{ route('sistemas.estructura.subniveles.store', $nivel) }}" class="mt-4 flex flex-col gap-4 md:flex-row md:flex-wrap md:items-end">
-                    @csrf
-                    <div class="md:min-w-40 md:flex-1">
-                        <x-input-label :for="'nombre-subnivel-create-'.$nivel->id" value="Nombre" />
-                        <x-text-input :id="'nombre-subnivel-create-'.$nivel->id" class="mt-1 block w-full" type="text" name="nombre" :value="$subnivelCreateNombre" required />
-                        <x-input-error class="mt-2" :messages="$subnivelCreateBag->get('nombre')" />
-                    </div>
-                    <div class="md:w-28">
-                        <x-input-label :for="'siglas-subnivel-create-'.$nivel->id" value="Siglas" />
-                        <x-text-input :id="'siglas-subnivel-create-'.$nivel->id" class="mt-1 block w-full" type="text" name="siglas" :value="$subnivelCreateSiglas" maxlength="10" />
-                        <x-input-error class="mt-2" :messages="$subnivelCreateBag->get('siglas')" />
-                    </div>
-                    <div class="md:min-w-48">
-                        <x-input-label :for="'tipo-calificacion-subnivel-create-'.$nivel->id" value="Tipo de calificación" />
-                        <select
-                            id="tipo-calificacion-subnivel-create-{{ $nivel->id }}"
-                            name="tipo_calificacion"
-                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                            required
-                        >
-                            <option value="">Selecciona un tipo</option>
-                            @foreach (TipoCalificacion::cases() as $option)
-                                <option value="{{ $option->value }}" @selected((string) $subnivelCreateTipo === $option->value)>
-                                    {{ $option->label() }}
-                                </option>
-                            @endforeach
-                        </select>
-                        <x-input-error class="mt-2" :messages="$subnivelCreateBag->get('tipo_calificacion')" />
-                    </div>
-                    <div class="md:min-w-40 md:flex-1">
-                        <x-input-label :for="'descripcion-subnivel-create-'.$nivel->id" value="Descripción" />
-                        <x-text-input :id="'descripcion-subnivel-create-'.$nivel->id" class="mt-1 block w-full" type="text" name="descripcion" :value="$subnivelCreateDescripcion" />
-                        <x-input-error class="mt-2" :messages="$subnivelCreateBag->get('descripcion')" />
-                    </div>
-                    <x-primary-button>Crear subnivel</x-primary-button>
-                </form>
-            </section>
+            <div class="mb-4 flex justify-end">
+                <x-primary-button type="button" x-on:click="$dispatch('open-modal', 'subnivel-create-{{ $nivel->id }}')">
+                    Crear subnivel
+                </x-primary-button>
+            </div>
 
             <div class="flex flex-col gap-4">
                 @forelse ($nivel->subniveles as $subnivel)
@@ -106,6 +61,8 @@
                     </p>
                 @endforelse
             </div>
+
+            @include('sistemas.estructura._subnivel-create-modal', ['nivel' => $nivel])
 
             <div class="mt-6">
                 <a

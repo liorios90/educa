@@ -21,7 +21,7 @@ describe('index', function () {
         $user = assignRole(User::factory()->create(), Role::Sistemas);
         $establecimiento = Establecimiento::factory()->create(['nombre' => 'UE Cotopaxi']);
         $oferta = ofertaDe($establecimiento, ['modalidad' => 'Presencial', 'jornada' => 'Matutina']);
-        EstablecimientoPeriodo::factory()->create([
+        $periodo = EstablecimientoPeriodo::factory()->create([
             'establecimiento_id' => $establecimiento->id,
             'establecimiento_modalidad_jornada_id' => $oferta->id,
             'nombre' => '2026-2027',
@@ -36,10 +36,11 @@ describe('index', function () {
             ->assertSee('Periodos')
             ->assertSee('UE Cotopaxi')
             ->assertSee('Presencial · Matutina')
-            ->assertSee('2026-2027')
+            ->assertSeeInOrder(['Id', (string) $periodo->id, '2026-2027'])
             ->assertSee('01/09/2026')
             ->assertSee('30/06/2027')
             ->assertSee('Crear periodo')
+            ->assertSee("dispatch('open-modal', 'periodo-create-{$oferta->id}')", false)
             ->assertSee('Activo')
             ->assertDontSee('Intensivo');
     });
@@ -48,13 +49,13 @@ describe('index', function () {
         $user = assignRole(User::factory()->create(), Role::Sistemas);
         $establecimiento = Establecimiento::factory()->create();
         $oferta = ofertaDe($establecimiento, ['modalidad' => 'Presencial', 'jornada' => 'Matutina']);
-        EstablecimientoPeriodo::factory()->create([
+        $anterior = EstablecimientoPeriodo::factory()->create([
             'establecimiento_id' => $establecimiento->id,
             'establecimiento_modalidad_jornada_id' => $oferta->id,
             'nombre' => '2025-2026',
             'activo' => false,
         ]);
-        EstablecimientoPeriodo::factory()->create([
+        $actual = EstablecimientoPeriodo::factory()->create([
             'establecimiento_id' => $establecimiento->id,
             'establecimiento_modalidad_jornada_id' => $oferta->id,
             'nombre' => '2026-2027',
@@ -64,7 +65,7 @@ describe('index', function () {
         $this->actingAs($user)
             ->get(route('sistemas.establecimientos.periodos', $establecimiento))
             ->assertOk()
-            ->assertSeeInOrder(['2026-2027', '2025-2026'])
+            ->assertSeeInOrder([(string) $actual->id, '2026-2027', (string) $anterior->id, '2025-2026'])
             ->assertSee('Inactivo');
     });
 
@@ -139,6 +140,17 @@ describe('store', function () {
         expect($periodo->fecha_inicio->toDateString())->toBe('2026-01-05');
         expect($periodo->fecha_fin->toDateString())->toBe('2026-02-27');
         expect($periodo->activo)->toBeTrue();
+
+        $this->actingAs($actor)
+            ->get(route('sistemas.establecimientos.periodos', [
+                'establecimiento' => $establecimiento,
+                'oferta' => $oferta->id,
+            ]))
+            ->assertOk()
+            ->assertSee('2026-2027 Vespertina')
+            ->assertSee('05/01/2026')
+            ->assertSee('27/02/2026')
+            ->assertSee('Periodo activado correctamente.');
     });
 
     it('deactivates the previous active period of the same oferta', function () {

@@ -1,10 +1,6 @@
 <x-app-layout>
     @php
         $editingNivelId = null;
-        $nivelCreateBag = $errors->getBag('nivel-create');
-        $nivelCreateNombre = $nivelCreateBag->isNotEmpty() ? old('nombre') : '';
-        $nivelCreateSiglas = $nivelCreateBag->isNotEmpty() ? old('siglas') : '';
-        $nivelCreateDescripcion = $nivelCreateBag->isNotEmpty() ? old('descripcion') : '';
 
         foreach ($niveles as $nivel) {
             if ($errors->getBag('nivel-'.$nivel->id)->isNotEmpty()) {
@@ -23,31 +19,11 @@
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             @include('sistemas.estructura._status')
 
-            <section class="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                <h3 class="text-base font-semibold text-slate-800">Nuevo nivel</h3>
-                <p class="mt-2 text-sm text-slate-500">
-                    Crea el nivel y luego entra a él para definir sus subniveles y grados.
-                </p>
-                <form method="POST" action="{{ route('sistemas.estructura.niveles.store') }}" class="mt-4 flex flex-col gap-4 md:flex-row md:flex-wrap md:items-end">
-                    @csrf
-                    <div class="md:min-w-48 md:flex-1">
-                        <x-input-label for="nombre-nivel-create" value="Nombre" />
-                        <x-text-input id="nombre-nivel-create" class="mt-1 block w-full" type="text" name="nombre" :value="$nivelCreateNombre" required />
-                        <x-input-error class="mt-2" :messages="$errors->getBag('nivel-create')->get('nombre')" />
-                    </div>
-                    <div class="md:w-28">
-                        <x-input-label for="siglas-nivel-create" value="Siglas" />
-                        <x-text-input id="siglas-nivel-create" class="mt-1 block w-full" type="text" name="siglas" :value="$nivelCreateSiglas" maxlength="10" />
-                        <x-input-error class="mt-2" :messages="$errors->getBag('nivel-create')->get('siglas')" />
-                    </div>
-                    <div class="md:min-w-48 md:flex-1">
-                        <x-input-label for="descripcion-nivel-create" value="Descripción" />
-                        <x-text-input id="descripcion-nivel-create" class="mt-1 block w-full" type="text" name="descripcion" :value="$nivelCreateDescripcion" />
-                        <x-input-error class="mt-2" :messages="$errors->getBag('nivel-create')->get('descripcion')" />
-                    </div>
-                    <x-primary-button>Crear nivel</x-primary-button>
-                </form>
-            </section>
+            <div class="mb-4 flex justify-end">
+                <x-primary-button type="button" x-on:click="$dispatch('open-modal', 'nivel-create')">
+                    Crear nivel
+                </x-primary-button>
+            </div>
 
             <div class="flex flex-col gap-4">
                 @forelse ($niveles as $nivel)
@@ -58,6 +34,8 @@
                     </p>
                 @endforelse
             </div>
+
+            @include('sistemas.estructura._nivel-create-modal')
 
             @if ($backUrl)
                 <div class="mt-6">

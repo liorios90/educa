@@ -76,66 +76,26 @@
                     </nav>
 
                     @foreach ($ofertas as $oferta)
-                        @php
-                            $createBag = $errors->getBag('periodo-create-'.$oferta->id);
-                            $createNombre = $createBag->isNotEmpty() ? old('nombre') : '';
-                            $createInicio = $createBag->isNotEmpty() ? old('fecha_inicio') : '';
-                            $createFin = $createBag->isNotEmpty() ? old('fecha_fin') : '';
-                            $createActivo = $createBag->isNotEmpty() ? old('activo') : true;
-                        @endphp
                         <div
                             role="tabpanel"
                             class="p-6"
                             x-show="activeOfertaId === {{ $oferta->id }}"
                             x-cloak
                         >
-                            <section class="mb-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
-                                <h3 class="text-base font-semibold text-slate-800">Nuevo periodo</h3>
-                                <p class="mt-1 text-sm text-slate-500">
-                                    El nombre es el que verán los usuarios. Solo puede haber un periodo activo en esta oferta.
-                                </p>
-                                <form method="POST" action="{{ route('sistemas.establecimientos.periodos.store', $establecimiento) }}" class="mt-4 flex flex-col gap-4">
-                                    @csrf
-                                    <input type="hidden" name="establecimiento_modalidad_jornada_id" value="{{ $oferta->id }}">
-                                    <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-                                        <div>
-                                            <x-input-label :for="'nombre-periodo-create-'.$oferta->id" value="Nombre del periodo" />
-                                            <x-text-input :id="'nombre-periodo-create-'.$oferta->id" class="mt-1 block w-full" type="text" name="nombre" :value="$createNombre" required />
-                                            <x-input-error class="mt-2" :messages="$createBag->get('nombre')" />
-                                        </div>
-                                        <div>
-                                            <x-input-label :for="'fecha-inicio-periodo-create-'.$oferta->id" value="Fecha de inicio" />
-                                            <x-text-input :id="'fecha-inicio-periodo-create-'.$oferta->id" class="mt-1 block w-full" type="date" name="fecha_inicio" :value="$createInicio" required />
-                                            <x-input-error class="mt-2" :messages="$createBag->get('fecha_inicio')" />
-                                        </div>
-                                        <div>
-                                            <x-input-label :for="'fecha-fin-periodo-create-'.$oferta->id" value="Fecha de fin" />
-                                            <x-text-input :id="'fecha-fin-periodo-create-'.$oferta->id" class="mt-1 block w-full" type="date" name="fecha_fin" :value="$createFin" required />
-                                            <x-input-error class="mt-2" :messages="$createBag->get('fecha_fin')" />
-                                        </div>
-                                    </div>
-                                    <div class="flex flex-wrap items-center justify-between gap-4">
-                                        <label class="flex items-center gap-2 text-sm text-slate-700">
-                                            <input type="hidden" name="activo" value="0">
-                                            <input
-                                                id="activo-periodo-create-{{ $oferta->id }}"
-                                                type="checkbox"
-                                                name="activo"
-                                                value="1"
-                                                class="rounded border-gray-300 text-amber-600 shadow-sm focus:ring-amber-500"
-                                                @checked($createActivo)
-                                            >
-                                            Activo
-                                        </label>
-                                        <x-primary-button>Crear periodo</x-primary-button>
-                                    </div>
-                                </form>
-                            </section>
+                            <div class="mb-4 flex justify-end">
+                                <x-primary-button
+                                    type="button"
+                                    x-on:click="$dispatch('open-modal', 'periodo-create-{{ $oferta->id }}')"
+                                >
+                                    Crear periodo
+                                </x-primary-button>
+                            </div>
 
                             <div class="overflow-hidden rounded-xl border border-slate-200">
                                 <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
                                     <thead class="bg-slate-50 text-slate-600">
                                         <tr>
+                                            <th class="px-4 py-3 font-medium">Id</th>
                                             <th class="px-4 py-3 font-medium">Periodo</th>
                                             <th class="px-4 py-3 font-medium">Inicio</th>
                                             <th class="px-4 py-3 font-medium">Fin</th>
@@ -148,6 +108,7 @@
                                             <tr @class([
                                                 'bg-amber-50' => $periodo->activo,
                                             ])>
+                                                <td class="px-4 py-3 text-slate-500">{{ $periodo->id }}</td>
                                                 <td class="px-4 py-3 font-medium">{{ $periodo->nombre }}</td>
                                                 <td class="px-4 py-3 text-slate-500">{{ $periodo->fecha_inicio->format('d/m/Y') }}</td>
                                                 <td class="px-4 py-3 text-slate-500">{{ $periodo->fecha_fin->format('d/m/Y') }}</td>
@@ -175,7 +136,7 @@
                                             </tr>
                                         @empty
                                             <tr>
-                                                <td colspan="5" class="px-4 py-6 text-center text-slate-500">
+                                                <td colspan="6" class="px-4 py-6 text-center text-slate-500">
                                                     Esta oferta aún no tiene periodos.
                                                 </td>
                                             </tr>
@@ -186,6 +147,13 @@
                         </div>
                     @endforeach
                 </div>
+
+                @foreach ($ofertas as $oferta)
+                    @include('sistemas.establecimientos._periodo-create-modal', [
+                        'establecimiento' => $establecimiento,
+                        'oferta' => $oferta,
+                    ])
+                @endforeach
 
                 @foreach ($ofertas as $oferta)
                     @foreach ($oferta->periodos as $periodo)

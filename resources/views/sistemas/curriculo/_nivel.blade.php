@@ -26,8 +26,12 @@
         </button>
     </div>
 
-    <div class="space-y-4 border-t border-slate-100 bg-slate-50 px-4 py-4 sm:px-6" x-cloak x-show="openNivelId === {{ $nivel->id }}">
-        <div class="flex flex-col gap-3">
+    <div
+        class="space-y-4 border-t border-slate-100 bg-slate-50 py-4 pl-8 pr-4 sm:pl-16 sm:pr-6"
+        x-cloak
+        x-show="openNivelId === {{ $nivel->id }}"
+    >
+        <div class="flex flex-col gap-3 border-l-2 border-indigo-200 pl-4 sm:pl-6">
             <h4 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Subniveles</h4>
 
             @forelse ($nivel->subniveles as $subnivel)

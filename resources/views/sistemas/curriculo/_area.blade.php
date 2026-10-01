@@ -62,7 +62,12 @@
         </div>
     </div>
 
-    <div class="space-y-4 border-t border-slate-100 bg-slate-50 px-4 py-4" x-cloak x-show="openAreaId === {{ $area->id }}">
+    <div
+        class="space-y-4 border-t border-slate-100 bg-slate-50 py-4 pl-8 pr-4 sm:pl-16 sm:pr-6"
+        x-cloak
+        x-show="openAreaId === {{ $area->id }}"
+    >
+        <div class="flex flex-col gap-4 border-l-2 border-indigo-200 pl-4 sm:pl-6">
         <form
             method="POST"
             action="{{ route('sistemas.curriculo.areas.update', [$nivel, $subnivel, $area]) }}"
@@ -255,5 +260,6 @@
             </label>
             <x-primary-button>Crear asignatura</x-primary-button>
         </form>
+        </div>
     </div>
 </article>

@@ -40,8 +40,12 @@
         </button>
     </div>
 
-    <div class="space-y-4 border-t border-slate-100 bg-slate-50 px-4 py-4" x-cloak x-show="openSubnivelId === {{ $subnivel->id }}">
-        <div class="flex flex-col gap-3">
+    <div
+        class="space-y-4 border-t border-slate-100 bg-slate-50 py-4 pl-8 pr-4 sm:pl-16 sm:pr-6"
+        x-cloak
+        x-show="openSubnivelId === {{ $subnivel->id }}"
+    >
+        <div class="flex flex-col gap-4 border-l-2 border-indigo-200 pl-4 sm:pl-6">
             <h5 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Áreas</h5>
 
             @forelse ($subnivel->areas as $area)
@@ -51,9 +55,8 @@
                     Este subnivel aún no tiene áreas. En Inicial usa ámbitos; en EGB y BGU usa las áreas del currículo nacional.
                 </p>
             @endforelse
-        </div>
 
-        <form method="POST" action="{{ route('sistemas.curriculo.areas.store', [$nivel, $subnivel]) }}" class="flex flex-col gap-4 rounded-lg border border-indigo-100 bg-white p-4 md:flex-row md:flex-wrap md:items-end">
+            <form method="POST" action="{{ route('sistemas.curriculo.areas.store', [$nivel, $subnivel]) }}" class="flex flex-col gap-4 rounded-lg border border-indigo-100 bg-white p-4 md:flex-row md:flex-wrap md:items-end">
             @csrf
             <div class="md:w-28">
                 <x-input-label :for="'codigo-area-create-'.$subnivel->id" value="Código" />
@@ -89,5 +92,6 @@
             </label>
             <x-primary-button>Crear área</x-primary-button>
         </form>
+        </div>
     </div>
 </section>

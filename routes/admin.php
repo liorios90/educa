@@ -4,6 +4,7 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AlumnoController;
 use App\Http\Controllers\EmpleadoController;
 use App\Http\Controllers\EstablecimientoAsignaturaController;
+use App\Http\Controllers\EstablecimientoAulaController;
 use App\Http\Controllers\EstablecimientoEstructuraController;
 use App\Http\Controllers\ImportRepresentantesController;
 use App\Http\Controllers\PadreController;
@@ -36,6 +37,9 @@ Route::middleware(['auth', 'verified', 'role:Admin'])
         Route::get('asignaturas', [EstablecimientoAsignaturaController::class, 'index'])->name('asignaturas');
         Route::get('asignaturas/{oferta}', [EstablecimientoAsignaturaController::class, 'edit'])->name('asignaturas.edit');
         Route::put('asignaturas/{oferta}', [EstablecimientoAsignaturaController::class, 'update'])->name('asignaturas.update');
+        Route::get('aulas', [EstablecimientoAulaController::class, 'index'])->name('aulas');
+        Route::post('aulas', [EstablecimientoAulaController::class, 'store'])->name('aulas.store');
+        Route::delete('aulas/{aula}', [EstablecimientoAulaController::class, 'destroy'])->name('aulas.destroy')->whereNumber('aula');
         Route::get('empleados', [EmpleadoController::class, 'index'])->name('empleados');
         Route::get('empleados/crear', [EmpleadoController::class, 'create'])->name('empleados.create');
         Route::post('empleados', [EmpleadoController::class, 'store'])->name('empleados.store');

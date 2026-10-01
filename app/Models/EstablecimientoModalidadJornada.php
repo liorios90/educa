@@ -54,6 +54,14 @@ class EstablecimientoModalidadJornada extends Model
     }
 
     /**
+     * @return HasMany<EstablecimientoAula, $this>
+     */
+    public function aulas(): HasMany
+    {
+        return $this->hasMany(EstablecimientoAula::class, 'establecimiento_modalidad_jornada_id');
+    }
+
+    /**
      * @return HasMany<EstablecimientoAsignatura, $this>
      */
     public function malla(): HasMany

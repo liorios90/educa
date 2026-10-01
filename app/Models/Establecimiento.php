@@ -119,6 +119,14 @@ class Establecimiento extends Model
     }
 
     /**
+     * @return HasMany<EstablecimientoAula, $this>
+     */
+    public function aulas(): HasMany
+    {
+        return $this->hasMany(EstablecimientoAula::class);
+    }
+
+    /**
      * @return BelongsToMany<Sys_Nivel, $this>
      */
     public function niveles(): BelongsToMany

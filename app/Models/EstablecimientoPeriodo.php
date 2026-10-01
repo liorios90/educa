@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class EstablecimientoPeriodo extends Model
 {
@@ -66,6 +67,14 @@ class EstablecimientoPeriodo extends Model
     public function oferta(): BelongsTo
     {
         return $this->belongsTo(EstablecimientoModalidadJornada::class, 'establecimiento_modalidad_jornada_id');
+    }
+
+    /**
+     * @return HasMany<EstablecimientoAula, $this>
+     */
+    public function aulas(): HasMany
+    {
+        return $this->hasMany(EstablecimientoAula::class, 'establecimiento_periodo_id');
     }
 
     #[Scope]

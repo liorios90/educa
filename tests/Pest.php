@@ -133,3 +133,14 @@ function activePeriodoSession(EstablecimientoPeriodo $periodo): array
 {
     return [ActivePeriodo::SESSION_KEY => $periodo->id];
 }
+
+/**
+ * @return array<string, int>
+ */
+function activeContextSession(EstablecimientoModalidadJornada $oferta, EstablecimientoPeriodo $periodo): array
+{
+    return [
+        ...activeOfertaSession($oferta),
+        ...activePeriodoSession($periodo),
+    ];
+}

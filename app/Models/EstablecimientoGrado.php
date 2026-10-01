@@ -6,6 +6,7 @@ use Database\Factories\EstablecimientoGradoFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class EstablecimientoGrado extends Model
 {
@@ -60,5 +61,24 @@ class EstablecimientoGrado extends Model
     public function grado(): BelongsTo
     {
         return $this->belongsTo(Sys_Grado::class, 'grado_id');
+    }
+
+    /**
+     * @return HasMany<EstablecimientoAula, $this>
+     */
+    public function aulas(): HasMany
+    {
+        return $this->hasMany(EstablecimientoAula::class, 'establecimiento_grado_id');
+    }
+
+    public function etiqueta(): string
+    {
+        if (filled($this->nombre)) {
+            return $this->nombre;
+        }
+
+        $this->loadMissing('grado');
+
+        return $this->grado?->nombre ?? 'Grado';
     }
 }

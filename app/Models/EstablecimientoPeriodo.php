@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\EsquemaCiclo;
 use Database\Factories\EstablecimientoPeriodoFactory;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
@@ -27,6 +28,10 @@ class EstablecimientoPeriodo extends Model
         'fecha_inicio',
         'fecha_fin',
         'activo',
+        'esquema_ciclo',
+        'numero_parciales',
+        'porcentaje_examen_final',
+        'porcentaje_proyecto_final',
     ];
 
     /**
@@ -45,6 +50,10 @@ class EstablecimientoPeriodo extends Model
             'fecha_inicio' => 'date',
             'fecha_fin' => 'date',
             'activo' => 'boolean',
+            'esquema_ciclo' => EsquemaCiclo::class,
+            'numero_parciales' => 'integer',
+            'porcentaje_examen_final' => 'decimal:2',
+            'porcentaje_proyecto_final' => 'decimal:2',
         ];
     }
 
@@ -75,6 +84,15 @@ class EstablecimientoPeriodo extends Model
     public function aulas(): HasMany
     {
         return $this->hasMany(EstablecimientoAula::class, 'establecimiento_periodo_id');
+    }
+
+    /**
+     * @return HasMany<EstablecimientoPeriodoCiclo, $this>
+     */
+    public function ciclos(): HasMany
+    {
+        return $this->hasMany(EstablecimientoPeriodoCiclo::class, 'establecimiento_periodo_id')
+            ->orderBy('orden');
     }
 
     #[Scope]

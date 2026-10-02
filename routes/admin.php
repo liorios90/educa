@@ -6,6 +6,7 @@ use App\Http\Controllers\EmpleadoController;
 use App\Http\Controllers\EstablecimientoAsignaturaController;
 use App\Http\Controllers\EstablecimientoAulaController;
 use App\Http\Controllers\EstablecimientoEstructuraController;
+use App\Http\Controllers\EstablecimientoPeriodoEvaluacionController;
 use App\Http\Controllers\ImportRepresentantesController;
 use App\Http\Controllers\PadreController;
 use Illuminate\Support\Facades\Route;
@@ -34,6 +35,8 @@ Route::middleware(['auth', 'verified', 'role:Admin'])
         Route::get('estructura', [EstablecimientoEstructuraController::class, 'index'])->name('estructura');
         Route::get('estructura/{oferta}', [EstablecimientoEstructuraController::class, 'edit'])->name('estructura.edit');
         Route::put('estructura/{oferta}', [EstablecimientoEstructuraController::class, 'update'])->name('estructura.update');
+        Route::get('periodo', [EstablecimientoPeriodoEvaluacionController::class, 'edit'])->name('periodo');
+        Route::put('periodo', [EstablecimientoPeriodoEvaluacionController::class, 'update'])->name('periodo.update');
         Route::get('asignaturas', [EstablecimientoAsignaturaController::class, 'index'])->name('asignaturas');
         Route::get('asignaturas/{oferta}', [EstablecimientoAsignaturaController::class, 'edit'])->name('asignaturas.edit');
         Route::put('asignaturas/{oferta}', [EstablecimientoAsignaturaController::class, 'update'])->name('asignaturas.update');

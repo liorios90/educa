@@ -16,36 +16,38 @@ use Database\Seeders\NavigationSeeder;
 use Illuminate\Support\Facades\DB;
 
 describe('index', function () {
-    it('lists the modalidades and jornadas of the establishment', function () {
-        $establecimiento = Establecimiento::factory()->create(['nombre' => 'Unidad Educativa Andina']);
+    it('redirects administrators to the estructura of the oferta stored in session', function () {
+        $establecimiento = Establecimiento::factory()->create();
         $admin = adminOf($establecimiento);
         $matutina = ofertaDe($establecimiento);
         $vespertina = ofertaDe($establecimiento, ['jornada' => 'Vespertina']);
-        ofertaDe($establecimiento, ['modalidad' => 'Virtual', 'jornada' => 'Nocturna']);
-        ['grado' => $grado] = catalogoEstructura();
-        EstablecimientoGrado::factory()->create([
-            'establecimiento_id' => $establecimiento->id,
-            'establecimiento_modalidad_jornada_id' => $matutina->id,
-            'subnivel_id' => $grado->subnivel_id,
-            'grado_id' => $grado->id,
-        ]);
 
         $this->actingAs($admin)
             ->withSession(activeOfertaSession($matutina))
             ->get(route('Admin.estructura'))
-            ->assertOk()
-            ->assertSee('Estructura educativa')
-            ->assertSee('Unidad Educativa Andina')
-            ->assertSee('Presencial')
-            ->assertSee('Virtual')
-            ->assertSee('Matutina')
-            ->assertSee('Vespertina')
-            ->assertSee('Nocturna')
-            ->assertSee('1 grado')
-            ->assertSee('Sin grados definidos')
-            ->assertSee(route('Admin.estructura.edit', $matutina), false)
-            ->assertSee(route('Admin.estructura.edit', $vespertina), false)
-            ->assertSee('Definir estructura');
+            ->assertRedirect(route('Admin.estructura.edit', $matutina))
+            ->assertDontSee(route('Admin.estructura.edit', $vespertina), false);
+    });
+
+    it('opens the only oferta of the establishment when none is stored in session', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $oferta = ofertaDe($establecimiento);
+
+        $this->actingAs($admin)
+            ->get(route('Admin.estructura'))
+            ->assertRedirect(route('Admin.estructura.edit', $oferta));
+    });
+
+    it('redirects administrators to choose an oferta when several exist and none is selected', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        ofertaDe($establecimiento, ['jornada' => 'Matutina']);
+        ofertaDe($establecimiento, ['jornada' => 'Vespertina']);
+
+        $this->actingAs($admin)
+            ->get(route('Admin.estructura'))
+            ->assertRedirect(route('oferta.select'));
     });
 
     it('explains when the establishment has no modalidades', function () {
@@ -59,36 +61,18 @@ describe('index', function () {
             ->assertDontSee('Definir estructura');
     });
 
-    it('does not list ofertas of another establishment', function () {
+    it('does not redirect to an oferta of another establishment', function () {
         $establecimiento = Establecimiento::factory()->create();
         $admin = adminOf($establecimiento);
-        ofertaDe($establecimiento, ['modalidad' => 'Presencial', 'jornada' => 'Matutina']);
+        $matutina = ofertaDe($establecimiento, ['modalidad' => 'Presencial', 'jornada' => 'Matutina']);
         $otro = Establecimiento::factory()->create();
         $ajena = ofertaDe($otro, ['modalidad' => 'Semipresencial', 'jornada' => 'Nocturna extraña']);
 
         $this->actingAs($admin)
+            ->withSession(activeOfertaSession($ajena))
             ->get(route('Admin.estructura'))
-            ->assertOk()
-            ->assertSee('Matutina')
-            ->assertDontSee('Semipresencial')
-            ->assertDontSee('Nocturna extraña')
+            ->assertRedirect(route('Admin.estructura.edit', $matutina))
             ->assertDontSee(route('Admin.estructura.edit', $ajena), false);
-    });
-
-    it('escapes modalidad and jornada names on the estructura index', function () {
-        $establecimiento = Establecimiento::factory()->create();
-        $admin = adminOf($establecimiento);
-        ofertaDe($establecimiento, [
-            'modalidad' => "<script>alert('mod')</script>",
-            'jornada' => "<script>alert('jor')</script>",
-        ]);
-
-        $this->actingAs($admin)
-            ->get(route('Admin.estructura'))
-            ->assertSee("<script>alert('mod')</script>")
-            ->assertSee("<script>alert('jor')</script>")
-            ->assertDontSee("<script>alert('mod')</script>", false)
-            ->assertDontSee("<script>alert('jor')</script>", false);
     });
 
     it('forbids systems users from opening establishment estructura', function () {
@@ -157,8 +141,8 @@ describe('edit', function () {
             ->assertDontSee('name="niveles[]"', false)
             ->assertDontSee('name="subniveles[]"', false)
             ->assertSee('Guardar estructura')
-            ->assertSee(route('Admin.estructura'), false)
-            ->assertSee(route('Admin.estructura.update', $oferta), false);
+            ->assertSee(route('Admin.estructura.update', $oferta), false)
+            ->assertDontSee('Volver a modalidades y jornadas');
     });
 
     it('shows previously selected items for that jornada', function () {
@@ -237,6 +221,23 @@ describe('edit', function () {
         $this->actingAs($admin)
             ->get(route('Admin.estructura.edit', $ajena))
             ->assertNotFound();
+    });
+
+    it('escapes modalidad and jornada names on the estructura form', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $oferta = ofertaDe($establecimiento, [
+            'modalidad' => "<script>alert('mod')</script>",
+            'jornada' => "<script>alert('jor')</script>",
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('Admin.estructura.edit', $oferta))
+            ->assertOk()
+            ->assertSee("<script>alert('mod')</script>")
+            ->assertSee("<script>alert('jor')</script>")
+            ->assertDontSee("<script>alert('mod')</script>", false)
+            ->assertDontSee("<script>alert('jor')</script>", false);
     });
 
     it('escapes catalog names in the estructura form', function () {

@@ -52,12 +52,6 @@
                 <p class="mb-4 text-sm font-medium text-green-700">Estructura de la jornada guardada correctamente.</p>
             @endif
 
-            <p class="mb-4">
-                <a href="{{ route('Admin.estructura') }}" class="text-sm font-medium text-indigo-600 hover:text-indigo-500">
-                    Volver a modalidades y jornadas
-                </a>
-            </p>
-
             <section class="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                 <h3 class="text-base font-semibold text-slate-800">Catálogo nacional</h3>
                 <p class="mt-2 text-sm leading-6 text-slate-600">

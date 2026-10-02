@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Auth\ActiveOferta;
 use App\Http\Requests\SyncEstablecimientoEstructuraRequest;
 use App\Models\Establecimiento;
 use App\Models\EstablecimientoModalidadJornada;
@@ -15,22 +16,25 @@ use Illuminate\View\View;
 
 class EstablecimientoEstructuraController extends Controller
 {
-    public function index(Request $request): View
+    public function __construct(private ActiveOferta $activeOferta) {}
+
+    public function index(Request $request): View|RedirectResponse
     {
         $establecimiento = $this->establecimiento($request);
+        $user = $request->user();
+
+        if ($user !== null && $this->activeOferta->needsSelection($user)) {
+            return redirect()->guest(route('oferta.select'));
+        }
+
+        $oferta = $this->activeOferta->get($user);
+
+        if ($oferta !== null) {
+            return redirect()->route('Admin.estructura.edit', $oferta);
+        }
 
         return view('admin.estructura.index', [
             'establecimiento' => $establecimiento,
-            'modalidades' => $establecimiento->establecimientoModalidades()
-                ->with([
-                    'modalidad',
-                    'establecimientoJornadas' => fn ($query) => $query
-                        ->with('jornada')
-                        ->withCount('grados')
-                        ->orderBy('id'),
-                ])
-                ->orderBy('id')
-                ->get(),
         ]);
     }
 

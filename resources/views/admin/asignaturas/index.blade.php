@@ -16,71 +16,69 @@
                 <p class="mb-4 text-sm font-medium text-green-700">Malla de la jornada guardada correctamente.</p>
             @endif
 
-            <section class="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                <h3 class="text-base font-semibold text-slate-800">Malla por jornada</h3>
-                <p class="mt-2 text-sm leading-6 text-slate-600">
-                    Cada jornada tiene su propia malla. Escoge las asignaturas del catálogo nacional
-                    y marca en qué grados se dictan, con las horas, la libreta y la forma de calificar.
-                </p>
-            </section>
-
-            @if ($modalidades->isEmpty())
+            @if ($oferta === null)
                 <p class="rounded-2xl border border-slate-200 bg-white px-6 py-8 text-center text-slate-500">
                     Sistemas aún no ha asignado modalidades y jornadas a este establecimiento.
                 </p>
+            @elseif ($periodo === null)
+                <p class="rounded-2xl border border-slate-200 bg-white px-6 py-8 text-center text-slate-500">
+                    No existe ningún periodo activo.
+                </p>
             @else
-                <div class="space-y-6">
-                    @foreach ($modalidades as $establecimientoModalidad)
-                        <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                            <div class="border-b border-slate-200 bg-slate-50 px-6 py-4">
-                                <h3 class="text-base font-semibold text-slate-800">
-                                    {{ $establecimientoModalidad->modalidad?->nombre ?? 'Modalidad' }}
-                                </h3>
+                <section class="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <h3 class="text-base font-semibold text-slate-800">Malla de la sesión</h3>
+                    <p class="mt-2 text-sm leading-6 text-slate-600">
+                        Escoge las asignaturas del catálogo nacional y marca en qué grados se dictan,
+                        con las horas, la libreta y la forma de calificar.
+                    </p>
+                    <p class="mt-2 text-sm font-medium text-slate-800">
+                        {{ $oferta->etiqueta() }}
+                        · {{ $periodo->nombre }}
+                    </p>
+                </section>
+
+                <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                    <div class="border-b border-slate-200 bg-slate-50 px-6 py-4">
+                        <h3 class="text-base font-semibold text-slate-800">
+                            {{ $oferta->establecimientoModalidad?->modalidad?->nombre ?? 'Modalidad' }}
+                        </h3>
+                    </div>
+                    <ul class="divide-y divide-slate-100">
+                        <li class="flex flex-wrap items-center justify-between gap-3 px-6 py-4">
+                            <div>
+                                <p class="font-medium text-slate-800">
+                                    {{ $oferta->jornada?->nombre ?? 'Jornada' }}
+                                </p>
+                                <p class="mt-1 text-sm text-slate-500">
+                                    @if ($oferta->grados_count === 0)
+                                        Sin grados en la estructura
+                                    @elseif ($oferta->malla_count === 0)
+                                        Sin asignaturas definidas
+                                    @elseif ($oferta->malla_count === 1)
+                                        1 asignatura-grado
+                                    @else
+                                        {{ $oferta->malla_count }} asignaturas-grado
+                                    @endif
+                                </p>
                             </div>
-                            <ul class="divide-y divide-slate-100">
-                                @forelse ($establecimientoModalidad->establecimientoJornadas as $oferta)
-                                    <li class="flex flex-wrap items-center justify-between gap-3 px-6 py-4">
-                                        <div>
-                                            <p class="font-medium text-slate-800">
-                                                {{ $oferta->jornada?->nombre ?? 'Jornada' }}
-                                            </p>
-                                            <p class="mt-1 text-sm text-slate-500">
-                                                @if ($oferta->grados_count === 0)
-                                                    Sin grados en la estructura
-                                                @elseif ($oferta->malla_count === 0)
-                                                    Sin asignaturas definidas
-                                                @elseif ($oferta->malla_count === 1)
-                                                    1 asignatura-grado
-                                                @else
-                                                    {{ $oferta->malla_count }} asignaturas-grado
-                                                @endif
-                                            </p>
-                                        </div>
-                                        @if ($oferta->grados_count === 0)
-                                            <a
-                                                href="{{ route('Admin.estructura.edit', $oferta) }}"
-                                                class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800"
-                                            >
-                                                Definir estructura
-                                            </a>
-                                        @else
-                                            <a
-                                                href="{{ route('Admin.asignaturas.edit', $oferta) }}"
-                                                class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800"
-                                            >
-                                                Definir malla
-                                            </a>
-                                        @endif
-                                    </li>
-                                @empty
-                                    <li class="px-6 py-4 text-sm text-slate-500">
-                                        Esta modalidad no tiene jornadas asignadas.
-                                    </li>
-                                @endforelse
-                            </ul>
-                        </section>
-                    @endforeach
-                </div>
+                            @if ($oferta->grados_count === 0)
+                                <a
+                                    href="{{ route('Admin.estructura.edit', $oferta) }}"
+                                    class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800"
+                                >
+                                    Definir estructura
+                                </a>
+                            @else
+                                <a
+                                    href="{{ route('Admin.asignaturas.edit', $oferta) }}"
+                                    class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800"
+                                >
+                                    Definir malla
+                                </a>
+                            @endif
+                        </li>
+                    </ul>
+                </section>
             @endif
         </div>
     </div>

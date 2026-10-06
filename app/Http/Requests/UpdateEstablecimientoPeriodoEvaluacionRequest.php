@@ -41,6 +41,7 @@ class UpdateEstablecimientoPeriodoEvaluacionRequest extends FormRequest
         }
 
         $this->merge([
+            'nombre_esquema' => trim((string) $this->input('nombre_esquema', '')),
             'tiene_examen_final' => $this->boolean('tiene_examen_final'),
             'tiene_proyecto_final' => $this->boolean('tiene_proyecto_final'),
             'porcentaje_examen_final' => $this->boolean('tiene_examen_final')
@@ -60,6 +61,7 @@ class UpdateEstablecimientoPeriodoEvaluacionRequest extends FormRequest
     {
         return [
             'esquema_ciclo' => ['required', Rule::enum(EsquemaCiclo::class)],
+            'nombre_esquema' => ['required', 'string', 'max:255'],
             'numero_parciales' => ['required', 'integer', 'min:1', 'max:6'],
             'tiene_examen_final' => ['required', 'boolean'],
             'tiene_proyecto_final' => ['required', 'boolean'],
@@ -83,6 +85,8 @@ class UpdateEstablecimientoPeriodoEvaluacionRequest extends FormRequest
     {
         return [
             'esquema_ciclo.required' => 'Selecciona si el periodo se trabaja en quimestres, trimestres u otro esquema.',
+            'nombre_esquema.required' => 'Indica el nombre de la forma de trabajo.',
+            'nombre_esquema.max' => 'El nombre de la forma de trabajo no puede superar 255 caracteres.',
             'numero_parciales.required' => 'Indica cuántos parciales se van a trabajar.',
             'numero_parciales.min' => 'Debe haber al menos un parcial.',
             'numero_parciales.max' => 'No se pueden configurar más de 6 parciales.',
@@ -104,6 +108,15 @@ class UpdateEstablecimientoPeriodoEvaluacionRequest extends FormRequest
     {
         return [
             function (Validator $validator): void {
+                if ($this->periodo()?->estaAbierto()) {
+                    $validator->errors()->add(
+                        'periodo',
+                        'Este periodo ya fue aperturado. La configuración está bloqueada y solo se puede consultar.',
+                    );
+
+                    return;
+                }
+
                 if ($validator->errors()->isNotEmpty()) {
                     return;
                 }

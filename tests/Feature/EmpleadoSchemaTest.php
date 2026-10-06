@@ -84,3 +84,15 @@ it('stores an empleado for a persona', function () {
         'activo' => 1,
     ]);
 });
+
+it('stores several specialties for an empleado', function () {
+    expect(Schema::hasTable('asignatura_empleado'))->toBeTrue()
+        ->and(Schema::hasColumns('asignatura_empleado', [
+            'id',
+            'empleado_id',
+            'asignatura_id',
+            'created_at',
+            'updated_at',
+        ]))->toBeTrue()
+        ->and(Schema::hasColumn('empleados', 'asignatura_id'))->toBeFalse();
+});

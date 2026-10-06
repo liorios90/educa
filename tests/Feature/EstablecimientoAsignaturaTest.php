@@ -36,28 +36,83 @@ function gradoEnOferta(Establecimiento $establecimiento, $oferta, array $estruct
 }
 
 describe('index', function () {
-    it('lists jornadas and links to the malla of each oferta', function () {
+    it('lists only the jornada of the active period', function () {
         $establecimiento = Establecimiento::factory()->create(['nombre' => 'Unidad Educativa Andina']);
         $admin = adminOf($establecimiento);
         $matutina = ofertaDe($establecimiento);
         $vespertina = ofertaDe($establecimiento, ['jornada' => 'Vespertina']);
         $estructura = catalogoEstructura();
         gradoEnOferta($establecimiento, $matutina, $estructura);
+        $periodo = periodoActivoDe($matutina, ['nombre' => '2026-2027 Sierra']);
+        periodoActivoDe($vespertina, ['nombre' => '2026-2027 Costa']);
 
         $this->actingAs($admin)
-            ->withSession(activeOfertaSession($matutina))
+            ->withSession(activeContextSession($matutina, $periodo))
             ->get(route('Admin.asignaturas'))
             ->assertOk()
             ->assertSee('Asignaturas')
             ->assertSee('Unidad Educativa Andina')
             ->assertSee('Presencial')
             ->assertSee('Matutina')
-            ->assertSee('Vespertina')
+            ->assertSee('2026-2027 Sierra')
             ->assertSee('Definir malla')
             ->assertSee('Sin asignaturas definidas')
-            ->assertSee('Sin grados en la estructura')
             ->assertSee(route('Admin.asignaturas.edit', $matutina), false)
-            ->assertSee(route('Admin.estructura.edit', $vespertina), false);
+            ->assertDontSee('Vespertina')
+            ->assertDontSee('2026-2027 Costa')
+            ->assertDontSee(route('Admin.estructura.edit', $vespertina), false);
+    });
+
+    it('links to estructura when the active jornada has no grados', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $matutina = ofertaDe($establecimiento);
+        $periodo = periodoActivoDe($matutina, ['nombre' => '2026-2027 Sierra']);
+
+        $this->actingAs($admin)
+            ->withSession(activeContextSession($matutina, $periodo))
+            ->get(route('Admin.asignaturas'))
+            ->assertOk()
+            ->assertSee('Sin grados en la estructura')
+            ->assertSee(route('Admin.estructura.edit', $matutina), false)
+            ->assertDontSee('Definir malla');
+    });
+
+    it('explains when the active oferta has no period', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $matutina = ofertaDe($establecimiento);
+        ofertaDe($establecimiento, ['jornada' => 'Vespertina']);
+
+        $this->actingAs($admin)
+            ->withSession(activeOfertaSession($matutina))
+            ->get(route('Admin.asignaturas'))
+            ->assertOk()
+            ->assertSee('No existe ningún periodo activo.')
+            ->assertDontSee('Definir malla')
+            ->assertDontSee('Vespertina');
+    });
+
+    it('explains when the establishment has no ofertas', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+
+        $this->actingAs($admin)
+            ->get(route('Admin.asignaturas'))
+            ->assertOk()
+            ->assertSee('Sistemas aún no ha asignado modalidades y jornadas a este establecimiento.')
+            ->assertDontSee('Definir malla');
+    });
+
+    it('redirects administrators to choose an oferta when several exist and none is selected', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        ofertaDe($establecimiento, ['jornada' => 'Matutina']);
+        ofertaDe($establecimiento, ['jornada' => 'Vespertina']);
+
+        $this->actingAs($admin)
+            ->get(route('Admin.asignaturas'))
+            ->assertRedirect(route('oferta.select'));
     });
 
     it('forbids systems users from opening establishment asignaturas', function () {

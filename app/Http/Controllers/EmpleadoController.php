@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Auth\ActiveOferta;
 use App\Enums\Role;
 use App\Http\Requests\UpsertEmpleadoRequest;
 use App\Models\Empleado;
+use App\Models\EstablecimientoAsignatura;
 use App\Models\Persona;
 use App\Models\Sys_Funcion;
 use App\Models\Sys_Pais;
@@ -19,6 +21,8 @@ use Spatie\Permission\Models\Role as RoleModel;
 
 class EmpleadoController extends Controller
 {
+    public function __construct(private ActiveOferta $activeOferta) {}
+
     public function index(Request $request): View
     {
         $establecimientoId = $this->establecimientoId($request);
@@ -26,7 +30,7 @@ class EmpleadoController extends Controller
         return view('admin.empleados.index', [
             'empleados' => Empleado::query()
                 ->select('empleados.*')
-                ->with(['persona.user.roles', 'tipoContrato', 'funcion'])
+                ->with(['persona.user.roles', 'tipoContrato', 'funcion', 'especialidades.area.subnivel'])
                 ->join('personas', 'personas.id', '=', 'empleados.persona_id')
                 ->where('personas.establecimiento_id', $establecimientoId)
                 ->orderBy('personas.apellidos')
@@ -40,7 +44,10 @@ class EmpleadoController extends Controller
     {
         $this->establecimientoId($request);
 
-        return view('admin.empleados.create', $this->catalogOptions());
+        return view('admin.empleados.create', [
+            ...$this->catalogOptions(),
+            'especialidades' => $this->especialidades($request),
+        ]);
     }
 
     public function store(UpsertEmpleadoRequest $request): RedirectResponse
@@ -60,6 +67,7 @@ class EmpleadoController extends Controller
 
         return view('admin.empleados.edit', [
             ...$this->catalogOptions(),
+            'especialidades' => $this->especialidades($request),
             'empleado' => $empleado,
             'persona' => $empleado->persona,
             'cuenta' => $empleado->persona?->user,
@@ -248,17 +256,19 @@ class EmpleadoController extends Controller
         ];
 
         if ($empleado === null) {
-            Empleado::query()->create($empleadoAttributes);
-
-            return;
+            $empleado = Empleado::query()->create($empleadoAttributes);
+        } else {
+            $empleado->update($empleadoAttributes);
         }
 
-        $empleado->update($empleadoAttributes);
+        $empleado->especialidades()->sync(
+            $request->esDocente() ? $request->validated('asignaturas') : [],
+        );
     }
 
     private function empleadoForAdmin(Request $request, Empleado $empleado): Empleado
     {
-        $empleado->loadMissing(['persona.user.roles', 'tipoContrato', 'funcion']);
+        $empleado->loadMissing(['persona.user.roles', 'tipoContrato', 'funcion', 'especialidades']);
 
         abort_unless(
             (int) $empleado->persona?->establecimiento_id === $this->establecimientoId($request),
@@ -266,6 +276,113 @@ class EmpleadoController extends Controller
         );
 
         return $empleado;
+    }
+
+    /**
+     * @return list<array{
+     *     nombre: string,
+     *     subniveles: list<array{
+     *         id: int,
+     *         nombre: string,
+     *         asignaturas: list<array{id: int, nombre: string}>
+     *     }>
+     * }>
+     */
+    private function especialidades(Request $request): array
+    {
+        $oferta = $this->activeOferta->get($request->user());
+
+        if ($oferta === null) {
+            return [];
+        }
+
+        /** @var array<string, array{nombre: string, orden: int, subniveles: array<int, array{id: int, nombre: string, asignaturas: array<int, array{id: int, nombre: string, orden: int}>}>}> $areas */
+        $areas = [];
+
+        EstablecimientoAsignatura::query()
+            ->with('asignatura.area.subnivel')
+            ->where('establecimiento_id', $this->establecimientoId($request))
+            ->where('establecimiento_modalidad_jornada_id', $oferta->id)
+            ->orderBy('asignatura_id')
+            ->get()
+            ->unique('asignatura_id')
+            ->each(function (EstablecimientoAsignatura $fila) use (&$areas): void {
+                $asignatura = $fila->asignatura;
+                $area = $asignatura?->area;
+
+                if ($asignatura === null || $area === null) {
+                    return;
+                }
+
+                $areaNombre = $area->nombre;
+                $subnivelId = (int) ($area->subnivel?->id ?? 0);
+
+                if (! isset($areas[$areaNombre])) {
+                    $areas[$areaNombre] = [
+                        'nombre' => $areaNombre,
+                        'orden' => (int) $area->orden,
+                        'subniveles' => [],
+                    ];
+                }
+
+                $areas[$areaNombre]['orden'] = min($areas[$areaNombre]['orden'], (int) $area->orden);
+
+                if (! isset($areas[$areaNombre]['subniveles'][$subnivelId])) {
+                    $areas[$areaNombre]['subniveles'][$subnivelId] = [
+                        'id' => $subnivelId,
+                        'nombre' => $area->subnivel?->nombre ?? 'Sin subnivel',
+                        'asignaturas' => [],
+                    ];
+                }
+
+                $areas[$areaNombre]['subniveles'][$subnivelId]['asignaturas'][$asignatura->id] = [
+                    'id' => (int) $asignatura->id,
+                    'nombre' => $asignatura->nombre,
+                    'orden' => (int) $asignatura->orden,
+                ];
+            });
+
+        return collect($areas)
+            ->sortBy([
+                ['orden', 'asc'],
+                ['nombre', 'asc'],
+            ])
+            ->map(function (array $area): array {
+                $subniveles = collect($area['subniveles'])
+                    ->sortBy([
+                        ['id', 'asc'],
+                        ['nombre', 'asc'],
+                    ])
+                    ->map(function (array $subnivel): array {
+                        $asignaturas = collect($subnivel['asignaturas'])
+                            ->sortBy([
+                                ['orden', 'asc'],
+                                ['nombre', 'asc'],
+                                ['id', 'asc'],
+                            ])
+                            ->map(fn (array $asignatura): array => [
+                                'id' => $asignatura['id'],
+                                'nombre' => $asignatura['nombre'],
+                            ])
+                            ->values()
+                            ->all();
+
+                        return [
+                            'id' => $subnivel['id'],
+                            'nombre' => $subnivel['nombre'],
+                            'asignaturas' => $asignaturas,
+                        ];
+                    })
+                    ->values()
+                    ->all();
+
+                return [
+                    'nombre' => $area['nombre'],
+                    'subniveles' => $subniveles,
+                ];
+            })
+            ->values()
+            ->all();
     }
 
     private function establecimientoId(Request $request): int

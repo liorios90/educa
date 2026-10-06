@@ -6,6 +6,7 @@ use Database\Factories\EstablecimientoPeriodoCicloFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class EstablecimientoPeriodoCiclo extends Model
 {
@@ -52,5 +53,14 @@ class EstablecimientoPeriodoCiclo extends Model
     public function periodo(): BelongsTo
     {
         return $this->belongsTo(EstablecimientoPeriodo::class, 'establecimiento_periodo_id');
+    }
+
+    /**
+     * @return HasMany<EstablecimientoPeriodoCicloParcial, $this>
+     */
+    public function parciales(): HasMany
+    {
+        return $this->hasMany(EstablecimientoPeriodoCicloParcial::class, 'establecimiento_periodo_ciclo_id')
+            ->orderBy('numero');
     }
 }

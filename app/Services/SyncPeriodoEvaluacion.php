@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Enums\EsquemaCiclo;
 use App\Models\EstablecimientoPeriodo;
 use Illuminate\Support\Facades\DB;
+use LogicException;
 
 class SyncPeriodoEvaluacion
 {
@@ -14,14 +15,25 @@ class SyncPeriodoEvaluacion
     public function handle(
         EstablecimientoPeriodo $periodo,
         EsquemaCiclo $esquema,
+        string $nombreEsquema,
         int $parciales,
         string $examenFinal,
         string $proyectoFinal,
         array $ciclos,
     ): void {
-        DB::transaction(function () use ($periodo, $esquema, $parciales, $examenFinal, $proyectoFinal, $ciclos): void {
+        DB::transaction(function () use ($periodo, $esquema, $nombreEsquema, $parciales, $examenFinal, $proyectoFinal, $ciclos): void {
+            $periodo = EstablecimientoPeriodo::query()
+                ->whereKey($periodo->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($periodo->estaAbierto()) {
+                throw new LogicException('No se puede modificar la evaluación de un periodo aperturado.');
+            }
+
             $periodo->update([
                 'esquema_ciclo' => $esquema,
+                'nombre_esquema' => $nombreEsquema,
                 'numero_parciales' => $parciales,
                 'porcentaje_examen_final' => $examenFinal,
                 'porcentaje_proyecto_final' => $proyectoFinal,

@@ -37,11 +37,14 @@ Route::middleware(['auth', 'verified', 'role:Admin'])
         Route::put('estructura/{oferta}', [EstablecimientoEstructuraController::class, 'update'])->name('estructura.update');
         Route::get('periodo', [EstablecimientoPeriodoEvaluacionController::class, 'edit'])->name('periodo');
         Route::put('periodo', [EstablecimientoPeriodoEvaluacionController::class, 'update'])->name('periodo.update');
+        Route::post('periodo/aperturar', [EstablecimientoPeriodoEvaluacionController::class, 'aperturar'])->name('periodo.aperturar');
         Route::get('asignaturas', [EstablecimientoAsignaturaController::class, 'index'])->name('asignaturas');
         Route::get('asignaturas/{oferta}', [EstablecimientoAsignaturaController::class, 'edit'])->name('asignaturas.edit');
         Route::put('asignaturas/{oferta}', [EstablecimientoAsignaturaController::class, 'update'])->name('asignaturas.update');
         Route::get('aulas', [EstablecimientoAulaController::class, 'index'])->name('aulas');
         Route::post('aulas', [EstablecimientoAulaController::class, 'store'])->name('aulas.store');
+        Route::patch('aulas/{aula}', [EstablecimientoAulaController::class, 'update'])->name('aulas.update')->whereNumber('aula');
+        Route::patch('aulas/{aula}/docentes', [EstablecimientoAulaController::class, 'updateDocentes'])->name('aulas.docentes.update')->whereNumber('aula');
         Route::delete('aulas/{aula}', [EstablecimientoAulaController::class, 'destroy'])->name('aulas.destroy')->whereNumber('aula');
         Route::get('empleados', [EmpleadoController::class, 'index'])->name('empleados');
         Route::get('empleados/crear', [EmpleadoController::class, 'create'])->name('empleados.create');

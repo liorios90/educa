@@ -29,9 +29,11 @@ class EstablecimientoPeriodo extends Model
         'fecha_fin',
         'activo',
         'esquema_ciclo',
+        'nombre_esquema',
         'numero_parciales',
         'porcentaje_examen_final',
         'porcentaje_proyecto_final',
+        'abierto_en',
     ];
 
     /**
@@ -50,6 +52,7 @@ class EstablecimientoPeriodo extends Model
             'fecha_inicio' => 'date',
             'fecha_fin' => 'date',
             'activo' => 'boolean',
+            'abierto_en' => 'datetime',
             'esquema_ciclo' => EsquemaCiclo::class,
             'numero_parciales' => 'integer',
             'porcentaje_examen_final' => 'decimal:2',
@@ -99,6 +102,11 @@ class EstablecimientoPeriodo extends Model
     protected function activo(Builder $query): Builder
     {
         return $query->where('activo', true);
+    }
+
+    public function estaAbierto(): bool
+    {
+        return $this->abierto_en !== null;
     }
 
     public function activarEnOferta(): void

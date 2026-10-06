@@ -6,6 +6,7 @@ use Database\Factories\EmpleadoFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Empleado extends Model
 {
@@ -49,5 +50,16 @@ class Empleado extends Model
     public function funcion(): BelongsTo
     {
         return $this->belongsTo(Sys_Funcion::class, 'funcion_id');
+    }
+
+    /**
+     * @return BelongsToMany<Sys_Asignatura, $this>
+     */
+    public function especialidades(): BelongsToMany
+    {
+        return $this->belongsToMany(Sys_Asignatura::class, 'asignatura_empleado', 'empleado_id', 'asignatura_id')
+            ->withTimestamps()
+            ->orderBy('sys_asignaturas.nombre')
+            ->orderBy('sys_asignaturas.id');
     }
 }

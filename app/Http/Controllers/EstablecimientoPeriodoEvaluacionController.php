@@ -5,9 +5,11 @@ namespace App\Http\Controllers;
 use App\Auth\ActiveOferta;
 use App\Auth\ActivePeriodo;
 use App\Enums\EsquemaCiclo;
+use App\Http\Requests\AperturarEstablecimientoPeriodoRequest;
 use App\Http\Requests\UpdateEstablecimientoPeriodoEvaluacionRequest;
 use App\Models\Establecimiento;
 use App\Models\EstablecimientoPeriodo;
+use App\Services\AbrirPeriodoEvaluacion;
 use App\Services\SyncPeriodoEvaluacion;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -40,14 +42,22 @@ class EstablecimientoPeriodoEvaluacionController extends Controller
         $proyectoFinal = old('porcentaje_proyecto_final', $periodo?->porcentaje_proyecto_final ?? '0.00');
         $tieneExamenFinal = old('tiene_examen_final');
         $tieneProyectoFinal = old('tiene_proyecto_final');
+        $ciclosFormulario = $this->ciclosFormulario($periodo);
+        $esquemaSeleccionado = old('esquema_ciclo', $periodo?->esquema_ciclo?->value ?? EsquemaCiclo::Quimestres->value);
+        $esquema = EsquemaCiclo::tryFrom(is_string($esquemaSeleccionado) ? $esquemaSeleccionado : '') ?? EsquemaCiclo::Quimestres;
 
         return view('admin.periodo.edit', [
             'establecimiento' => $establecimiento,
             'oferta' => $oferta,
             'periodo' => $periodo,
             'plantillas' => $this->plantillas(),
-            'ciclosFormulario' => $this->ciclosFormulario($periodo),
-            'esquemaSeleccionado' => old('esquema_ciclo', $periodo?->esquema_ciclo?->value ?? EsquemaCiclo::Quimestres->value),
+            'ciclosFormulario' => $ciclosFormulario,
+            'esquemaSeleccionado' => $esquema->value,
+            'nombresPorDefecto' => collect(EsquemaCiclo::cases())
+                ->mapWithKeys(fn (EsquemaCiclo $opcion): array => [$opcion->value => $opcion->nombrePorDefecto()])
+                ->all(),
+            'nombreEsquema' => $this->nombreEsquema($periodo, $esquema),
+            'numeroCiclos' => count($ciclosFormulario),
             'parcialesSeleccionados' => old('numero_parciales', $periodo?->numero_parciales ?? 2),
             'tieneExamenFinal' => $tieneExamenFinal !== null
                 ? filter_var($tieneExamenFinal, FILTER_VALIDATE_BOOLEAN)
@@ -71,6 +81,7 @@ class EstablecimientoPeriodoEvaluacionController extends Controller
         $sync->handle(
             $periodo,
             $request->esquema(),
+            $request->string('nombre_esquema')->trim()->toString(),
             $request->integer('numero_parciales'),
             $request->porcentajeExamenFinal(),
             $request->porcentajeProyectoFinal(),
@@ -82,6 +93,21 @@ class EstablecimientoPeriodoEvaluacionController extends Controller
             ->with('status', 'periodo-evaluacion-updated');
     }
 
+    public function aperturar(
+        AperturarEstablecimientoPeriodoRequest $request,
+        AbrirPeriodoEvaluacion $abrir,
+    ): RedirectResponse {
+        $periodo = $request->periodo();
+
+        abort_if($periodo === null, 403);
+
+        $abrir->handle($periodo);
+
+        return redirect()
+            ->route('Admin.periodo')
+            ->with('status', 'periodo-aperturado');
+    }
+
     private function establecimiento(Request $request): Establecimiento
     {
         $establecimientoId = $request->user()?->establecimiento_id;
@@ -89,6 +115,21 @@ class EstablecimientoPeriodoEvaluacionController extends Controller
         abort_if($establecimientoId === null, 403);
 
         return Establecimiento::query()->findOrFail($establecimientoId);
+    }
+
+    private function nombreEsquema(?EstablecimientoPeriodo $periodo, EsquemaCiclo $esquema): string
+    {
+        $guardado = old('nombre_esquema');
+
+        if (is_string($guardado)) {
+            return $guardado;
+        }
+
+        if (is_string($periodo?->nombre_esquema) && $periodo->nombre_esquema !== '') {
+            return $periodo->nombre_esquema;
+        }
+
+        return $esquema->nombrePorDefecto();
     }
 
     /**

@@ -17,6 +17,15 @@ enum EsquemaCiclo: string
         };
     }
 
+    public function nombrePorDefecto(): string
+    {
+        return match ($this) {
+            self::Quimestres => 'Quimestre',
+            self::Trimestres => 'Trimestre',
+            self::Otro => '',
+        };
+    }
+
     public function cantidadFija(): ?int
     {
         return match ($this) {

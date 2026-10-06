@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Auth\ActiveOferta;
+use App\Auth\ActivePeriodo;
 use App\Http\Requests\SyncEstablecimientoAsignaturasRequest;
 use App\Models\Establecimiento;
 use App\Models\EstablecimientoAreaLibreta;
@@ -16,22 +18,34 @@ use Illuminate\View\View;
 
 class EstablecimientoAsignaturaController extends Controller
 {
-    public function index(Request $request): View
+    public function __construct(
+        private ActiveOferta $activeOferta,
+        private ActivePeriodo $activePeriodo,
+    ) {}
+
+    public function index(Request $request): View|RedirectResponse
     {
         $establecimiento = $this->establecimiento($request);
+        $user = $request->user();
+
+        if ($user !== null && $this->activeOferta->needsSelection($user)) {
+            return redirect()->guest(route('oferta.select'));
+        }
+
+        $oferta = $this->activeOferta->get($user);
+        $periodo = $this->activePeriodo->get($user);
+
+        if ($oferta !== null && $periodo !== null) {
+            $oferta->load([
+                'jornada',
+                'establecimientoModalidad.modalidad',
+            ])->loadCount(['grados', 'malla']);
+        }
 
         return view('admin.asignaturas.index', [
             'establecimiento' => $establecimiento,
-            'modalidades' => $establecimiento->establecimientoModalidades()
-                ->with([
-                    'modalidad',
-                    'establecimientoJornadas' => fn ($query) => $query
-                        ->with('jornada')
-                        ->withCount(['grados', 'malla'])
-                        ->orderBy('id'),
-                ])
-                ->orderBy('id')
-                ->get(),
+            'oferta' => $oferta,
+            'periodo' => $periodo,
         ]);
     }
 

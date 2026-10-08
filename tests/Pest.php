@@ -4,9 +4,12 @@ use App\Auth\ActiveOferta;
 use App\Auth\ActivePeriodo;
 use App\Enums\Role;
 use App\Models\Establecimiento;
+use App\Models\EstablecimientoAsignatura;
 use App\Models\EstablecimientoModalidad;
 use App\Models\EstablecimientoModalidadJornada;
 use App\Models\EstablecimientoPeriodo;
+use App\Models\Sys_Area;
+use App\Models\Sys_Asignatura;
 use App\Models\Sys_Grado;
 use App\Models\Sys_Jornada;
 use App\Models\Sys_Modalidad;
@@ -105,6 +108,60 @@ function ofertaDe(Establecimiento $establecimiento, array $nombres = []): Establ
         'establecimiento_modalidad_id' => $establecimientoModalidad->id,
         'jornada_id' => $catalogoJornada->id,
     ]);
+}
+
+/**
+ * @return array{0: EstablecimientoModalidadJornada, 1: Sys_Asignatura}
+ */
+function especialidadEnJornada(Establecimiento $establecimiento, string $nombre): array
+{
+    $oferta = ofertaDe($establecimiento);
+    $asignatura = Sys_Asignatura::factory()->create(['nombre' => $nombre]);
+    EstablecimientoAsignatura::factory()->create([
+        'establecimiento_id' => $establecimiento->id,
+        'establecimiento_modalidad_jornada_id' => $oferta->id,
+        'asignatura_id' => $asignatura->id,
+    ]);
+
+    return [$oferta, $asignatura];
+}
+
+/**
+ * @return array{0: EstablecimientoModalidadJornada, 1: Sys_Asignatura, 2: Sys_Asignatura}
+ */
+function especialidadesDeUnArea(Establecimiento $establecimiento): array
+{
+    $oferta = ofertaDe($establecimiento);
+    $elemental = Sys_Subnivel::factory()->create(['nombre' => 'Básica Elemental']);
+    $media = Sys_Subnivel::factory()->create(['nombre' => 'Básica Media']);
+    $areaElemental = Sys_Area::factory()->create([
+        'nombre' => 'Matemática',
+        'orden' => 1,
+        'subnivel_id' => $elemental->id,
+    ]);
+    $areaMedia = Sys_Area::factory()->create([
+        'nombre' => 'Matemática',
+        'orden' => 1,
+        'subnivel_id' => $media->id,
+    ]);
+    $matematicaElemental = Sys_Asignatura::factory()->create([
+        'nombre' => 'Matemática',
+        'area_id' => $areaElemental->id,
+    ]);
+    $matematicaMedia = Sys_Asignatura::factory()->create([
+        'nombre' => 'Matemática',
+        'area_id' => $areaMedia->id,
+    ]);
+
+    foreach ([$matematicaElemental, $matematicaMedia] as $asignatura) {
+        EstablecimientoAsignatura::factory()->create([
+            'establecimiento_id' => $establecimiento->id,
+            'establecimiento_modalidad_jornada_id' => $oferta->id,
+            'asignatura_id' => $asignatura->id,
+        ]);
+    }
+
+    return [$oferta, $matematicaElemental, $matematicaMedia];
 }
 
 /**

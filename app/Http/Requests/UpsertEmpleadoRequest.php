@@ -2,10 +2,8 @@
 
 namespace App\Http\Requests;
 
-use App\Auth\ActiveOferta;
 use App\Enums\Role;
 use App\Models\Empleado;
-use App\Models\EstablecimientoAsignatura;
 use App\Models\Sys_Provincia;
 use App\Models\User;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -56,8 +54,6 @@ class UpsertEmpleadoRequest extends FormRequest
             'anios_instituto' => ['required', 'integer', 'min:0'],
             'contacto_emergencia' => ['required', 'string', 'max:255'],
             'contacto_num' => ['required', 'string', 'max:255'],
-            'asignaturas' => ['array'],
-            'asignaturas.*' => ['integer', 'distinct'],
             'roles' => ['required', 'array', 'min:1'],
             'roles.*' => ['distinct', Rule::in(array_map(
                 fn (Role $role): string => $role->value,
@@ -85,14 +81,6 @@ class UpsertEmpleadoRequest extends FormRequest
     {
         $this->merge([
             'activo' => $this->boolean('activo'),
-            'asignaturas' => $this->marcaDocente()
-                ? collect($this->input('asignaturas', []))
-                    ->filter(fn (mixed $id): bool => is_numeric($id))
-                    ->map(fn (mixed $id): int => (int) $id)
-                    ->unique()
-                    ->values()
-                    ->all()
-                : [],
             'lote' => $this->filled('lote') ? $this->integer('lote') : null,
             'cargo_id' => $this->filled('cargo_id') ? $this->integer('cargo_id') : null,
             'funcion_id' => $this->filled('funcion_id') ? $this->integer('funcion_id') : null,
@@ -117,34 +105,6 @@ class UpsertEmpleadoRequest extends FormRequest
                     $validator->errors()->add('provincia_id', 'La provincia no pertenece al país seleccionado.');
                 }
             },
-            function (Validator $validator): void {
-                if (! $this->boolean('activo') || ! $this->marcaDocente()) {
-                    return;
-                }
-
-                $permitidas = $this->especialidadesDeLaSesion();
-
-                if ($permitidas === []) {
-                    $validator->errors()->add(
-                        'asignaturas',
-                        'Define la malla de esta jornada antes de registrar la especialidad del docente.',
-                    );
-
-                    return;
-                }
-
-                $elegidas = array_map(
-                    fn (mixed $id): int => (int) $id,
-                    (array) $this->input('asignaturas', []),
-                );
-
-                if ($elegidas === [] || array_diff($elegidas, $permitidas) !== []) {
-                    $validator->errors()->add(
-                        'asignaturas',
-                        'Marca las asignaturas de la especialidad del docente.',
-                    );
-                }
-            },
         ];
     }
 
@@ -159,13 +119,7 @@ class UpsertEmpleadoRequest extends FormRequest
             'tipo_contrato_id.required' => 'Selecciona el tipo de contrato.',
             'roles.required' => 'Selecciona al menos un rol.',
             'roles.min' => 'Selecciona al menos un rol.',
-            'asignaturas.*.integer' => 'Marca las asignaturas de la especialidad del docente.',
         ];
-    }
-
-    public function esDocente(): bool
-    {
-        return $this->marcaDocente();
     }
 
     /**
@@ -180,36 +134,6 @@ class UpsertEmpleadoRequest extends FormRequest
             ),
             fn (?Role $role): bool => $role instanceof Role && $role->isAssignableToEmpleado(),
         ));
-    }
-
-    private function marcaDocente(): bool
-    {
-        return in_array(Role::Docente->value, array_map(
-            fn (mixed $role): string => (string) $role,
-            (array) $this->input('roles', []),
-        ), true);
-    }
-
-    /**
-     * @return list<int>
-     */
-    private function especialidadesDeLaSesion(): array
-    {
-        $user = $this->user();
-        $oferta = $this->container->make(ActiveOferta::class)->get($user);
-
-        if ($user?->establecimiento_id === null || $oferta === null) {
-            return [];
-        }
-
-        return EstablecimientoAsignatura::query()
-            ->where('establecimiento_id', $user->establecimiento_id)
-            ->where('establecimiento_modalidad_jornada_id', $oferta->id)
-            ->distinct()
-            ->orderBy('asignatura_id')
-            ->pluck('asignatura_id')
-            ->map(fn (mixed $id): int => (int) $id)
-            ->all();
     }
 
     private function personaId(): ?int

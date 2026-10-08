@@ -226,7 +226,7 @@ class EstablecimientoAulaController extends Controller
                 ->all();
         }
 
-        $asignaturaIds = $malla->pluck('asignatura_id')->unique()->values();
+        $asignaturaIds = $malla->pluck('asignatura_id')->map(fn (mixed $id): int => (int) $id)->unique()->values();
         $docentesPorAsignatura = [];
 
         if ($asignaturaIds->isNotEmpty()) {
@@ -235,25 +235,30 @@ class EstablecimientoAulaController extends Controller
                 ->where('activo', 1)
                 ->whereHas('persona', fn ($query) => $query->where('establecimiento_id', $establecimiento->id))
                 ->whereHas('persona.user', fn ($query) => $query->role(Role::Docente->value))
-                ->whereHas('especialidades', fn ($query) => $query->whereIn('sys_asignaturas.id', $asignaturaIds))
                 ->get()
                 ->sortBy(fn (Empleado $empleado): string => mb_strtolower(trim(
                     ($empleado->persona?->apellidos ?? '').' '.($empleado->persona?->nombres ?? '')
                 )).' '.$empleado->id);
 
-            foreach ($docentes as $docente) {
-                $nombre = trim(($docente->persona?->apellidos ?? '').' '.($docente->persona?->nombres ?? ''));
+            $todos = $docentes
+                ->map(fn (Empleado $docente): array => [
+                    'id' => $docente->id,
+                    'nombre' => trim(($docente->persona?->apellidos ?? '').' '.($docente->persona?->nombres ?? '')),
+                ])
+                ->values()
+                ->all();
 
-                foreach ($docente->especialidades as $asignatura) {
-                    if (! $asignaturaIds->contains($asignatura->id)) {
-                        continue;
-                    }
-
-                    $docentesPorAsignatura[$asignatura->id][] = [
+            foreach ($asignaturaIds as $asignaturaId) {
+                $especialistas = $docentes
+                    ->filter(fn (Empleado $docente): bool => $docente->especialidades->contains('id', $asignaturaId))
+                    ->map(fn (Empleado $docente): array => [
                         'id' => $docente->id,
-                        'nombre' => $nombre,
-                    ];
-                }
+                        'nombre' => trim(($docente->persona?->apellidos ?? '').' '.($docente->persona?->nombres ?? '')),
+                    ])
+                    ->values()
+                    ->all();
+
+                $docentesPorAsignatura[$asignaturaId] = $especialistas !== [] ? $especialistas : $todos;
             }
         }
 

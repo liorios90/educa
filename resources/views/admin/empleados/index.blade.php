@@ -39,7 +39,6 @@
                             <th class="px-6 py-3 font-medium">Tipo de contrato</th>
                             <th class="px-6 py-3 font-medium">Función</th>
                             <th class="px-6 py-3 font-medium">Roles</th>
-                            <th class="px-6 py-3 font-medium">Especialidad</th>
                             <th class="px-6 py-3 font-medium">Correo</th>
                             <th class="sticky right-0 bg-slate-50 px-6 py-3 font-medium">Acciones</th>
                         </tr>
@@ -54,15 +53,6 @@
                                 <td class="px-6 py-3">{{ $empleado->funcion?->nombre ?? '—' }}</td>
                                 <td class="px-6 py-3">
                                     {{ $empleado->persona?->user?->roles->map(fn ($role) => \App\Enums\Role::tryFrom($role->name)?->label() ?? $role->name)->join(', ') ?: '—' }}
-                                </td>
-                                <td class="px-6 py-3">
-                                    {{ $empleado->especialidades->map(function ($asignatura): string {
-                                        $subnivel = $asignatura->area?->subnivel?->nombre;
-
-                                        return $subnivel !== null && $subnivel !== ''
-                                            ? $subnivel.' · '.$asignatura->nombre
-                                            : $asignatura->nombre;
-                                    })->join(', ') ?: '—' }}
                                 </td>
                                 <td class="px-6 py-3">{{ $empleado->persona?->user?->email ?? '—' }}</td>
                                 <td class="sticky right-0 whitespace-nowrap bg-white px-6 py-3">
@@ -82,7 +72,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="9" class="px-6 py-8 text-center text-slate-500">
+                                <td colspan="8" class="px-6 py-8 text-center text-slate-500">
                                     Aún no hay empleados.
                                 </td>
                             </tr>

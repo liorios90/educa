@@ -22,6 +22,7 @@ class NavigationSeeder extends Seeder
         $this->upsertItem('Padres', 'Admin.padres', 'users', 3, false, [$admin->id]);
         $this->upsertItem('Alumnos', 'Admin.alumnos', 'users', 4, false, [$admin->id]);
         $this->upsertItem('Empleados', 'Admin.empleados', 'users', 5, false, [$admin->id]);
+        $this->upsertItem('Docentes', 'Admin.docentes', 'academic-cap', 5, false, [$admin->id]);
         $this->upsertItem('Estructura', 'Admin.estructura', 'building-library', 6, false, [$admin->id]);
         $this->upsertItem('Periodo', 'Admin.periodo', 'calendar-days', 7, false, [$admin->id]);
         $this->upsertItem('Asignaturas', 'Admin.asignaturas', 'book-open', 8, false, [$admin->id]);

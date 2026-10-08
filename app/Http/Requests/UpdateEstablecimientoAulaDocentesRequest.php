@@ -70,20 +70,13 @@ class UpdateEstablecimientoAulaDocentesRequest extends FormRequest
 
                 /** @var array<int, int|null> $docentes */
                 $docentes = $this->input('docentes', []);
-                $empleadoIds = collect($docentes)
-                    ->filter(fn (mixed $empleadoId): bool => $empleadoId !== null)
-                    ->map(fn (mixed $empleadoId): int => (int) $empleadoId)
-                    ->unique()
-                    ->values();
 
-                $elegibles = Empleado::query()
+                $activos = Empleado::query()
                     ->with('especialidades')
-                    ->whereIn('id', $empleadoIds)
                     ->where('activo', 1)
                     ->whereHas('persona', fn ($query) => $query->where('establecimiento_id', $aula->establecimiento_id))
                     ->whereHas('persona.user', fn ($query) => $query->role(Role::Docente->value))
-                    ->get()
-                    ->keyBy('id');
+                    ->get();
 
                 foreach ($docentes as $mallaId => $empleadoId) {
                     if (! $malla->has((int) $mallaId)) {
@@ -99,13 +92,26 @@ class UpdateEstablecimientoAulaDocentesRequest extends FormRequest
                         continue;
                     }
 
-                    $empleado = $elegibles->get((int) $empleadoId);
                     $asignaturaId = (int) $malla->get((int) $mallaId)?->asignatura_id;
+                    $especialistas = $activos->filter(
+                        fn (Empleado $docente): bool => $docente->especialidades->contains('id', $asignaturaId),
+                    );
 
-                    if ($empleado === null || ! $empleado->especialidades->contains('id', $asignaturaId)) {
+                    if ($especialistas->isNotEmpty()) {
+                        if (! $especialistas->contains('id', (int) $empleadoId)) {
+                            $validator->errors()->add(
+                                'docentes.'.$mallaId,
+                                'Selecciona un docente que tenga esta asignatura como especialidad.',
+                            );
+                        }
+
+                        continue;
+                    }
+
+                    if (! $activos->contains('id', (int) $empleadoId)) {
                         $validator->errors()->add(
                             'docentes.'.$mallaId,
-                            'Selecciona un docente que tenga esta asignatura como especialidad.',
+                            'Selecciona un docente activo.',
                         );
                     }
                 }

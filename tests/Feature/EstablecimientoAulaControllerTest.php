@@ -706,7 +706,7 @@ describe('destroy', function () {
 });
 
 describe('docentes', function () {
-    it('offers only active docentes who have the subject of that grade', function () {
+    it('offers the specialists of a subject and every active docente when nobody has that specialty', function () {
         $establecimiento = Establecimiento::factory()->create();
         $admin = adminOf($establecimiento);
         $oferta = ofertaDe($establecimiento);
@@ -725,7 +725,7 @@ describe('docentes', function () {
             'establecimiento_grado_id' => $grado->id,
             'paralelo' => 'A',
         ]);
-        [$matematica] = mallaYDocente($establecimiento, $grado, 'Matemática', 'Perez', 'Ana');
+        [$matematica, $ana] = mallaYDocente($establecimiento, $grado, 'Matemática', 'Perez', 'Ana');
 
         $sinEspecialidad = assignRole(User::factory()->create([
             'establecimiento_id' => $establecimiento->id,
@@ -736,9 +736,9 @@ describe('docentes', function () {
             'nombres' => 'Luis',
             'apellidos' => 'Mora',
         ]);
-        Empleado::factory()->for($personaSinEspecialidad)->create();
+        $luis = Empleado::factory()->for($personaSinEspecialidad)->create();
 
-        mallaYDocente($establecimiento, $grado, 'Ciencias Naturales', 'Diaz', 'Inactivo', true, 0);
+        [$ciencias, $inactivo] = mallaYDocente($establecimiento, $grado, 'Ciencias Naturales', 'Diaz', 'Inactivo', true, 0);
 
         $ajeno = Establecimiento::factory()->create();
         $docenteAjeno = assignRole(User::factory()->create([
@@ -761,9 +761,19 @@ describe('docentes', function () {
             ->assertSee('8vo Básica A')
             ->assertSee('Matemática')
             ->assertSee('Perez Ana')
-            ->assertDontSee('Mora Luis')
+            ->assertSee('Mora Luis')
             ->assertDontSee('Diaz Inactivo')
-            ->assertDontSee('Ajeno Soto');
+            ->assertDontSee('Ajeno Soto')
+            ->assertViewHas('docentesPorAsignatura', function (array $docentes) use ($matematica, $ciencias, $ana, $luis, $inactivo): bool {
+                $deMatematica = array_column($docentes[$matematica->asignatura_id], 'id');
+                $deCiencias = array_column($docentes[$ciencias->asignatura_id], 'id');
+
+                expect($deMatematica)->toBe([$ana->id])
+                    ->and($deCiencias)->toBe([$luis->id, $ana->id])
+                    ->and($deCiencias)->not->toContain($inactivo->id);
+
+                return true;
+            });
     });
 
     it('assigns one docente to each subject of the aula', function () {
@@ -906,6 +916,54 @@ describe('docentes', function () {
 
         $this->assertDatabaseMissing('establecimiento_aula_docentes', [
             'establecimiento_aula_id' => $aula->id,
+        ]);
+    });
+
+    it('assigns any active docente when nobody has that subject as a specialty', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $oferta = ofertaDe($establecimiento);
+        $periodo = periodoActivoDe($oferta);
+        ['grado' => $catalogo] = catalogoEstructura();
+        $grado = EstablecimientoGrado::factory()->create([
+            'establecimiento_id' => $establecimiento->id,
+            'establecimiento_modalidad_jornada_id' => $oferta->id,
+            'subnivel_id' => $catalogo->subnivel_id,
+            'grado_id' => $catalogo->id,
+        ]);
+        $aula = EstablecimientoAula::factory()->create([
+            'establecimiento_id' => $establecimiento->id,
+            'establecimiento_modalidad_jornada_id' => $oferta->id,
+            'establecimiento_periodo_id' => $periodo->id,
+            'establecimiento_grado_id' => $grado->id,
+            'paralelo' => 'A',
+        ]);
+        [$matematica] = mallaYDocente($establecimiento, $grado, 'Matemática', 'Perez', 'Ana', false);
+        $luisUser = assignRole(User::factory()->create([
+            'establecimiento_id' => $establecimiento->id,
+        ]), Role::Docente);
+        $luisPersona = Persona::factory()->create([
+            'user_id' => $luisUser->id,
+            'establecimiento_id' => $establecimiento->id,
+            'nombres' => 'Luis',
+            'apellidos' => 'Mora',
+        ]);
+        $luis = Empleado::factory()->for($luisPersona)->create();
+
+        $this->actingAs($admin)
+            ->withSession(activeContextSession($oferta, $periodo))
+            ->patch(route('Admin.aulas.docentes.update', $aula), [
+                'docentes' => [
+                    $matematica->id => $luis->id,
+                ],
+            ])
+            ->assertRedirect(route('Admin.aulas'))
+            ->assertSessionHas('status', 'aula-docentes-updated');
+
+        $this->assertDatabaseHas('establecimiento_aula_docentes', [
+            'establecimiento_aula_id' => $aula->id,
+            'establecimiento_asignatura_id' => $matematica->id,
+            'empleado_id' => $luis->id,
         ]);
     });
 

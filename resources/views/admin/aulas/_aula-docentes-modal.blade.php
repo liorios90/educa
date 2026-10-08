@@ -76,7 +76,7 @@
                             </template>
                         </select>
                         <p class="mt-1 text-xs text-slate-500" x-show="docentesDe(materia).length === 0">
-                            Ningún docente activo tiene esta especialidad.
+                            No hay docentes activos.
                         </p>
                     </div>
                 </template>

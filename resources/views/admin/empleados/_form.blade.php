@@ -12,23 +12,6 @@
         ->map(fn ($role): string => (string) $role)
         ->values()
         ->all();
-    $especialidades = $especialidades ?? [];
-    $seleccionadas = collect(old('asignaturas', $empleado?->especialidades?->modelKeys() ?? []))
-        ->map(fn (mixed $id): int => (int) $id)
-        ->all();
-    $areaInicial = '';
-
-    foreach ($especialidades as $area) {
-        foreach ($area['subniveles'] as $subnivel) {
-            foreach ($subnivel['asignaturas'] as $asignatura) {
-                if (in_array($asignatura['id'], $seleccionadas, true)) {
-                    $areaInicial = $area['nombre'];
-                    break 3;
-                }
-            }
-        }
-    }
-
     $activoInicial = filter_var(old('activo', $empleado?->activo ?? 1), FILTER_VALIDATE_BOOLEAN);
 @endphp
 
@@ -44,9 +27,7 @@
         onPaisChange() {
             this.provinciaId = '';
         },
-        esDocente: @js(in_array(\App\Enums\Role::Docente->value, $selectedRoles, true)),
         activo: @js($activoInicial),
-        areaNombre: @js($areaInicial),
     }"
 >
     <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -277,9 +258,6 @@
                             value="{{ $role->value }}"
                             class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500"
                             @checked(in_array($role->value, $selectedRoles, true))
-                            @if ($role === \App\Enums\Role::Docente)
-                                @change="esDocente = $event.target.checked"
-                            @endif
                         >
                         {{ $role->label() }}
                     </label>
@@ -287,55 +265,6 @@
             </div>
             <x-input-error class="mt-2" :messages="$errors->get('roles')" />
         </fieldset>
-
-        <div x-show="esDocente" x-cloak>
-            <x-input-label for="area-especialidad" value="Especialidad" />
-            <p class="mt-1 text-xs text-slate-500">Elige el área y marca las asignaturas de cada subnivel. Un docente puede dictar más de una.</p>
-            @if ($especialidades === [])
-                <p class="mt-2 text-sm text-amber-800">Define la malla de asignaturas de esta jornada antes de registrar la especialidad.</p>
-            @else
-                <label class="mt-3 block text-sm font-medium text-gray-700" for="area-especialidad">Área</label>
-                <select
-                    id="area-especialidad"
-                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                    x-model="areaNombre"
-                >
-                    <option value="">Selecciona un área</option>
-                    @foreach ($especialidades as $area)
-                        <option value="{{ $area['nombre'] }}">{{ $area['nombre'] }}</option>
-                    @endforeach
-                </select>
-                <p class="mt-2 text-xs text-slate-500" x-show="areaNombre === ''">Elige un área para ver las asignaturas de cada subnivel.</p>
-                <p class="mt-2 text-xs text-slate-500" x-show="areaNombre !== ''">Puedes cambiar de área y marcar más asignaturas. Lo que ya marcaste se conserva.</p>
-
-                @foreach ($especialidades as $area)
-                    <div class="mt-4 space-y-4" x-show="areaNombre === @js($area['nombre'])" x-cloak>
-                        @foreach ($area['subniveles'] as $subnivel)
-                            <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                                <h4 class="border-b pb-2 text-sm font-bold" style="border-color: #0f172a; color: #0f172a">
-                                    Subnivel: {{ $subnivel['nombre'] }}
-                                </h4>
-                                <div class="mt-4 flex flex-col gap-2">
-                                    @foreach ($subnivel['asignaturas'] as $asignatura)
-                                        <label class="flex items-center gap-2 text-sm text-slate-800">
-                                            <input
-                                                type="checkbox"
-                                                name="asignaturas[]"
-                                                value="{{ $asignatura['id'] }}"
-                                                class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500"
-                                                @checked(in_array($asignatura['id'], $seleccionadas, true))
-                                            >
-                                            {{ $asignatura['nombre'] }}
-                                        </label>
-                                    @endforeach
-                                </div>
-                            </section>
-                        @endforeach
-                    </div>
-                @endforeach
-            @endif
-            <x-input-error class="mt-2" :messages="$errors->get('asignaturas')" />
-        </div>
 
         <div>
             <x-input-label for="email" value="Correo" />

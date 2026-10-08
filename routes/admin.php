@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AlumnoController;
+use App\Http\Controllers\DocenteController;
 use App\Http\Controllers\EmpleadoController;
 use App\Http\Controllers\EstablecimientoAsignaturaController;
 use App\Http\Controllers\EstablecimientoAulaController;
@@ -52,5 +53,8 @@ Route::middleware(['auth', 'verified', 'role:Admin'])
         Route::get('empleados/{empleado}/editar', [EmpleadoController::class, 'edit'])->name('empleados.edit');
         Route::patch('empleados/{empleado}', [EmpleadoController::class, 'update'])->name('empleados.update');
         Route::delete('empleados/{empleado}', [EmpleadoController::class, 'destroy'])->name('empleados.destroy');
+        Route::get('docentes', [DocenteController::class, 'index'])->name('docentes');
+        Route::get('docentes/{empleado}/areas', [DocenteController::class, 'areas'])->name('docentes.areas');
+        Route::patch('docentes/{empleado}', [DocenteController::class, 'update'])->name('docentes.update');
 
     });

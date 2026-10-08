@@ -199,8 +199,13 @@ class NavigationItemController extends Controller
             $builder->whereRaw($this->foldAccentsSql($table.'.label').' like ?', [$like])
                 ->orWhereRaw($this->foldAccentsSql($table.'.route_name').' like ?', [$like])
                 ->orWhereHas('roles', function (Builder $roles) use ($like): void {
-                    $rolesTable = $roles->getModel()->getTable();
-                    $roles->whereRaw($this->foldAccentsSql($rolesTable.'.name').' like ?', [$like]);
+                    $name = $roles->getModel()->getTable().'.name';
+                    $label = $this->roleLabelSql($name);
+
+                    $roles->where(function (Builder $nested) use ($name, $label, $like): void {
+                        $nested->whereRaw($this->foldAccentsSql($name).' like ?', [$like])
+                            ->orWhereRaw($this->foldAccentsSql($label).' like ?', [$like]);
+                    });
                 })
                 ->orWhereHas('children', function (Builder $children) use ($like): void {
                     $childrenTable = $children->getModel()->getTable();

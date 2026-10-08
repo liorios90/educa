@@ -190,6 +190,31 @@ describe('index', function () {
         'invalid direction' => [['sort' => 'sort_order', 'direction' => 'sideways']],
     ]);
 
+    it('finds menu options by the displayed role name', function () {
+        $user = assignRole(User::factory()->create(), Role::Sistemas);
+        $adminRole = RoleModel::findOrCreate(Role::Admin->value, 'web');
+        $secretariaRole = RoleModel::findOrCreate(Role::Secretaria->value, 'web');
+        $admin = NavigationItem::factory()->create(['label' => 'Opcion rol admin']);
+        $admin->roles()->sync([$adminRole->id]);
+        $secretaria = NavigationItem::factory()->create(['label' => 'Opcion rol secretaria']);
+        $secretaria->roles()->sync([$secretariaRole->id]);
+        NavigationItem::factory()->create(['label' => 'Opcion sin ese rol']);
+
+        $this->actingAs($user)
+            ->get(route('sistemas.navigation-items.index', ['q' => 'Administrador']))
+            ->assertOk()
+            ->assertSee('Opcion rol admin')
+            ->assertDontSee('Opcion rol secretaria')
+            ->assertDontSee('Opcion sin ese rol');
+
+        $this->actingAs($user)
+            ->get(route('sistemas.navigation-items.index', ['q' => 'secretaria']))
+            ->assertOk()
+            ->assertSee('Opcion rol secretaria')
+            ->assertDontSee('Opcion rol admin')
+            ->assertDontSee('Opcion sin ese rol');
+    });
+
     it('filters menu options by the search term', function () {
         $user = assignRole(User::factory()->create(), Role::Sistemas);
         NavigationItem::factory()->create(['label' => 'Reportes', 'route_name' => 'dashboard']);

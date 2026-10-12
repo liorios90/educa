@@ -18,6 +18,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class EstablecimientoAulaController extends Controller
@@ -115,6 +116,39 @@ class EstablecimientoAulaController extends Controller
         $docentes = $request->validated('docentes');
 
         DB::transaction(function () use ($aula, $docentes): void {
+            EstablecimientoAula::query()
+                ->whereKey($aula->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $actuales = DB::table('establecimiento_aula_docentes')
+                ->where('establecimiento_aula_id', $aula->id)
+                ->get()
+                ->keyBy('establecimiento_asignatura_id');
+            $materiasConHorario = DB::table('horario_clases')
+                ->where('establecimiento_aula_id', $aula->id)
+                ->pluck('establecimiento_asignatura_id')
+                ->map(fn (mixed $id): int => (int) $id)
+                ->unique();
+
+            foreach ($docentes as $mallaId => $empleadoId) {
+                $actual = $actuales->get((int) $mallaId)?->empleado_id;
+                $actual = $actual === null ? null : (int) $actual;
+                $nuevo = $empleadoId === null ? null : (int) $empleadoId;
+
+                if ($materiasConHorario->contains((int) $mallaId) && $actual !== $nuevo) {
+                    throw ValidationException::withMessages([
+                        'docentes' => 'Elimina primero las clases programadas de una asignatura antes de cambiar su docente.',
+                    ])->errorBag('aula-docentes');
+                }
+            }
+
+            Empleado::query()
+                ->whereIn('id', collect($docentes)->filter()->map(fn (mixed $id): int => (int) $id)->unique()->sort()->values())
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get(['id']);
+
             $aula->asignaciones()->delete();
 
             foreach ($docentes as $mallaId => $empleadoId) {

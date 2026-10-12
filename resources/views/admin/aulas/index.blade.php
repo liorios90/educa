@@ -130,6 +130,16 @@
                     >
                         Asignar docentes
                     </button>
+                    <button
+                        type="button"
+                        role="tab"
+                        class="estructura-folder"
+                        :class="{ 'is-active': pestana === 'horarios' }"
+                        :aria-selected="pestana === 'horarios'"
+                        @click="pestana = 'horarios'"
+                    >
+                        Horarios
+                    </button>
                 </nav>
 
                 <div class="estructura-folder-panel">
@@ -213,6 +223,31 @@
                                         >
                                             Docentes
                                         </x-primary-button>
+                                    </article>
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
+
+                    <div role="tabpanel" class="p-3" x-show="pestana === 'horarios'" x-cloak>
+                        @if ($aulas->isEmpty())
+                            <p class="rounded-xl border border-slate-200 bg-white px-6 py-8 text-center text-slate-500">
+                                Aún no hay aulas creadas. Usa Configuración para crear los paralelos.
+                            </p>
+                        @else
+                            <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+                                @foreach ($aulas as $aula)
+                                    <article class="flex items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                                        <div>
+                                            <h3 class="text-sm font-semibold text-slate-800">{{ $aula->etiqueta() }}</h3>
+                                            <p class="mt-1 text-xs text-slate-500">Administra asignaturas y horas de clase.</p>
+                                        </div>
+                                        <a
+                                            href="{{ route('Admin.aulas.horario', $aula) }}"
+                                            class="shrink-0 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                                        >
+                                            Crear horario
+                                        </a>
                                     </article>
                                 @endforeach
                             </div>

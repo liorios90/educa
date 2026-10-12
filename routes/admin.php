@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\HorarioClaseController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AlumnoController;
 use App\Http\Controllers\DocenteController;
@@ -46,6 +47,9 @@ Route::middleware(['auth', 'verified', 'role:Admin'])
         Route::post('aulas', [EstablecimientoAulaController::class, 'store'])->name('aulas.store');
         Route::patch('aulas/{aula}', [EstablecimientoAulaController::class, 'update'])->name('aulas.update')->whereNumber('aula');
         Route::patch('aulas/{aula}/docentes', [EstablecimientoAulaController::class, 'updateDocentes'])->name('aulas.docentes.update')->whereNumber('aula');
+        Route::get('aulas/{aula}/horario', [HorarioClaseController::class, 'show'])->name('aulas.horario')->whereNumber('aula');
+        Route::post('aulas/{aula}/horario', [HorarioClaseController::class, 'store'])->name('aulas.horario.store')->whereNumber('aula');
+        Route::delete('aulas/{aula}/horario/{horario}', [HorarioClaseController::class, 'destroy'])->name('aulas.horario.destroy')->whereNumber('aula')->whereNumber('horario');
         Route::delete('aulas/{aula}', [EstablecimientoAulaController::class, 'destroy'])->name('aulas.destroy')->whereNumber('aula');
         Route::get('empleados', [EmpleadoController::class, 'index'])->name('empleados');
         Route::get('empleados/crear', [EmpleadoController::class, 'create'])->name('empleados.create');

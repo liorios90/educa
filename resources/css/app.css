@@ -2,6 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+    --educa-asset-rev: 2;
+}
+
 [x-cloak] {
     display: none !important;
 }

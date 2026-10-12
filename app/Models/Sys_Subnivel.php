@@ -26,7 +26,15 @@ class Sys_Subnivel extends Model
         'siglas',
         'descripcion',
         'tipo_calificacion',
+        'califica_por_destrezas',
         'nivel_id',
+    ];
+
+    /**
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'califica_por_destrezas' => false,
     ];
 
     /**
@@ -36,6 +44,7 @@ class Sys_Subnivel extends Model
     {
         return [
             'tipo_calificacion' => TipoCalificacion::class,
+            'califica_por_destrezas' => 'boolean',
         ];
     }
 

@@ -2,10 +2,12 @@
 
 use App\Enums\ModoLibretaArea;
 use App\Enums\Role;
+use App\Enums\TipoAsignatura;
 use App\Enums\TipoCalificacion;
 use App\Models\Establecimiento;
 use App\Models\EstablecimientoAreaLibreta;
 use App\Models\EstablecimientoAsignatura;
+use App\Models\EstablecimientoAsignaturaPropia;
 use App\Models\EstablecimientoGrado;
 use App\Models\Sys_Area;
 use App\Models\Sys_Asignatura;
@@ -36,31 +38,16 @@ function gradoEnOferta(Establecimiento $establecimiento, $oferta, array $estruct
 }
 
 describe('index', function () {
-    it('lists only the jornada of the active period', function () {
+    it('opens the malla of the active jornada directly', function () {
         $establecimiento = Establecimiento::factory()->create(['nombre' => 'Unidad Educativa Andina']);
         $admin = adminOf($establecimiento);
         $matutina = ofertaDe($establecimiento);
-        $vespertina = ofertaDe($establecimiento, ['jornada' => 'Vespertina']);
-        $estructura = catalogoEstructura();
-        gradoEnOferta($establecimiento, $matutina, $estructura);
-        $periodo = periodoActivoDe($matutina, ['nombre' => '2026-2027 Sierra']);
-        periodoActivoDe($vespertina, ['nombre' => '2026-2027 Costa']);
+        $periodo = periodoActivoDe($matutina);
 
         $this->actingAs($admin)
             ->withSession(activeContextSession($matutina, $periodo))
             ->get(route('Admin.asignaturas'))
-            ->assertOk()
-            ->assertSee('Asignaturas')
-            ->assertSee('Unidad Educativa Andina')
-            ->assertSee('Presencial')
-            ->assertSee('Matutina')
-            ->assertSee('2026-2027 Sierra')
-            ->assertSee('Definir malla')
-            ->assertSee('Sin asignaturas definidas')
-            ->assertSee(route('Admin.asignaturas.edit', $matutina), false)
-            ->assertDontSee('Vespertina')
-            ->assertDontSee('2026-2027 Costa')
-            ->assertDontSee(route('Admin.estructura.edit', $vespertina), false);
+            ->assertRedirect(route('Admin.asignaturas.edit', $matutina));
     });
 
     it('links to estructura when the active jornada has no grados', function () {
@@ -72,6 +59,11 @@ describe('index', function () {
         $this->actingAs($admin)
             ->withSession(activeContextSession($matutina, $periodo))
             ->get(route('Admin.asignaturas'))
+            ->assertRedirect(route('Admin.asignaturas.edit', $matutina));
+
+        $this->actingAs($admin)
+            ->withSession(activeContextSession($matutina, $periodo))
+            ->get(route('Admin.asignaturas.edit', $matutina))
             ->assertOk()
             ->assertSee('Sin grados en la estructura')
             ->assertSee(route('Admin.estructura.edit', $matutina), false)
@@ -171,8 +163,16 @@ describe('edit', function () {
             ->assertSee('Asignatura: Matemática')
             ->assertSee('Segundo de EGB')
             ->assertSee('Aparece en libreta')
-            ->assertSee('Forma de calificar')
-            ->assertSee('Horas semanales')
+            ->assertSee('Escala de calificación')
+            ->assertSee('Cualitativa')
+            ->assertSee('Cuantitativa')
+            ->assertSee('Califica por destrezas')
+            ->assertSee('Tabla de equivalencias')
+            ->assertSee('Porcentaje del área')
+            ->assertDontSee('Forma de calificar')
+            ->assertDontSee('Horas semanales')
+            ->assertSee('Tronco común')
+            ->assertSee('Agregar asignatura')
             ->assertSee('Guardar malla')
             ->assertSee(route('Admin.asignaturas.update', $oferta), false);
     });
@@ -224,7 +224,7 @@ describe('edit', function () {
             ->assertSee('Área y asignaturas');
     });
 
-    it('does not offer an area report-card mode when the catalog area has a single asignatura', function () {
+    it('keeps the area report-card mode in the form so an added subject can use it', function () {
         $establecimiento = Establecimiento::factory()->create();
         $admin = adminOf($establecimiento);
         $oferta = ofertaDe($establecimiento);
@@ -239,8 +239,8 @@ describe('edit', function () {
         $this->actingAs($admin)
             ->get(route('Admin.asignaturas.edit', $oferta))
             ->assertOk()
-            ->assertDontSee('Solo el área (promedio)')
-            ->assertDontSee('Área y asignaturas');
+            ->assertSee('Solo el área (promedio)')
+            ->assertSee('Área y asignaturas');
     });
 
     it('escapes catalog names in the malla form', function () {
@@ -279,7 +279,7 @@ describe('update', function () {
                         'grados' => [$estructura['grado']->id],
                         'horas' => [$estructura['grado']->id => 6],
                         'libreta' => [$estructura['grado']->id => '1'],
-                        'tipo_calificacion' => [$estructura['grado']->id => TipoCalificacion::Calificacion->value],
+                        'tipo_calificacion' => [$estructura['grado']->id => TipoCalificacion::Cuantitativa->value],
                     ],
                 ],
             ])
@@ -291,18 +291,110 @@ describe('update', function () {
             'establecimiento_modalidad_jornada_id' => $oferta->id,
             'grado_id' => $estructura['grado']->id,
             'asignatura_id' => $asignatura->id,
-            'horas_semanales' => 6,
+            'horas_semanales' => 5,
             'aparece_en_libreta' => true,
-            'tipo_calificacion' => TipoCalificacion::Calificacion->value,
+            'tipo_calificacion' => TipoCalificacion::Cuantitativa->value,
+            'tipo_asignatura' => TipoAsignatura::TroncoComun->value,
+            'califica_por_destrezas' => false,
+            'usa_tabla_equivalencias' => false,
         ]);
     });
 
-    it('inherits the subnivel grading type when none is posted', function () {
+    it('saves an equivalence table when the scale is quantitative', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $oferta = ofertaDe($establecimiento);
+        $estructura = catalogoEstructura(['subnivel' => 'Básica Elemental']);
+        gradoEnOferta($establecimiento, $oferta, $estructura);
+        $asignatura = catalogoAsignatura($estructura);
+
+        $this->actingAs($admin)
+            ->put(route('Admin.asignaturas.update', $oferta), [
+                'asignaturas' => [
+                    $asignatura->id => [
+                        'grados' => [$estructura['grado']->id],
+                        'tipo_calificacion' => [$estructura['grado']->id => TipoCalificacion::Cuantitativa->value],
+                        'califica_por_destrezas' => [$estructura['grado']->id => '1'],
+                        'usa_tabla_equivalencias' => [$estructura['grado']->id => '1'],
+                    ],
+                ],
+            ])
+            ->assertRedirect(route('Admin.asignaturas.edit', $oferta));
+
+        $this->assertDatabaseHas('establecimiento_asignaturas', [
+            'asignatura_id' => $asignatura->id,
+            'grado_id' => $estructura['grado']->id,
+            'tipo_calificacion' => TipoCalificacion::Cuantitativa->value,
+            'califica_por_destrezas' => false,
+            'usa_tabla_equivalencias' => true,
+        ]);
+    });
+
+    it('saves destrezas when the scale is qualitative', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $oferta = ofertaDe($establecimiento);
+        $estructura = catalogoEstructura(['subnivel' => 'Preparatoria']);
+        gradoEnOferta($establecimiento, $oferta, $estructura);
+        $asignatura = catalogoAsignatura($estructura);
+
+        $this->actingAs($admin)
+            ->put(route('Admin.asignaturas.update', $oferta), [
+                'asignaturas' => [
+                    $asignatura->id => [
+                        'grados' => [$estructura['grado']->id],
+                        'tipo_calificacion' => [$estructura['grado']->id => TipoCalificacion::Cualitativa->value],
+                        'califica_por_destrezas' => [$estructura['grado']->id => '1'],
+                        'usa_tabla_equivalencias' => [$estructura['grado']->id => '1'],
+                    ],
+                ],
+            ])
+            ->assertRedirect(route('Admin.asignaturas.edit', $oferta));
+
+        $this->assertDatabaseHas('establecimiento_asignaturas', [
+            'asignatura_id' => $asignatura->id,
+            'grado_id' => $estructura['grado']->id,
+            'tipo_calificacion' => TipoCalificacion::Cualitativa->value,
+            'califica_por_destrezas' => true,
+            'usa_tabla_equivalencias' => false,
+        ]);
+    });
+
+    it('rejects an unknown grading scale', function () {
         $establecimiento = Establecimiento::factory()->create();
         $admin = adminOf($establecimiento);
         $oferta = ofertaDe($establecimiento);
         $estructura = catalogoEstructura();
-        $estructura['subnivel']->update(['tipo_calificacion' => TipoCalificacion::Destrezas]);
+        gradoEnOferta($establecimiento, $oferta, $estructura);
+        $asignatura = catalogoAsignatura($estructura);
+
+        $this->actingAs($admin)
+            ->from(route('Admin.asignaturas.edit', $oferta))
+            ->put(route('Admin.asignaturas.update', $oferta), [
+                'asignaturas' => [
+                    $asignatura->id => [
+                        'grados' => [$estructura['grado']->id],
+                        'tipo_calificacion' => [$estructura['grado']->id => 'destrezas'],
+                    ],
+                ],
+            ])
+            ->assertRedirect(route('Admin.asignaturas.edit', $oferta))
+            ->assertSessionHasErrors([
+                'asignaturas.'.$asignatura->id.'.tipo_calificacion.'.$estructura['grado']->id => 'La escala de calificación no es válida.',
+            ]);
+
+        $this->assertDatabaseCount('establecimiento_asignaturas', 0);
+    });
+
+    it('inherits the subnivel grading scale and destrezas when none is posted', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $oferta = ofertaDe($establecimiento);
+        $estructura = catalogoEstructura();
+        $estructura['subnivel']->update([
+            'tipo_calificacion' => TipoCalificacion::Cualitativa,
+            'califica_por_destrezas' => true,
+        ]);
         gradoEnOferta($establecimiento, $oferta, $estructura);
         $asignatura = catalogoAsignatura($estructura);
 
@@ -319,7 +411,9 @@ describe('update', function () {
         $this->assertDatabaseHas('establecimiento_asignaturas', [
             'asignatura_id' => $asignatura->id,
             'grado_id' => $estructura['grado']->id,
-            'tipo_calificacion' => TipoCalificacion::Destrezas->value,
+            'tipo_calificacion' => TipoCalificacion::Cualitativa->value,
+            'califica_por_destrezas' => true,
+            'usa_tabla_equivalencias' => false,
         ]);
     });
 
@@ -437,7 +531,80 @@ describe('update', function () {
             ->assertNotFound();
     });
 
-    it('rejects hours greater than 40', function () {
+    it('keeps the stored weekly hours when the form posts different hours', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $oferta = ofertaDe($establecimiento);
+        $estructura = catalogoEstructura();
+        gradoEnOferta($establecimiento, $oferta, $estructura);
+        $asignatura = catalogoAsignatura($estructura, ['horas' => 5]);
+        EstablecimientoAsignatura::factory()->create([
+            'establecimiento_id' => $establecimiento->id,
+            'establecimiento_modalidad_jornada_id' => $oferta->id,
+            'grado_id' => $estructura['grado']->id,
+            'asignatura_id' => $asignatura->id,
+            'horas_semanales' => 8,
+        ]);
+
+        $this->actingAs($admin)
+            ->put(route('Admin.asignaturas.update', $oferta), [
+                'asignaturas' => [
+                    $asignatura->id => [
+                        'grados' => [$estructura['grado']->id],
+                        'horas' => [$estructura['grado']->id => 41],
+                    ],
+                ],
+            ])
+            ->assertRedirect(route('Admin.asignaturas.edit', $oferta));
+
+        $this->assertDatabaseHas('establecimiento_asignaturas', [
+            'establecimiento_modalidad_jornada_id' => $oferta->id,
+            'asignatura_id' => $asignatura->id,
+            'horas_semanales' => 8,
+            'tipo_asignatura' => TipoAsignatura::TroncoComun->value,
+        ]);
+    });
+
+    it('saves an institutional subject that is not in the national catalog', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $oferta = ofertaDe($establecimiento);
+        $estructura = catalogoEstructura(['subnivel' => 'Básica Elemental']);
+        gradoEnOferta($establecimiento, $oferta, $estructura);
+        $asignatura = catalogoAsignatura($estructura);
+
+        $this->actingAs($admin)
+            ->put(route('Admin.asignaturas.update', $oferta), [
+                'propias' => [
+                    'new_1' => [
+                        'nombre' => 'Robótica',
+                        'area_id' => $asignatura->area_id,
+                        'tipo' => TipoAsignatura::Optativa->value,
+                        'grados' => [$estructura['grado']->id],
+                        'tipo_calificacion' => [$estructura['grado']->id => TipoCalificacion::Cuantitativa->value],
+                        'libreta' => [$estructura['grado']->id => '1'],
+                    ],
+                ],
+            ])
+            ->assertRedirect(route('Admin.asignaturas.edit', $oferta));
+
+        $this->assertDatabaseHas('establecimiento_asignaturas_propias', [
+            'establecimiento_modalidad_jornada_id' => $oferta->id,
+            'area_id' => $asignatura->area_id,
+            'nombre' => 'Robótica',
+            'tipo_asignatura' => TipoAsignatura::Optativa->value,
+        ]);
+        $this->assertDatabaseHas('establecimiento_asignaturas', [
+            'establecimiento_modalidad_jornada_id' => $oferta->id,
+            'asignatura_id' => null,
+            'grado_id' => $estructura['grado']->id,
+            'tipo_asignatura' => TipoAsignatura::Optativa->value,
+            'horas_semanales' => null,
+        ]);
+        expect(Sys_Asignatura::query()->where('nombre', 'Robótica')->exists())->toBeFalse();
+    });
+
+    it('rejects an institutional subject without a name', function () {
         $establecimiento = Establecimiento::factory()->create();
         $admin = adminOf($establecimiento);
         $oferta = ofertaDe($establecimiento);
@@ -448,17 +615,53 @@ describe('update', function () {
         $this->actingAs($admin)
             ->from(route('Admin.asignaturas.edit', $oferta))
             ->put(route('Admin.asignaturas.update', $oferta), [
-                'asignaturas' => [
-                    $asignatura->id => [
+                'propias' => [
+                    'new_1' => [
+                        'nombre' => '',
+                        'area_id' => $asignatura->area_id,
+                        'tipo' => TipoAsignatura::Extra->value,
                         'grados' => [$estructura['grado']->id],
-                        'horas' => [$estructura['grado']->id => 41],
                     ],
                 ],
             ])
             ->assertRedirect(route('Admin.asignaturas.edit', $oferta))
-            ->assertSessionHasErrors(['asignaturas.'.$asignatura->id.'.horas.'.$estructura['grado']->id]);
+            ->assertSessionHasErrors(['propias.new_1.nombre']);
 
-        $this->assertDatabaseCount('establecimiento_asignaturas', 0);
+        $this->assertDatabaseCount('establecimiento_asignaturas_propias', 0);
+    });
+
+    it('removes an institutional subject when the school marks it for deletion', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $oferta = ofertaDe($establecimiento);
+        $estructura = catalogoEstructura();
+        gradoEnOferta($establecimiento, $oferta, $estructura);
+        $asignatura = catalogoAsignatura($estructura);
+        $propia = EstablecimientoAsignaturaPropia::factory()->create([
+            'establecimiento_id' => $establecimiento->id,
+            'establecimiento_modalidad_jornada_id' => $oferta->id,
+            'area_id' => $asignatura->area_id,
+            'nombre' => 'Ajedrez',
+            'tipo_asignatura' => TipoAsignatura::Extra,
+        ]);
+
+        $this->actingAs($admin)
+            ->put(route('Admin.asignaturas.update', $oferta), [
+                'propias' => [
+                    $propia->id => [
+                        'nombre' => 'Ajedrez',
+                        'area_id' => $asignatura->area_id,
+                        'tipo' => TipoAsignatura::Extra->value,
+                        'eliminar' => '1',
+                        'grados' => [$estructura['grado']->id],
+                    ],
+                ],
+            ])
+            ->assertRedirect(route('Admin.asignaturas.edit', $oferta));
+
+        $this->assertDatabaseMissing('establecimiento_asignaturas_propias', [
+            'id' => $propia->id,
+        ]);
     });
 
     it('saves how the area appears on the report card when two asignaturas of that area are selected', function () {
@@ -498,6 +701,158 @@ describe('update', function () {
             'grado_id' => $estructura['grado']->id,
             'area_id' => $matematica->area_id,
             'modo_libreta' => ModoLibretaArea::AreaPromedio->value,
+            'promedio_porcentual' => false,
+        ]);
+    });
+
+    it('saves the percentage of each quantitative subject when the area average uses them', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $oferta = ofertaDe($establecimiento);
+        $estructura = catalogoEstructura(['subnivel' => 'Básica Media']);
+        gradoEnOferta($establecimiento, $oferta, $estructura);
+        $fisica = catalogoAsignatura($estructura, ['asignatura' => 'Física']);
+        $quimica = Sys_Asignatura::factory()->for($fisica->area, 'area')->create(['nombre' => 'Química']);
+        $biologia = Sys_Asignatura::factory()->for($fisica->area, 'area')->create(['nombre' => 'Biología']);
+
+        $this->actingAs($admin)
+            ->put(route('Admin.asignaturas.update', $oferta), [
+                'asignaturas' => [
+                    $fisica->id => [
+                        'grados' => [$estructura['grado']->id],
+                        'tipo_calificacion' => [$estructura['grado']->id => TipoCalificacion::Cuantitativa->value],
+                        'porcentaje' => [$estructura['grado']->id => '70'],
+                    ],
+                    $quimica->id => [
+                        'grados' => [$estructura['grado']->id],
+                        'tipo_calificacion' => [$estructura['grado']->id => TipoCalificacion::Cuantitativa->value],
+                        'porcentaje' => [$estructura['grado']->id => '30'],
+                    ],
+                    $biologia->id => [
+                        'grados' => [$estructura['grado']->id],
+                        'tipo_calificacion' => [$estructura['grado']->id => TipoCalificacion::Cualitativa->value],
+                        'porcentaje' => [$estructura['grado']->id => '20'],
+                    ],
+                ],
+                'areas' => [
+                    $fisica->area_id => [
+                        'grados' => [
+                            $estructura['grado']->id => [
+                                'modo_libreta' => ModoLibretaArea::AreaPromedio->value,
+                                'promedio_porcentual' => '1',
+                            ],
+                        ],
+                    ],
+                ],
+            ])
+            ->assertRedirect(route('Admin.asignaturas.edit', $oferta));
+
+        $this->assertDatabaseHas('establecimiento_area_libretas', [
+            'area_id' => $fisica->area_id,
+            'grado_id' => $estructura['grado']->id,
+            'modo_libreta' => ModoLibretaArea::AreaPromedio->value,
+            'promedio_porcentual' => true,
+        ]);
+        $this->assertDatabaseHas('establecimiento_asignaturas', [
+            'asignatura_id' => $fisica->id,
+            'porcentaje' => '70.00',
+        ]);
+        $this->assertDatabaseHas('establecimiento_asignaturas', [
+            'asignatura_id' => $quimica->id,
+            'porcentaje' => '30.00',
+        ]);
+        $this->assertDatabaseHas('establecimiento_asignaturas', [
+            'asignatura_id' => $biologia->id,
+            'tipo_calificacion' => TipoCalificacion::Cualitativa->value,
+            'porcentaje' => null,
+        ]);
+    });
+
+    it('rejects area percentages that do not sum to 100', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $oferta = ofertaDe($establecimiento);
+        $estructura = catalogoEstructura(['subnivel' => 'Básica Media']);
+        gradoEnOferta($establecimiento, $oferta, $estructura);
+        $fisica = catalogoAsignatura($estructura, ['asignatura' => 'Física']);
+        $quimica = Sys_Asignatura::factory()->for($fisica->area, 'area')->create(['nombre' => 'Química']);
+
+        $this->actingAs($admin)
+            ->from(route('Admin.asignaturas.edit', $oferta))
+            ->put(route('Admin.asignaturas.update', $oferta), [
+                'asignaturas' => [
+                    $fisica->id => [
+                        'grados' => [$estructura['grado']->id],
+                        'tipo_calificacion' => [$estructura['grado']->id => TipoCalificacion::Cuantitativa->value],
+                        'porcentaje' => [$estructura['grado']->id => '40'],
+                    ],
+                    $quimica->id => [
+                        'grados' => [$estructura['grado']->id],
+                        'tipo_calificacion' => [$estructura['grado']->id => TipoCalificacion::Cuantitativa->value],
+                        'porcentaje' => [$estructura['grado']->id => '40'],
+                    ],
+                ],
+                'areas' => [
+                    $fisica->area_id => [
+                        'grados' => [
+                            $estructura['grado']->id => [
+                                'modo_libreta' => ModoLibretaArea::AreaYAsignaturas->value,
+                                'promedio_porcentual' => '1',
+                            ],
+                        ],
+                    ],
+                ],
+            ])
+            ->assertRedirect(route('Admin.asignaturas.edit', $oferta))
+            ->assertSessionHasErrors([
+                'areas.'.$fisica->area_id.'.grados.'.$estructura['grado']->id.'.promedio_porcentual' => 'Los porcentajes de las asignaturas cuantitativas deben sumar 100%.',
+            ]);
+
+        $this->assertDatabaseCount('establecimiento_asignaturas', 0);
+    });
+
+    it('does not store percentages when the area average is simple', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $oferta = ofertaDe($establecimiento);
+        $estructura = catalogoEstructura(['subnivel' => 'Básica Media']);
+        gradoEnOferta($establecimiento, $oferta, $estructura);
+        $fisica = catalogoAsignatura($estructura, ['asignatura' => 'Física']);
+        $quimica = Sys_Asignatura::factory()->for($fisica->area, 'area')->create(['nombre' => 'Química']);
+
+        $this->actingAs($admin)
+            ->put(route('Admin.asignaturas.update', $oferta), [
+                'asignaturas' => [
+                    $fisica->id => [
+                        'grados' => [$estructura['grado']->id],
+                        'tipo_calificacion' => [$estructura['grado']->id => TipoCalificacion::Cuantitativa->value],
+                        'porcentaje' => [$estructura['grado']->id => '70'],
+                    ],
+                    $quimica->id => [
+                        'grados' => [$estructura['grado']->id],
+                        'tipo_calificacion' => [$estructura['grado']->id => TipoCalificacion::Cuantitativa->value],
+                        'porcentaje' => [$estructura['grado']->id => '30'],
+                    ],
+                ],
+                'areas' => [
+                    $fisica->area_id => [
+                        'grados' => [
+                            $estructura['grado']->id => [
+                                'modo_libreta' => ModoLibretaArea::AreaPromedio->value,
+                            ],
+                        ],
+                    ],
+                ],
+            ])
+            ->assertRedirect(route('Admin.asignaturas.edit', $oferta));
+
+        $this->assertDatabaseHas('establecimiento_area_libretas', [
+            'area_id' => $fisica->area_id,
+            'promedio_porcentual' => false,
+        ]);
+        $this->assertDatabaseHas('establecimiento_asignaturas', [
+            'asignatura_id' => $fisica->id,
+            'porcentaje' => null,
         ]);
     });
 

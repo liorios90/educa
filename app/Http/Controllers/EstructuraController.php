@@ -84,14 +84,14 @@ class EstructuraController extends Controller
 
     public function storeSubnivel(UpsertEstructuraSubnivelRequest $request, Sys_Nivel $nivel): RedirectResponse
     {
-        $subnivel = $nivel->subniveles()->create($request->safe()->only(['nombre', 'siglas', 'descripcion', 'tipo_calificacion']));
+        $subnivel = $nivel->subniveles()->create($request->subnivelAttributes());
 
         return $this->redirectToSubniveles($nivel, status: 'subnivel-created', gradosDe: $subnivel);
     }
 
     public function updateSubnivel(UpsertEstructuraSubnivelRequest $request, Sys_Nivel $nivel, Sys_Subnivel $subnivel): RedirectResponse
     {
-        $subnivel->update($request->safe()->only(['nombre', 'siglas', 'descripcion', 'tipo_calificacion']));
+        $subnivel->update($request->subnivelAttributes());
 
         return $this->redirectToSubniveles($nivel, status: 'subnivel-updated');
     }

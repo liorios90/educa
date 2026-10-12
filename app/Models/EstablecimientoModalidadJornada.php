@@ -70,6 +70,14 @@ class EstablecimientoModalidadJornada extends Model
     }
 
     /**
+     * @return HasMany<EstablecimientoAsignaturaPropia, $this>
+     */
+    public function asignaturasPropias(): HasMany
+    {
+        return $this->hasMany(EstablecimientoAsignaturaPropia::class, 'establecimiento_modalidad_jornada_id');
+    }
+
+    /**
      * @return HasMany<EstablecimientoAreaLibreta, $this>
      */
     public function areaLibretas(): HasMany

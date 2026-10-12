@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\TipoAsignatura;
 use App\Enums\TipoCalificacion;
 use Database\Factories\EstablecimientoAsignaturaFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -23,9 +24,14 @@ class EstablecimientoAsignatura extends Model
         'establecimiento_modalidad_jornada_id',
         'grado_id',
         'asignatura_id',
+        'asignatura_propia_id',
         'aparece_en_libreta',
         'horas_semanales',
         'tipo_calificacion',
+        'tipo_asignatura',
+        'califica_por_destrezas',
+        'usa_tabla_equivalencias',
+        'porcentaje',
     ];
 
     /**
@@ -33,6 +39,9 @@ class EstablecimientoAsignatura extends Model
      */
     protected $attributes = [
         'aparece_en_libreta' => true,
+        'tipo_asignatura' => TipoAsignatura::TroncoComun,
+        'califica_por_destrezas' => false,
+        'usa_tabla_equivalencias' => false,
     ];
 
     /**
@@ -44,6 +53,10 @@ class EstablecimientoAsignatura extends Model
             'aparece_en_libreta' => 'boolean',
             'horas_semanales' => 'integer',
             'tipo_calificacion' => TipoCalificacion::class,
+            'tipo_asignatura' => TipoAsignatura::class,
+            'califica_por_destrezas' => 'boolean',
+            'usa_tabla_equivalencias' => 'boolean',
+            'porcentaje' => 'decimal:2',
         ];
     }
 
@@ -82,5 +95,13 @@ class EstablecimientoAsignatura extends Model
     public function asignatura(): BelongsTo
     {
         return $this->belongsTo(Sys_Asignatura::class, 'asignatura_id');
+    }
+
+    /**
+     * @return BelongsTo<EstablecimientoAsignaturaPropia, $this>
+     */
+    public function asignaturaPropia(): BelongsTo
+    {
+        return $this->belongsTo(EstablecimientoAsignaturaPropia::class, 'asignatura_propia_id');
     }
 }

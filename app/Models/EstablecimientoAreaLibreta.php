@@ -24,6 +24,7 @@ class EstablecimientoAreaLibreta extends Model
         'grado_id',
         'area_id',
         'modo_libreta',
+        'promedio_porcentual',
     ];
 
     /**
@@ -31,6 +32,7 @@ class EstablecimientoAreaLibreta extends Model
      */
     protected $attributes = [
         'modo_libreta' => ModoLibretaArea::Asignaturas->value,
+        'promedio_porcentual' => false,
     ];
 
     /**
@@ -40,6 +42,7 @@ class EstablecimientoAreaLibreta extends Model
     {
         return [
             'modo_libreta' => ModoLibretaArea::class,
+            'promedio_porcentual' => 'boolean',
         ];
     }
 

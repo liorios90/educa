@@ -25,6 +25,7 @@ class CurriculoEducativoSeeder extends Seeder
         $this->seedSubnivel('Básica Media', $this->mallaMedia());
         $this->seedSubnivel('Básica Superior', $this->mallaSuperior());
         $this->seedSubnivel('Bachillerato General Unificado', $this->mallaBachillerato());
+        $this->seedMallaObligatoriaBachillerato();
     }
 
     /**
@@ -203,6 +204,53 @@ class CurriculoEducativoSeeder extends Seeder
                 ['nombre' => 'Emprendimiento y Gestión', 'horas_semanales' => 2],
             ]),
         ];
+    }
+
+    private function seedMallaObligatoriaBachillerato(): void
+    {
+        $subnivel = Sys_Subnivel::query()
+            ->where('nombre', 'Bachillerato General Unificado')
+            ->with('areas.asignaturas')
+            ->first();
+
+        if ($subnivel === null) {
+            return;
+        }
+
+        $obligatoriasPorCurso = [
+            'Primero de Bachillerato' => [
+                'Lengua y Literatura', 'Matemática', 'Física', 'Química', 'Biología',
+                'Historia', 'Educación para la Ciudadanía', 'Filosofía',
+                'Educación Cultural y Artística', 'Educación Física', 'Inglés', 'Emprendimiento y Gestión',
+            ],
+            'Segundo de Bachillerato' => [
+                'Lengua y Literatura', 'Matemática', 'Física', 'Química', 'Biología',
+                'Historia', 'Educación para la Ciudadanía', 'Filosofía',
+                'Educación Cultural y Artística', 'Educación Física', 'Inglés', 'Emprendimiento y Gestión',
+            ],
+            'Tercero de Bachillerato' => [
+                'Lengua y Literatura', 'Matemática', 'Física', 'Química', 'Biología',
+                'Historia', 'Educación Física', 'Inglés', 'Emprendimiento y Gestión',
+            ],
+        ];
+
+        $grados = $subnivel->grados()
+            ->whereIn('nombre', array_keys($obligatoriasPorCurso))
+            ->get();
+
+        foreach ($grados as $grado) {
+            foreach ($subnivel->areas->flatMap->asignaturas as $asignatura) {
+                $asignatura->gradosCurriculares()->syncWithoutDetaching([
+                    $grado->id => [
+                        'obligatoria' => in_array(
+                            $asignatura->nombre,
+                            $obligatoriasPorCurso[$grado->nombre],
+                            true,
+                        ),
+                    ],
+                ]);
+            }
+        }
     }
 
     /**

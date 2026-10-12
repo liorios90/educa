@@ -322,7 +322,8 @@ describe('subniveles', function () {
             ->post(route('sistemas.estructura.subniveles.store', $nivel), [
                 'nombre' => 'Básica Superior',
                 'descripcion' => 'Octavo a décimo',
-                'tipo_calificacion' => TipoCalificacion::Calificacion->value,
+                'tipo_calificacion' => TipoCalificacion::Cuantitativa->value,
+                'califica_por_destrezas' => '1',
             ]);
 
         $subnivel = Sys_Subnivel::query()->where('nombre', 'Básica Superior')->firstOrFail();
@@ -334,7 +335,27 @@ describe('subniveles', function () {
             ]))
             ->assertSessionHas('status', 'subnivel-created');
 
-        expect($subnivel->nivel_id)->toBe($nivel->id);
+        expect($subnivel->nivel_id)->toBe($nivel->id)
+            ->and($subnivel->tipo_calificacion)->toBe(TipoCalificacion::Cuantitativa)
+            ->and($subnivel->califica_por_destrezas)->toBeFalse();
+    });
+
+    it('stores destrezas when the subnivel scale is qualitative', function () {
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+        $nivel = Sys_Nivel::factory()->create();
+
+        $this->actingAs($actor)
+            ->post(route('sistemas.estructura.subniveles.store', $nivel), [
+                'nombre' => 'Inicial 2',
+                'tipo_calificacion' => TipoCalificacion::Cualitativa->value,
+                'califica_por_destrezas' => '1',
+            ])
+            ->assertRedirect();
+
+        $subnivel = Sys_Subnivel::query()->where('nombre', 'Inicial 2')->firstOrFail();
+
+        expect($subnivel->tipo_calificacion)->toBe(TipoCalificacion::Cualitativa)
+            ->and($subnivel->califica_por_destrezas)->toBeTrue();
     });
 
     it('rejects an empty subnivel payload', function () {
@@ -357,12 +378,17 @@ describe('subniveles', function () {
             ->patch(route('sistemas.estructura.subniveles.update', [$nivel, $subnivel]), [
                 'nombre' => 'Básica Superior',
                 'descripcion' => 'Actualizado',
-                'tipo_calificacion' => TipoCalificacion::Calificacion->value,
+                'tipo_calificacion' => TipoCalificacion::Cualitativa->value,
+                'califica_por_destrezas' => '1',
             ])
             ->assertRedirect(route('sistemas.estructura.niveles.show', $nivel))
             ->assertSessionHas('status', 'subnivel-updated');
 
-        expect($subnivel->fresh()->nombre)->toBe('Básica Superior');
+        $subnivel->refresh();
+
+        expect($subnivel->nombre)->toBe('Básica Superior')
+            ->and($subnivel->tipo_calificacion)->toBe(TipoCalificacion::Cualitativa)
+            ->and($subnivel->califica_por_destrezas)->toBeTrue();
     });
 
     it('does not update a subnivel from another nivel', function () {

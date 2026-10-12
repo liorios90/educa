@@ -24,12 +24,22 @@ it('seeds the ecuadorian escolarizada structure from the LOEI', function () {
         'Básica Superior',
     ]);
 
+    $inicial = Sys_Subnivel::query()->where('nombre', 'Inicial 2')->firstOrFail();
     $preparatoria = Sys_Subnivel::query()->where('nombre', 'Preparatoria')->firstOrFail();
     $elemental = Sys_Subnivel::query()->where('nombre', 'Básica Elemental')->firstOrFail();
+    $media = Sys_Subnivel::query()->where('nombre', 'Básica Media')->firstOrFail();
     $bachillerato = Sys_Subnivel::query()->where('nombre', 'Bachillerato General Unificado')->firstOrFail();
 
-    expect($preparatoria->tipo_calificacion)->toBe(TipoCalificacion::Destrezas)
-        ->and($elemental->tipo_calificacion)->toBe(TipoCalificacion::Calificacion)
+    expect($inicial->tipo_calificacion)->toBe(TipoCalificacion::Cualitativa)
+        ->and($inicial->califica_por_destrezas)->toBeTrue()
+        ->and($preparatoria->tipo_calificacion)->toBe(TipoCalificacion::Cualitativa)
+        ->and($preparatoria->califica_por_destrezas)->toBeTrue()
+        ->and($elemental->tipo_calificacion)->toBe(TipoCalificacion::Cualitativa)
+        ->and($elemental->califica_por_destrezas)->toBeFalse()
+        ->and($media->tipo_calificacion)->toBe(TipoCalificacion::Cuantitativa)
+        ->and($media->califica_por_destrezas)->toBeFalse()
+        ->and($bachillerato->tipo_calificacion)->toBe(TipoCalificacion::Cuantitativa)
+        ->and($bachillerato->califica_por_destrezas)->toBeFalse()
         ->and($preparatoria->grados()->pluck('nombre')->all())->toBe(['Primero de EGB'])
         ->and($elemental->grados()->pluck('nombre')->all())->toBe([
             'Segundo de EGB',

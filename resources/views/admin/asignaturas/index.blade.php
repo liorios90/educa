@@ -29,7 +29,7 @@
                     <h3 class="text-base font-semibold text-slate-800">Malla de la sesión</h3>
                     <p class="mt-2 text-sm leading-6 text-slate-600">
                         Escoge las asignaturas del catálogo nacional y marca en qué grados se dictan,
-                        con las horas, la libreta y la forma de calificar.
+                        con las horas, la libreta y la escala de calificación.
                     </p>
                     <p class="mt-2 text-sm font-medium text-slate-800">
                         {{ $oferta->etiqueta() }}

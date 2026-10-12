@@ -28,6 +28,7 @@ class EstablecimientoAreaLibretaFactory extends Factory
             'grado_id' => Sys_Grado::factory(),
             'area_id' => Sys_Area::factory(),
             'modo_libreta' => ModoLibretaArea::Asignaturas,
+            'promedio_porcentual' => false,
         ];
     }
 

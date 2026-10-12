@@ -4,14 +4,14 @@ namespace App\Enums;
 
 enum TipoCalificacion: string
 {
-    case Destrezas = 'destrezas';
-    case Calificacion = 'calificacion';
+    case Cualitativa = 'cualitativa';
+    case Cuantitativa = 'cuantitativa';
 
     public function label(): string
     {
         return match ($this) {
-            self::Destrezas => 'Por destrezas',
-            self::Calificacion => 'Por calificación',
+            self::Cualitativa => 'Cualitativa',
+            self::Cuantitativa => 'Cuantitativa',
         };
     }
 }

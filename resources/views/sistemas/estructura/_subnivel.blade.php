@@ -8,6 +8,9 @@
     $subnivelTipo = $subnivelBag->isNotEmpty()
         ? old('tipo_calificacion', $subnivel->tipo_calificacion?->value)
         : $subnivel->tipo_calificacion?->value;
+    $subnivelDestrezas = $subnivelBag->isNotEmpty()
+        ? filter_var(old('califica_por_destrezas'), FILTER_VALIDATE_BOOLEAN)
+        : (bool) $subnivel->califica_por_destrezas;
     $gradosCount = $subnivel->grados_count ?? $subnivel->grados->count();
 @endphp
 
@@ -22,7 +25,10 @@
             </p>
             <p class="mt-1 text-sm text-slate-500">{{ $subnivel->descripcion ?: 'Sin descripción' }}</p>
             <p class="mt-1 text-xs text-slate-400">
-                {{ $subnivel->tipo_calificacion?->label() ?? 'Sin tipo de calificación' }}
+                {{ $subnivel->tipo_calificacion?->label() ?? 'Sin escala de calificación' }}
+                @if ($subnivel->califica_por_destrezas)
+                    · Por destrezas
+                @endif
                 · {{ $gradosCount }} grados
             </p>
         </div>
@@ -62,15 +68,16 @@
             <x-text-input :id="'siglas-subnivel-'.$subnivel->id" class="mt-1 block w-full" type="text" name="siglas" :value="$subnivelSiglas" maxlength="10" />
             <x-input-error class="mt-2" :messages="$subnivelBag->get('siglas')" />
         </div>
-        <div class="md:min-w-48">
-            <x-input-label :for="'tipo-calificacion-subnivel-'.$subnivel->id" value="Tipo de calificación" />
+        <div class="md:min-w-48" x-data="{ escala: @js((string) $subnivelTipo) }">
+            <x-input-label :for="'tipo-calificacion-subnivel-'.$subnivel->id" value="Escala de calificación" />
             <select
                 id="tipo-calificacion-subnivel-{{ $subnivel->id }}"
                 name="tipo_calificacion"
                 class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                x-model="escala"
                 required
             >
-                <option value="">Selecciona un tipo</option>
+                <option value="">Selecciona una escala</option>
                 @foreach (TipoCalificacion::cases() as $option)
                     <option value="{{ $option->value }}" @selected((string) $subnivelTipo === $option->value)>
                         {{ $option->label() }}
@@ -78,6 +85,17 @@
                 @endforeach
             </select>
             <x-input-error class="mt-2" :messages="$subnivelBag->get('tipo_calificacion')" />
+            <label class="mt-2 flex items-center gap-2 text-sm text-slate-700" x-show="escala === 'cualitativa'" x-cloak>
+                <input
+                    type="checkbox"
+                    class="rounded border-gray-300"
+                    name="califica_por_destrezas"
+                    value="1"
+                    @checked($subnivelDestrezas)
+                    :disabled="escala !== 'cualitativa'"
+                >
+                Califica por destrezas
+            </label>
         </div>
         <div class="md:min-w-40 md:flex-1">
             <x-input-label :for="'descripcion-subnivel-'.$subnivel->id" value="Descripción" />

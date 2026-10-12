@@ -24,6 +24,7 @@ class SysSubnivelFactory extends Factory
             'siglas' => fake()->optional()->lexify('??'),
             'descripcion' => fake()->optional()->sentence(),
             'tipo_calificacion' => fake()->randomElement(TipoCalificacion::cases()),
+            'califica_por_destrezas' => false,
             'nivel_id' => Sys_Nivel::factory(),
         ];
     }

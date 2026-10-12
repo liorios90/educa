@@ -6,6 +6,7 @@ use Database\Factories\SysAsignaturaFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Sys_Asignatura extends Model
 {
@@ -58,5 +59,15 @@ class Sys_Asignatura extends Model
     public function area(): BelongsTo
     {
         return $this->belongsTo(Sys_Area::class, 'area_id');
+    }
+
+    /**
+     * @return BelongsToMany<Sys_Grado, $this>
+     */
+    public function gradosCurriculares(): BelongsToMany
+    {
+        return $this->belongsToMany(Sys_Grado::class, 'sys_asignatura_grado', 'asignatura_id', 'grado_id')
+            ->withPivot('obligatoria')
+            ->withTimestamps();
     }
 }

@@ -30,7 +30,22 @@ class UpsertEstructuraSubnivelRequest extends FormRequest
             'siglas' => ['nullable', 'string', 'max:10'],
             'descripcion' => ['nullable', 'string', 'max:150'],
             'tipo_calificacion' => ['required', Rule::enum(TipoCalificacion::class)],
+            'califica_por_destrezas' => ['nullable', 'boolean'],
         ];
+    }
+
+    /**
+     * @return array{nombre: string, siglas?: string|null, descripcion?: string|null, tipo_calificacion: string, califica_por_destrezas: bool}
+     */
+    public function subnivelAttributes(): array
+    {
+        /** @var array{nombre: string, siglas?: string|null, descripcion?: string|null, tipo_calificacion: string} $attributes */
+        $attributes = $this->safe()->only(['nombre', 'siglas', 'descripcion', 'tipo_calificacion']);
+        $tipo = TipoCalificacion::from($attributes['tipo_calificacion']);
+        $attributes['califica_por_destrezas'] = $tipo === TipoCalificacion::Cualitativa
+            && $this->boolean('califica_por_destrezas');
+
+        return $attributes;
     }
 
     protected function prepareForValidation(): void

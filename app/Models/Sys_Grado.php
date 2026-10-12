@@ -47,4 +47,14 @@ class Sys_Grado extends Model
             ->withPivot('subnivel_id')
             ->withTimestamps();
     }
+
+    /**
+     * @return BelongsToMany<Sys_Asignatura, $this>
+     */
+    public function asignaturasCurriculares(): BelongsToMany
+    {
+        return $this->belongsToMany(Sys_Asignatura::class, 'sys_asignatura_grado', 'grado_id', 'asignatura_id')
+            ->withPivot('obligatoria')
+            ->withTimestamps();
+    }
 }

@@ -42,6 +42,7 @@ class EstructuraEducativaSeeder extends Seeder
                         'siglas' => $subnivelData['siglas'],
                         'descripcion' => $subnivelData['descripcion'],
                         'tipo_calificacion' => $subnivelData['tipo_calificacion'],
+                        'califica_por_destrezas' => $subnivelData['califica_por_destrezas'],
                         'nivel_id' => $nivel->id,
                     ],
                 );
@@ -70,6 +71,7 @@ class EstructuraEducativaSeeder extends Seeder
      *         siglas: string,
      *         descripcion: string,
      *         tipo_calificacion: TipoCalificacion,
+     *         califica_por_destrezas: bool,
      *         grados: list<array{nombre: string, siglas: string, descripcion: string}>
      *     }>
      * }>
@@ -86,7 +88,8 @@ class EstructuraEducativaSeeder extends Seeder
                         'nombre' => 'Inicial 1',
                         'siglas' => 'INI1',
                         'descripcion' => 'Infantes de hasta 3 años. Subnivel 1 del Reglamento General a la LOEI.',
-                        'tipo_calificacion' => TipoCalificacion::Destrezas,
+                        'tipo_calificacion' => TipoCalificacion::Cualitativa,
+                        'califica_por_destrezas' => true,
                         'grados' => [
                             [
                                 'nombre' => 'Inicial 1',
@@ -99,7 +102,8 @@ class EstructuraEducativaSeeder extends Seeder
                         'nombre' => 'Inicial 2',
                         'siglas' => 'INI2',
                         'descripcion' => 'Infantes de 3 a 5 años. Subnivel 2 del Reglamento General a la LOEI.',
-                        'tipo_calificacion' => TipoCalificacion::Destrezas,
+                        'tipo_calificacion' => TipoCalificacion::Cualitativa,
+                        'califica_por_destrezas' => true,
                         'grados' => [
                             [
                                 'nombre' => 'Inicial 2',
@@ -119,7 +123,8 @@ class EstructuraEducativaSeeder extends Seeder
                         'nombre' => 'Preparatoria',
                         'siglas' => 'PREP',
                         'descripcion' => '1.er grado de EGB, preferentemente a los 5 años.',
-                        'tipo_calificacion' => TipoCalificacion::Destrezas,
+                        'tipo_calificacion' => TipoCalificacion::Cualitativa,
+                        'califica_por_destrezas' => true,
                         'grados' => [
                             [
                                 'nombre' => 'Primero de EGB',
@@ -132,7 +137,8 @@ class EstructuraEducativaSeeder extends Seeder
                         'nombre' => 'Básica Elemental',
                         'siglas' => 'BE',
                         'descripcion' => '2.º, 3.º y 4.º grados de EGB, preferentemente de 6 a 8 años.',
-                        'tipo_calificacion' => TipoCalificacion::Calificacion,
+                        'tipo_calificacion' => TipoCalificacion::Cualitativa,
+                        'califica_por_destrezas' => false,
                         'grados' => [
                             [
                                 'nombre' => 'Segundo de EGB',
@@ -155,7 +161,8 @@ class EstructuraEducativaSeeder extends Seeder
                         'nombre' => 'Básica Media',
                         'siglas' => 'BM',
                         'descripcion' => '5.º, 6.º y 7.º grados de EGB, preferentemente de 9 a 11 años.',
-                        'tipo_calificacion' => TipoCalificacion::Calificacion,
+                        'tipo_calificacion' => TipoCalificacion::Cuantitativa,
+                        'califica_por_destrezas' => false,
                         'grados' => [
                             [
                                 'nombre' => 'Quinto de EGB',
@@ -178,7 +185,8 @@ class EstructuraEducativaSeeder extends Seeder
                         'nombre' => 'Básica Superior',
                         'siglas' => 'BS',
                         'descripcion' => '8.º, 9.º y 10.º grados de EGB, preferentemente de 12 a 14 años.',
-                        'tipo_calificacion' => TipoCalificacion::Calificacion,
+                        'tipo_calificacion' => TipoCalificacion::Cuantitativa,
+                        'califica_por_destrezas' => false,
                         'grados' => [
                             [
                                 'nombre' => 'Octavo de EGB',
@@ -208,7 +216,8 @@ class EstructuraEducativaSeeder extends Seeder
                         'nombre' => 'Bachillerato General Unificado',
                         'siglas' => 'BGU',
                         'descripcion' => '1.er, 2.º y 3.er cursos, preferentemente de 15 a 17 años.',
-                        'tipo_calificacion' => TipoCalificacion::Calificacion,
+                        'tipo_calificacion' => TipoCalificacion::Cuantitativa,
+                        'califica_por_destrezas' => false,
                         'grados' => [
                             [
                                 'nombre' => 'Primero de Bachillerato',

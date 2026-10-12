@@ -16,4 +16,9 @@ enum ModoLibretaArea: string
             self::AreaYAsignaturas => 'Área y asignaturas',
         };
     }
+
+    public function promediaElArea(): bool
+    {
+        return $this === self::AreaPromedio || $this === self::AreaYAsignaturas;
+    }
 }

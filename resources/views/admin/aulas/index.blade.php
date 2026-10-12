@@ -162,19 +162,27 @@
                                         </h3>
                                         <div class="flex min-w-0 flex-1 flex-wrap items-center gap-2">
                                             @forelse ($aulasDelGrado as $aula)
-                                                <button
-                                                    type="button"
-                                                    class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-800 hover:border-slate-400 hover:bg-slate-50"
-                                                    x-on:click="$dispatch('aula-edit', {
-                                                        id: {{ $aula->id }},
-                                                        paralelo: @js($aula->paralelo),
-                                                        grado: @js($grado->etiqueta()),
-                                                        action: @js(route('Admin.aulas.update', $aula)),
-                                                        destroyAction: @js(route('Admin.aulas.destroy', $aula)),
-                                                    })"
-                                                >
-                                                    {{ $aula->paralelo }}
-                                                </button>
+                                                <div class="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white p-1">
+                                                    <button
+                                                        type="button"
+                                                        class="rounded-md px-2.5 py-1 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+                                                        x-on:click="$dispatch('aula-edit', {
+                                                            id: {{ $aula->id }},
+                                                            paralelo: @js($aula->paralelo),
+                                                            grado: @js($grado->etiqueta()),
+                                                            action: @js(route('Admin.aulas.update', $aula)),
+                                                            destroyAction: @js(route('Admin.aulas.destroy', $aula)),
+                                                        })"
+                                                    >
+                                                        {{ $aula->paralelo }}
+                                                    </button>
+                                                    <a
+                                                        href="{{ route('Admin.aulas.horario', $aula) }}"
+                                                        class="rounded-md bg-indigo-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1"
+                                                    >
+                                                        Crear horario
+                                                    </a>
+                                                </div>
                                             @empty
                                                 <span class="text-sm text-slate-400">Sin paralelos</span>
                                             @endforelse

@@ -7,13 +7,13 @@ it('renders the Educa home page for guests', function () {
 
     $response
         ->assertSee('Educa')
-        ->assertSee('El ecosistema educativo inteligente que se adapta a tu institución')
-        ->assertSee('Una plataforma, infinitas posibilidades')
-        ->assertSee('Cualquier modalidad')
-        ->assertSee('Todas las jornadas')
-        ->assertSee('Flexibilidad temporal')
+        ->assertSee('La vida escolar')
+        ->assertSee('más conectada.')
+        ->assertSee('Empieza con Educa')
+        ->assertSee('Descubrir la plataforma')
+        ->assertSee('Crear cuenta')
         ->assertSee('Iniciar sesión')
-        ->assertSee('Registrarse');
+        ->assertSee(route('register'), false);
 });
 
 it('links authenticated users to the dashboard from the home page', function () {

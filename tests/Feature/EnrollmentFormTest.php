@@ -5,6 +5,9 @@ use App\Enums\Role;
 use App\Models\EnrollmentForm;
 use App\Models\EnrollmentSubmission;
 use App\Models\Establecimiento;
+use App\Models\Alumno;
+use App\Models\Padre;
+use App\Models\Persona;
 use App\Models\User;
 
 function enrollmentAdminContext(Establecimiento $school, string $inicio = '2025-09-01', string $fin = '2026-06-30'): array
@@ -132,24 +135,39 @@ it('lets a parent submit and edit one form for each child in the active period',
     $requiredField = $section->fields()->create(['label' => 'Referencia', 'type' => 'text', 'is_required' => true]);
     $studentFields = $form->sections()->where('title', 'Datos del estudiante')->firstOrFail()->subsections()->firstOrFail()->fields()->get()->keyBy('label');
     $parent = assignRole(User::factory()->create(['establecimiento_id' => $school->id]), Role::Padre);
+    $parentPersona = Persona::factory()->create(['user_id' => $parent->id, 'establecimiento_id' => $school->id]);
+    $parentRecord = Padre::factory()->create(['persona_id' => $parentPersona->id]);
+    $firstStudentPersona = Persona::factory()->create(['establecimiento_id' => $school->id, 'nombres' => 'Ana', 'apellidos' => 'Pérez']);
+    $firstStudent = Alumno::factory()->create(['padre_id' => $parentRecord->id, 'persona_id' => $firstStudentPersona->id]);
+    $secondStudentPersona = Persona::factory()->create(['establecimiento_id' => $school->id, 'nombres' => 'Luis', 'apellidos' => 'Pérez']);
+    $secondStudent = Alumno::factory()->create(['padre_id' => $parentRecord->id, 'persona_id' => $secondStudentPersona->id]);
 
     $this->actingAs($parent)
         ->get(route('matriculas.create'))
+        ->assertOk()
+        ->assertSee('Selecciona el hijo para quien realizarás la matrícula')
+        ->assertSee('Ana')
+        ->assertSee('Luis');
+
+    $this->actingAs($parent)
+        ->get(route('matriculas.create', ['alumno_id' => $firstStudent->id]))
         ->assertOk()
         ->assertSee('Periodo: '.$context['periodo']->nombre)
         ->assertSee('role="tablist"', false)
         ->assertSee('Secciones de la ficha', false)
         ->assertSee('Subsecciones de Datos representante', false)
-        ->assertSee('Apellidos completos');
+        ->assertSee('Apellidos completos')
+        ->assertSee('value="Ana"', false)
+        ->assertSee('value="Pérez"', false);
 
     $firstChild = [
         $requiredField->id => 'Ficha uno',
         $studentFields['Apellidos completos']->id => 'Pérez',
         $studentFields['Nombres completos']->id => 'Ana',
     ];
-    $this->actingAs($parent)->post(route('matriculas.store'), ['responses' => [$requiredField->id => '']])
+    $this->actingAs($parent)->post(route('matriculas.store'), ['alumno_id' => $firstStudent->id, 'responses' => [$requiredField->id => '']])
         ->assertSessionHasErrors('responses.'.$requiredField->id);
-    $this->actingAs($parent)->post(route('matriculas.store'), ['responses' => $firstChild])
+    $this->actingAs($parent)->post(route('matriculas.store'), ['alumno_id' => $firstStudent->id, 'responses' => $firstChild])
         ->assertRedirect(route('matriculas.index'))
         ->assertSessionHas('status', 'matricula-submitted');
 
@@ -159,12 +177,12 @@ it('lets a parent submit and edit one form for each child in the active period',
         ->assertSee('Editar ficha de Pérez Ana')
         ->assertSee('value="Ana"', false);
 
-    $this->actingAs($parent)->put(route('matriculas.update', $firstSubmission), ['responses' => [
+    $this->actingAs($parent)->put(route('matriculas.update', $firstSubmission), ['alumno_id' => $firstStudent->id, 'responses' => [
         ...$firstChild,
         $studentFields['Nombres completos']->id => 'Ana María',
     ]])->assertRedirect(route('matriculas.index'))->assertSessionHas('status', 'matricula-updated');
 
-    $this->actingAs($parent)->post(route('matriculas.store'), ['responses' => [
+    $this->actingAs($parent)->post(route('matriculas.store'), ['alumno_id' => $secondStudent->id, 'responses' => [
         $requiredField->id => 'Ficha dos',
         $studentFields['Apellidos completos']->id => 'Pérez',
         $studentFields['Nombres completos']->id => 'Luis',
@@ -177,6 +195,19 @@ it('lets a parent submit and edit one form for each child in the active period',
         ->assertSee('Editar ficha');
 
     expect(EnrollmentSubmission::query()->where('user_id', $parent->id)->where('enrollment_form_id', $form->id)->count())->toBe(2);
+
+    $singleChildParent = assignRole(User::factory()->create(['establecimiento_id' => $school->id]), Role::Padre);
+    $singleParentPersona = Persona::factory()->create(['user_id' => $singleChildParent->id, 'establecimiento_id' => $school->id]);
+    $singleParentRecord = Padre::factory()->create(['persona_id' => $singleParentPersona->id]);
+    $singleStudentPersona = Persona::factory()->create(['establecimiento_id' => $school->id, 'nombres' => 'Sofía', 'apellidos' => 'López']);
+    $singleStudent = Alumno::factory()->create(['padre_id' => $singleParentRecord->id, 'persona_id' => $singleStudentPersona->id]);
+
+    $this->actingAs($singleChildParent)->get(route('matriculas.create'))
+        ->assertOk()
+        ->assertSee('Ficha para:')
+        ->assertSee('López Sofía')
+        ->assertSee('name="alumno_id" value="'.$singleStudent->id.'"', false)
+        ->assertSee('value="Sofía"', false);
 });
 
 it('copies the previous period structure into a new period form', function () {

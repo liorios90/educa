@@ -6,12 +6,18 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-#[Fillable(['enrollment_form_id', 'user_id', 'student_name', 'responses', 'schema_snapshot', 'submitted_at'])]
+#[Fillable(['enrollment_form_id', 'user_id', 'alumno_id', 'periodo_inicio', 'periodo_fin', 'student_name', 'responses', 'schema_snapshot', 'submitted_at'])]
 class EnrollmentSubmission extends Model
 {
     protected function casts(): array
     {
-        return ['responses' => 'array', 'schema_snapshot' => 'array', 'submitted_at' => 'datetime'];
+        return [
+            'responses' => 'array',
+            'schema_snapshot' => 'array',
+            'submitted_at' => 'datetime',
+            'periodo_inicio' => 'date',
+            'periodo_fin' => 'date',
+        ];
     }
 
     /** @return BelongsTo<EnrollmentForm, $this> */
@@ -24,5 +30,11 @@ class EnrollmentSubmission extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /** @return BelongsTo<Alumno, $this> */
+    public function alumno(): BelongsTo
+    {
+        return $this->belongsTo(Alumno::class);
     }
 }

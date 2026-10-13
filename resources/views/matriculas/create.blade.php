@@ -13,9 +13,30 @@
                 <div class="mb-5 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">Revisa los campos marcados: {{ $errors->first() }}</div>
             @endif
 
+            @if ($children->isEmpty())
+                <div class="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-900">No encontramos hijos vinculados a tu cuenta. Comunícate con el colegio para revisar el registro del estudiante.</div>
+            @elseif ($selectedChild === null)
+                <form method="GET" action="{{ $submission ? route('matriculas.edit', $submission) : route('matriculas.create') }}" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <label class="grid gap-2 text-sm font-medium text-slate-700">
+                        Selecciona el hijo para quien realizarás la matrícula
+                        <select name="alumno_id" required class="rounded-lg border-slate-300 text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                            <option value="">Selecciona un estudiante</option>
+                            @foreach ($children as $child)
+                                <option value="{{ $child->id }}" @selected((string) request('alumno_id') === (string) $child->id)>{{ trim(($child->persona?->apellidos ?? '').' '.($child->persona?->nombres ?? '')) }}</option>
+                            @endforeach
+                        </select>
+                    </label>
+                    <button class="mt-4 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700">Continuar</button>
+                </form>
+            @else
+                <div class="mb-5 rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm text-indigo-900">
+                    Ficha para: <strong>{{ trim(($selectedChild->persona?->apellidos ?? '').' '.($selectedChild->persona?->nombres ?? '')) }}</strong>
+                </div>
+
             <form method="POST" action="{{ $submission ? route('matriculas.update', $submission) : route('matriculas.store') }}" novalidate class="flex flex-col gap-6">
                 @csrf
                 @if ($submission) @method('PUT') @endif
+                <input type="hidden" name="alumno_id" value="{{ $selectedChild->id }}">
                 <div x-data="{ activeSection: {{ (int) session('activeEnrollmentSectionId', $form->sections->first()?->id ?? 0) }} }" class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                     <div class="overflow-x-auto border-b border-slate-200 bg-slate-50 px-4 pt-3">
                         <div role="tablist" aria-label="Secciones de la ficha" class="flex min-w-max gap-2">
@@ -101,6 +122,7 @@
                     <button class="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700">{{ $submission ? 'Guardar cambios' : 'Enviar ficha' }}</button>
                 </div>
             </form>
+            @endif
         </div>
     </div>
 </x-app-layout>

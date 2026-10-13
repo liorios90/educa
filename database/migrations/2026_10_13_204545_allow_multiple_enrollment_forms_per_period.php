@@ -11,17 +11,19 @@ return new class extends Migration
      */
     public function up(): void
     {
-        $periodUnique = 'enrollment_forms_school_period_unique';
-        if (Schema::hasIndex('enrollment_forms', $periodUnique)) {
-            Schema::table('enrollment_forms', function (Blueprint $table) use ($periodUnique): void {
-                $table->dropUnique($periodUnique);
-            });
-        }
-
+        // Keep a standalone index for the establecimiento_id foreign key
+        // before removing the unique index that currently supports it.
         $periodIndex = 'enrollment_forms_school_period_idx';
         if (! Schema::hasIndex('enrollment_forms', $periodIndex)) {
             Schema::table('enrollment_forms', function (Blueprint $table) use ($periodIndex): void {
                 $table->index(['establecimiento_id', 'periodo_inicio', 'periodo_fin'], $periodIndex);
+            });
+        }
+
+        $periodUnique = 'enrollment_forms_school_period_unique';
+        if (Schema::hasIndex('enrollment_forms', $periodUnique)) {
+            Schema::table('enrollment_forms', function (Blueprint $table) use ($periodUnique): void {
+                $table->dropUnique($periodUnique);
             });
         }
 
@@ -38,6 +40,12 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (! Schema::hasIndex('enrollment_forms', 'enrollment_forms_establecimiento_id_unique')) {
+            Schema::table('enrollment_forms', function (Blueprint $table): void {
+                $table->unique('establecimiento_id', 'enrollment_forms_establecimiento_id_unique');
+            });
+        }
+
         $periodIndex = 'enrollment_forms_school_period_idx';
         if (Schema::hasIndex('enrollment_forms', $periodIndex)) {
             Schema::table('enrollment_forms', function (Blueprint $table) use ($periodIndex): void {

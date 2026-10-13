@@ -122,5 +122,5 @@ it('returns only the links the user may see', function () {
     $configuracion = $items->firstWhere('label', 'Configuración');
 
     expect($items->pluck('label')->all())->toBe(['Inicio', 'Padres', 'Alumnos', 'Empleados', 'Docentes', 'Estructura', 'Configuración', 'Proceso de Cierres', 'Asignaturas', 'Reportes', 'Aulas', 'Perfil'])
-        ->and(collect($configuracion?->children)->pluck('label')->all())->toBe(['Periodo', 'Por grados']);
+        ->and(collect($configuracion?->children)->pluck('label')->all())->toBe(['Periodo', 'Por grados', 'Por asignaturas']);
 });

@@ -17,15 +17,37 @@ class CurriculoEducativoSeeder extends Seeder
         $inicial = $this->ambitosInicial();
 
         foreach (['Inicial 1', 'Inicial 2'] as $subnivel) {
-            $this->seedSubnivel($subnivel, $inicial);
+            $this->seedSubnivel($subnivel, $this->conPeriodoAcompanamiento($inicial));
         }
 
-        $this->seedSubnivel('Preparatoria', $this->mallaPreparatoria());
-        $this->seedSubnivel('Básica Elemental', $this->mallaElemental());
-        $this->seedSubnivel('Básica Media', $this->mallaMedia());
-        $this->seedSubnivel('Básica Superior', $this->mallaSuperior());
-        $this->seedSubnivel('Bachillerato General Unificado', $this->mallaBachillerato());
+        $this->seedSubnivel('Preparatoria', $this->conPeriodoAcompanamiento($this->mallaPreparatoria()));
+        $this->seedSubnivel('Básica Elemental', $this->conPeriodoAcompanamiento($this->mallaElemental()));
+        $this->seedSubnivel('Básica Media', $this->conPeriodoAcompanamiento($this->mallaMedia()));
+        $this->seedSubnivel('Básica Superior', $this->conPeriodoAcompanamiento($this->mallaSuperior()));
+        $this->seedSubnivel('Bachillerato General Unificado', $this->conPeriodoAcompanamiento($this->mallaBachillerato()));
         $this->seedMallaObligatoriaBachillerato();
+        $this->seedPeriodoAcompanamientoPorGrado();
+    }
+
+    /**
+     * @param  list<array{nombre: string, descripcion?: string, aparece_en_libreta?: bool, asignaturas: list<array{nombre: string, horas_semanales?: int|null, aparece_en_libreta?: bool, descripcion?: string}>}>  $areas
+     * @return list<array{nombre: string, descripcion?: string, aparece_en_libreta?: bool, asignaturas: list<array{nombre: string, horas_semanales?: int|null, aparece_en_libreta?: bool, descripcion?: string}>}>
+     */
+    private function conPeriodoAcompanamiento(array $areas): array
+    {
+        $areas[] = [
+            'nombre' => 'Acompañamiento socioemocional',
+            'descripcion' => 'Área para el acompañamiento socioemocional y el periodo pedagógico establecido por el Ministerio de Educación.',
+            'aparece_en_libreta' => false,
+            'asignaturas' => [[
+                'nombre' => 'Cívica y Acompañamiento Integral en el Aula',
+                'descripcion' => 'Periodo pedagógico semanal de carácter formativo. No se configura con ponderaciones cuantitativas.',
+                'horas_semanales' => 1,
+                'aparece_en_libreta' => false,
+            ]],
+        ];
+
+        return $areas;
     }
 
     /**
@@ -248,6 +270,30 @@ class CurriculoEducativoSeeder extends Seeder
                             true,
                         ),
                     ],
+                ]);
+            }
+        }
+    }
+
+    private function seedPeriodoAcompanamientoPorGrado(): void
+    {
+        $subniveles = Sys_Subnivel::query()
+            ->with(['grados', 'areas.asignaturas'])
+            ->get();
+
+        foreach ($subniveles as $subnivel) {
+            $asignatura = $subnivel->areas
+                ->firstWhere('nombre', 'Acompañamiento socioemocional')
+                ?->asignaturas
+                ->firstWhere('nombre', 'Cívica y Acompañamiento Integral en el Aula');
+
+            if ($asignatura === null) {
+                continue;
+            }
+
+            foreach ($subnivel->grados as $grado) {
+                $asignatura->gradosCurriculares()->syncWithoutDetaching([
+                    $grado->id => ['obligatoria' => true],
                 ]);
             }
         }

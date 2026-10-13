@@ -19,6 +19,7 @@ it('seeds national areas and asignaturas for each ecuadorian subnivel', function
         'Desarrollo personal y social',
         'Descubrimiento del medio natural y cultural',
         'Expresión y comunicación',
+        'Acompañamiento socioemocional',
     ])
         ->and($inicial2->asignaturas()->pluck('sys_asignaturas.nombre')->all())->toContain('Identidad y autonomía')
         ->and($elemental->areas()->pluck('nombre')->all())->toContain('Matemática')
@@ -26,6 +27,23 @@ it('seeds national areas and asignaturas for each ecuadorian subnivel', function
         ->and($superior->asignaturas()->pluck('sys_asignaturas.nombre')->all())->toContain('Educación para la Ciudadanía')
         ->and($bachillerato->asignaturas()->pluck('sys_asignaturas.nombre')->all())->toContain('Filosofía')
         ->and($bachillerato->asignaturas()->pluck('sys_asignaturas.nombre')->all())->toContain('Física');
+
+    $subniveles = Sys_Subnivel::query()->with('areas.asignaturas')->get();
+
+    foreach ($subniveles as $subnivel) {
+        $periodo = $subnivel->areas
+            ->firstWhere('nombre', 'Acompañamiento socioemocional')
+            ?->asignaturas
+            ->firstWhere('nombre', 'Cívica y Acompañamiento Integral en el Aula');
+
+        expect($periodo)->not->toBeNull()
+            ->and($periodo->horas_semanales)->toBe(1)
+            ->and($periodo->aparece_en_libreta)->toBeFalse();
+
+        foreach ($subnivel->grados as $grado) {
+            expect((bool) $periodo->gradosCurriculares->firstWhere('id', $grado->id)?->pivot->obligatoria)->toBeTrue();
+        }
+    }
 
     $matematica = Sys_Asignatura::query()
         ->where('nombre', 'Matemática')

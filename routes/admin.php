@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\ConfiguracionAsignaturasController;
 use App\Http\Controllers\Admin\EstablecimientoPeriodoConfiguracionGradoController;
 use App\Http\Controllers\Admin\HorarioClaseController;
 use App\Http\Controllers\Admin\ProcesoCierresController;
@@ -48,6 +49,8 @@ Route::middleware(['auth', 'verified', 'role:Admin'])
         Route::get('configuracion-grados/{configuracionGrado}/editar', [EstablecimientoPeriodoConfiguracionGradoController::class, 'edit'])->name('configuracion-grados.edit')->whereNumber('configuracionGrado');
         Route::patch('configuracion-grados/{configuracionGrado}', [EstablecimientoPeriodoConfiguracionGradoController::class, 'update'])->name('configuracion-grados.update')->whereNumber('configuracionGrado');
         Route::delete('configuracion-grados/{configuracionGrado}', [EstablecimientoPeriodoConfiguracionGradoController::class, 'destroy'])->name('configuracion-grados.destroy')->whereNumber('configuracionGrado');
+        Route::get('configuracion-asignaturas', [ConfiguracionAsignaturasController::class, 'index'])->name('configuracion-asignaturas.index');
+        Route::put('configuracion-asignaturas/{aula}/ciclos', [ConfiguracionAsignaturasController::class, 'update'])->name('configuracion-asignaturas.update')->whereNumber('aula');
         Route::get('proceso-cierres', [ProcesoCierresController::class, 'index'])->name('proceso-cierres.index');
         Route::put('proceso-cierres/parciales', [ProcesoCierresController::class, 'update'])->name('proceso-cierres.update');
         Route::get('asignaturas', [EstablecimientoAsignaturaController::class, 'index'])->name('asignaturas');

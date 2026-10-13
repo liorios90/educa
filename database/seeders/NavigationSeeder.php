@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Enums\NavigationGroupDisplay;
 use App\Enums\Role as RoleName;
 use App\Models\NavigationItem;
 use Illuminate\Database\Seeder;
@@ -24,7 +25,10 @@ class NavigationSeeder extends Seeder
         $this->upsertItem('Empleados', 'Admin.empleados', 'users', 5, false, [$admin->id]);
         $this->upsertItem('Docentes', 'Admin.docentes', 'academic-cap', 5, false, [$admin->id]);
         $this->upsertItem('Estructura', 'Admin.estructura', 'building-library', 6, false, [$admin->id]);
-        $this->upsertItem('Periodo', 'Admin.periodo', 'calendar-days', 7, false, [$admin->id]);
+        $configuracion = $this->upsertItem('Configuración', 'navigation.hub', 'cog', 7, false, [$admin->id], isGroup: true, groupDisplay: NavigationGroupDisplay::Sidebar);
+        $this->upsertItem('Periodo', 'Admin.periodo', 'calendar-days', 1, false, [$admin->id], parentId: $configuracion->id);
+        $this->upsertItem('Por grados', 'Admin.configuracion-grados.index', 'cog', 2, false, [$admin->id], parentId: $configuracion->id);
+        $this->upsertItem('Proceso de Cierres', 'Admin.proceso-cierres.index', 'clipboard-document-list', 8, false, [$admin->id]);
         $this->upsertItem('Asignaturas', 'Admin.asignaturas', 'book-open', 8, false, [$admin->id]);
         $this->upsertItem('Aulas', 'Admin.aulas', 'academic-cap', 9, false, [$admin->id]);
         $this->upsertItem('Sistemas', 'sistemas.home', 'cog', 3, false, [$sistemas->id]);
@@ -59,6 +63,7 @@ class NavigationSeeder extends Seeder
         array $roleIds,
         bool $isGroup = false,
         ?int $parentId = null,
+        NavigationGroupDisplay $groupDisplay = NavigationGroupDisplay::Screen,
     ): NavigationItem {
         $item = NavigationItem::query()->updateOrCreate(
             [
@@ -72,6 +77,7 @@ class NavigationSeeder extends Seeder
                 'visible_to_all' => $visibleToAll,
                 'is_group' => $isGroup,
                 'parent_id' => $parentId,
+                'group_display' => $groupDisplay,
             ],
         );
 

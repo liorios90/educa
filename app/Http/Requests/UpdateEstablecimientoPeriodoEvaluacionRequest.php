@@ -6,6 +6,7 @@ use App\Auth\ActivePeriodo;
 use App\Enums\EsquemaCiclo;
 use App\Enums\Role;
 use App\Models\EstablecimientoPeriodo;
+use App\Services\GradosConPonderacionCuantitativa;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
@@ -59,7 +60,7 @@ class UpdateEstablecimientoPeriodoEvaluacionRequest extends FormRequest
      */
     public function rules(): array
     {
-        return [
+        $rules = [
             'esquema_ciclo' => ['required', Rule::enum(EsquemaCiclo::class)],
             'nombre_esquema' => ['required', 'string', 'max:255'],
             'numero_parciales' => ['required', 'integer', 'min:1', 'max:6'],
@@ -76,6 +77,41 @@ class UpdateEstablecimientoPeriodoEvaluacionRequest extends FormRequest
             'ciclos.*.tiene_proyecto' => ['required', 'boolean'],
             'ciclos.*.porcentaje_proyecto' => ['required', 'numeric', 'min:0', 'max:100'],
         ];
+
+        if ($this->input('configuracion_por_grado') !== '1') {
+            return $rules;
+        }
+
+        $grados = $this->container->make(GradosConPonderacionCuantitativa::class)
+            ->paraOferta($this->periodo()?->establecimiento_modalidad_jornada_id);
+        $gradosSeleccionados = $this->input('grados_configurados', []);
+
+        $rules['configuracion_por_grado'] = ['required', 'in:1'];
+        $rules['grados_configurados'] = ['nullable', 'array'];
+        $rules['grados_configurados.*'] = ['required', 'integer', 'distinct', Rule::in($grados->keys()->all())];
+        $rules['ponderaciones_grado'] = ['sometimes', 'array:'.implode(',', array_map('strval', is_array($gradosSeleccionados) ? $gradosSeleccionados : []))];
+
+        foreach (is_array($gradosSeleccionados) ? $gradosSeleccionados : [] as $gradoId) {
+            if (! is_numeric($gradoId) || ! $grados->has((int) $gradoId)) {
+                continue;
+            }
+
+            $gradeAssignments = $grados->get((int) $gradoId)['asignaturas'];
+            $ciclos = $this->input('ciclos', []);
+            $ciclosPermitidos = range(1, max(1, is_array($ciclos) ? count($ciclos) : 0));
+            $rules['ponderaciones_grado.'.$gradoId] = ['required', 'array:'.implode(',', $gradeAssignments->pluck('id')->all())];
+
+            foreach ($gradeAssignments as $asignatura) {
+                $asignaturaId = $asignatura->id;
+                $rules['ponderaciones_grado.'.$gradoId.'.'.$asignaturaId] = ['required', 'array:'.implode(',', $ciclosPermitidos)];
+
+                foreach ($ciclosPermitidos as $orden) {
+                    $rules['ponderaciones_grado.'.$gradoId.'.'.$asignaturaId.'.'.$orden] = ['required', 'numeric', 'min:0', 'max:100'];
+                }
+            }
+        }
+
+        return $rules;
     }
 
     /**
@@ -98,6 +134,13 @@ class UpdateEstablecimientoPeriodoEvaluacionRequest extends FormRequest
             'ciclos.*.porcentaje_insumos.required' => 'Indica el porcentaje de insumos del ciclo.',
             'ciclos.*.porcentaje_examen.required' => 'Indica el porcentaje del examen del ciclo.',
             'ciclos.*.porcentaje_proyecto.required' => 'Indica el porcentaje del proyecto del ciclo.',
+            'grados_configurados.*.integer' => 'Selecciona un grado válido.',
+            'grados_configurados.*.distinct' => 'No repitas grados en la selección.',
+            'ponderaciones_grado.*.required' => 'Configura las asignaturas cuantitativas del grado seleccionado.',
+            'ponderaciones_grado.*.*.*.required' => 'Indica la ponderación de cada ciclo.',
+            'ponderaciones_grado.*.*.*.numeric' => 'La ponderación de cada ciclo debe ser numérica.',
+            'ponderaciones_grado.*.*.*.min' => 'La ponderación no puede ser menor que cero.',
+            'ponderaciones_grado.*.*.*.max' => 'La ponderación no puede superar 100%.',
         ];
     }
 
@@ -188,6 +231,10 @@ class UpdateEstablecimientoPeriodoEvaluacionRequest extends FormRequest
                         );
                     }
                 }
+
+                if ($this->input('configuracion_por_grado') === '1') {
+                    $this->validarSumaPonderacionesGrado($validator);
+                }
             },
         ];
     }
@@ -230,6 +277,81 @@ class UpdateEstablecimientoPeriodoEvaluacionRequest extends FormRequest
     public function porcentajeProyectoFinal(): string
     {
         return number_format((float) $this->validated('porcentaje_proyecto_final'), 2, '.', '');
+    }
+
+    /**
+     * @return list<array{establecimiento_asignatura_id: int, ciclos: list<array{orden: int, porcentaje: string}>}>|null
+     */
+    public function ponderacionesGrado(): ?array
+    {
+        if ($this->input('configuracion_por_grado') !== '1') {
+            return null;
+        }
+
+        $validated = $this->validated();
+        $resultado = [];
+
+        foreach ($validated['grados_configurados'] ?? [] as $gradoId) {
+            foreach ($validated['ponderaciones_grado'][$gradoId] ?? [] as $asignaturaId => $ciclos) {
+                $resultado[] = [
+                    'establecimiento_asignatura_id' => (int) $asignaturaId,
+                    'ciclos' => collect($ciclos)
+                        ->map(fn (string|int|float $porcentaje, string|int $orden): array => [
+                            'orden' => (int) $orden,
+                            'porcentaje' => number_format((float) $porcentaje, 2, '.', ''),
+                        ])
+                        ->values()
+                        ->all(),
+                ];
+            }
+        }
+
+        return $resultado;
+    }
+
+    private function validarSumaPonderacionesGrado(Validator $validator): void
+    {
+        $final = (float) $this->input('porcentaje_examen_final') + (float) $this->input('porcentaje_proyecto_final');
+        $ciclosPorGrado = $this->input('ponderaciones_grado', []);
+
+        if (! is_array($ciclosPorGrado)) {
+            return;
+        }
+
+        $asignaturasEsperadas = $this->container->make(GradosConPonderacionCuantitativa::class)
+            ->paraOferta($this->periodo()?->establecimiento_modalidad_jornada_id);
+        $gradosSeleccionados = array_map('strval', $this->input('grados_configurados', []));
+
+        foreach ($ciclosPorGrado as $gradoId => $asignaturas) {
+            if (! in_array((string) $gradoId, $gradosSeleccionados, true) || ! is_array($asignaturas)) {
+                $validator->errors()->add('ponderaciones_grado', 'Configura ponderaciones únicamente para los grados seleccionados.');
+
+                continue;
+            }
+
+            $idsPermitidos = $asignaturasEsperadas->get((int) $gradoId)['asignaturas']->pluck('id')->map(fn ($id): string => (string) $id)->all();
+
+            foreach ($asignaturas as $asignaturaId => $ciclos) {
+                if (! in_array((string) $asignaturaId, $idsPermitidos, true) || ! is_array($ciclos)) {
+                    $validator->errors()->add('ponderaciones_grado', 'La configuración contiene una asignatura que no es cuantitativa o no pertenece al grado.');
+
+                    continue;
+                }
+
+                if (count($ciclos) !== count($this->input('ciclos', []))) {
+                    continue;
+                }
+
+                $suma = round(array_sum(array_map('floatval', $ciclos)) + $final, 2);
+
+                if (abs($suma - 100.0) > 0.009) {
+                    $validator->errors()->add(
+                        'ponderaciones_grado.'.$gradoId.'.'.$asignaturaId,
+                        'Las ponderaciones de los ciclos de cada asignatura, junto con el examen y proyecto final, deben sumar 100%.',
+                    );
+                }
+            }
+        }
     }
 
     private function toBoolean(mixed $value): bool

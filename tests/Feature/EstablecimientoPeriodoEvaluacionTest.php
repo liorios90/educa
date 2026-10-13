@@ -2,11 +2,16 @@
 
 use App\Enums\EsquemaCiclo;
 use App\Enums\Role;
+use App\Enums\TipoCalificacion;
 use App\Models\Establecimiento;
+use App\Models\EstablecimientoAsignatura;
 use App\Models\EstablecimientoModalidadJornada;
 use App\Models\EstablecimientoPeriodo;
+use App\Models\EstablecimientoPeriodoAsignaturaCiclo;
 use App\Models\EstablecimientoPeriodoCiclo;
 use App\Models\EstablecimientoPeriodoCicloParcial;
+use App\Models\Sys_Asignatura;
+use App\Models\Sys_Grado;
 use App\Models\User;
 use Database\Seeders\NavigationSeeder;
 
@@ -27,6 +32,7 @@ describe('edit', function () {
             ->assertSee('2026-2027 Sierra')
             ->assertSee('Configuración de periodo')
             ->assertSee('Configuración de ciclos')
+            ->assertDontSee('Configuración por Grados')
             ->assertSee('Número de ciclos')
             ->assertSee('Con 2 el nombre es Quimestre y con 3 es Trimestre')
             ->assertSee('Nombre de la forma de trabajo')
@@ -46,6 +52,48 @@ describe('edit', function () {
             ->assertSee('Guarda la configuración antes de aperturar el periodo.')
             ->assertDontSee('Este periodo ya fue aperturado')
             ->assertDontSee(route('Admin.periodo.aperturar'), false);
+    });
+
+    it('does not show grade-specific weighting on the period configuration screen', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $oferta = ofertaDe($establecimiento);
+        $periodo = periodoActivoDe($oferta);
+        $gradoCuantitativo = Sys_Grado::factory()->create(['nombre' => 'Octavo EGB']);
+        $asignatura = Sys_Asignatura::factory()->create(['nombre' => 'Matemática']);
+        EstablecimientoAsignatura::factory()->create([
+            'establecimiento_id' => $establecimiento->id,
+            'establecimiento_modalidad_jornada_id' => $oferta->id,
+            'grado_id' => $gradoCuantitativo->id,
+            'asignatura_id' => $asignatura->id,
+            'tipo_calificacion' => TipoCalificacion::Cuantitativa,
+        ]);
+        EstablecimientoAsignatura::factory()->create([
+            'establecimiento_id' => $establecimiento->id,
+            'establecimiento_modalidad_jornada_id' => $oferta->id,
+            'grado_id' => $gradoCuantitativo->id,
+            'asignatura_id' => Sys_Asignatura::factory()->create(['nombre' => 'Educación Física'])->id,
+            'tipo_calificacion' => TipoCalificacion::Cualitativa,
+        ]);
+        EstablecimientoAsignatura::factory()->create([
+            'establecimiento_id' => $establecimiento->id,
+            'establecimiento_modalidad_jornada_id' => $oferta->id,
+            'grado_id' => Sys_Grado::factory()->create(['nombre' => 'Cuarto EGB'])->id,
+            'asignatura_id' => Sys_Asignatura::factory()->create(['nombre' => 'Lengua por destrezas'])->id,
+            'tipo_calificacion' => TipoCalificacion::Cualitativa,
+            'califica_por_destrezas' => true,
+        ]);
+
+        $this->actingAs($admin)
+            ->withSession(activeContextSession($oferta, $periodo))
+            ->get(route('Admin.periodo'))
+            ->assertOk()
+            ->assertDontSee('Configuración por Grados')
+            ->assertDontSee('Octavo EGB')
+            ->assertDontSee('Matemática')
+            ->assertDontSee('Cuarto EGB')
+            ->assertDontSee('Lengua por destrezas')
+            ->assertDontSee('Educación Física');
     });
 
     it('explains when there is no active period', function () {
@@ -146,6 +194,85 @@ describe('edit', function () {
 });
 
 describe('update', function () {
+    it('saves custom cycle weights for quantitative subjects in selected grades', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $oferta = ofertaDe($establecimiento);
+        $periodo = periodoActivoDe($oferta);
+        $grado = Sys_Grado::factory()->create(['nombre' => 'Primero de Bachillerato']);
+        $asignatura = Sys_Asignatura::factory()->create(['nombre' => 'Matemática']);
+        $malla = EstablecimientoAsignatura::factory()->create([
+            'establecimiento_id' => $establecimiento->id,
+            'establecimiento_modalidad_jornada_id' => $oferta->id,
+            'grado_id' => $grado->id,
+            'asignatura_id' => $asignatura->id,
+            'tipo_calificacion' => TipoCalificacion::Cuantitativa,
+        ]);
+        $payload = evaluacionQuimestral();
+        $payload['configuracion_por_grado'] = '1';
+        $payload['grados_configurados'] = [(string) $grado->id];
+        $payload['ponderaciones_grado'] = [
+            $grado->id => [$malla->id => [1 => '40', 2 => '60']],
+        ];
+
+        $this->actingAs($admin)
+            ->withSession(activeContextSession($oferta, $periodo))
+            ->put(route('Admin.periodo.update'), $payload)
+            ->assertRedirect(route('Admin.periodo'))
+            ->assertSessionHas('status', 'periodo-evaluacion-updated');
+
+        expect(EstablecimientoPeriodoAsignaturaCiclo::query()
+            ->where('establecimiento_periodo_id', $periodo->id)
+            ->where('establecimiento_asignatura_id', $malla->id)
+            ->orderBy('ciclo_orden')
+            ->pluck('porcentaje')
+            ->all())->toBe(['40.00', '60.00']);
+
+        $payloadSinGrados = evaluacionQuimestral();
+        $payloadSinGrados['configuracion_por_grado'] = '1';
+
+        $this->actingAs($admin)
+            ->withSession(activeContextSession($oferta, $periodo))
+            ->put(route('Admin.periodo.update'), $payloadSinGrados)
+            ->assertRedirect(route('Admin.periodo'));
+
+        expect(EstablecimientoPeriodoAsignaturaCiclo::query()
+            ->where('establecimiento_periodo_id', $periodo->id)
+            ->count())->toBe(0);
+    });
+
+    it('rejects custom cycle weights that do not add up to the period total', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $oferta = ofertaDe($establecimiento);
+        $periodo = periodoActivoDe($oferta);
+        $grado = Sys_Grado::factory()->create(['nombre' => 'Primero de Bachillerato']);
+        $malla = EstablecimientoAsignatura::factory()->create([
+            'establecimiento_id' => $establecimiento->id,
+            'establecimiento_modalidad_jornada_id' => $oferta->id,
+            'grado_id' => $grado->id,
+            'asignatura_id' => Sys_Asignatura::factory()->create(['nombre' => 'Matemática'])->id,
+            'tipo_calificacion' => TipoCalificacion::Cuantitativa,
+        ]);
+        $payload = evaluacionQuimestral();
+        $payload['configuracion_por_grado'] = '1';
+        $payload['grados_configurados'] = [(string) $grado->id];
+        $payload['ponderaciones_grado'] = [
+            $grado->id => [$malla->id => [1 => '40', 2 => '50']],
+        ];
+
+        $this->actingAs($admin)
+            ->withSession(activeContextSession($oferta, $periodo))
+            ->from(route('Admin.periodo'))
+            ->put(route('Admin.periodo.update'), $payload)
+            ->assertRedirect(route('Admin.periodo'))
+            ->assertSessionHasErrors([
+                'ponderaciones_grado.'.$grado->id.'.'.$malla->id => 'Las ponderaciones de los ciclos de cada asignatura, junto con el examen y proyecto final, deben sumar 100%.',
+            ]);
+
+        expect(EstablecimientoPeriodoAsignaturaCiclo::query()->count())->toBe(0);
+    });
+
     it('saves the evaluation scheme of the active period', function () {
         $establecimiento = Establecimiento::factory()->create();
         $admin = adminOf($establecimiento);

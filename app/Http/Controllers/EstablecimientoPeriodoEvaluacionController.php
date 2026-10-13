@@ -86,6 +86,7 @@ class EstablecimientoPeriodoEvaluacionController extends Controller
             $request->porcentajeExamenFinal(),
             $request->porcentajeProyectoFinal(),
             $request->ciclos(),
+            $request->ponderacionesGrado(),
         );
 
         return redirect()

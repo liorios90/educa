@@ -34,7 +34,9 @@
                         Configura cómo se evalúa este periodo según la legislación: quimestres, trimestres u otro esquema.
                         Los ciclos más el examen final y/o el proyecto final deben sumar 100%. Por ejemplo, en quimestres:
                         primer ciclo 30%, segundo ciclo 30%, examen final 20% y proyecto final 20%. En cada ciclo, los insumos
-                        más el examen y/o el proyecto también deben sumar 100%.
+                        más el examen y/o el proyecto también deben sumar 100%. Estas ponderaciones porcentuales aplican solo
+                        a los grados, cursos y asignaturas que se califican cuantitativamente. Si la evaluación es cualitativa,
+                        se registra con la escala correspondiente y no se configura con porcentajes.
                     </p>
                     <p class="mt-2 text-sm font-medium text-slate-800">
                         {{ $oferta->etiqueta() }}
@@ -425,7 +427,8 @@
                     <section class="estructura-subnivel">
                         <h3 class="text-base font-semibold text-slate-800">Ponderación de los ciclos</h3>
                         <p class="mt-1 text-sm text-slate-500">
-                            Este es el peso de cada ciclo en el periodo. Junto con el examen final y el proyecto final debe sumar 100%.
+                            Para grados, cursos y asignaturas con calificación cuantitativa, este es el peso de cada ciclo en el periodo.
+                            Junto con el examen final y el proyecto final debe sumar 100%. No aplica a evaluaciones cualitativas.
                         </p>
                         <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
                             <template x-for="(ciclo, indice) in ciclos" :key="'peso-' + indice">
@@ -457,7 +460,8 @@
                     <section class="estructura-subnivel">
                         <h3 class="text-base font-semibold text-slate-800">Ponderación final</h3>
                         <p class="mt-1 text-sm text-slate-500">
-                            Puedes marcar examen, proyecto, ambos o ninguno. Junto con los ciclos deben sumar 100%.
+                            Para grados, cursos y asignaturas con calificación cuantitativa, puedes marcar examen, proyecto, ambos o ninguno.
+                            Junto con los ciclos deben sumar 100%. No aplica a evaluaciones cualitativas.
                         </p>
                         <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
                             <div class="rounded-xl border border-slate-200 p-4">
@@ -638,6 +642,7 @@
                         </div>
                         </div>
                     </div>
+
                         </fieldset>
                         </div>
                     </div>

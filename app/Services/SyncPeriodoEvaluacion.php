@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\EsquemaCiclo;
 use App\Models\EstablecimientoPeriodo;
+use App\Models\EstablecimientoPeriodoAsignaturaCiclo;
 use Illuminate\Support\Facades\DB;
 use LogicException;
 
@@ -11,6 +12,7 @@ class SyncPeriodoEvaluacion
 {
     /**
      * @param  list<array{nombre: string, porcentaje: string, porcentaje_insumos: string, porcentaje_examen: string, porcentaje_proyecto: string}>  $ciclos
+     * @param  list<array{establecimiento_asignatura_id: int, ciclos: list<array{orden: int, porcentaje: string}>}>|null  $ponderacionesGrado
      */
     public function handle(
         EstablecimientoPeriodo $periodo,
@@ -20,8 +22,9 @@ class SyncPeriodoEvaluacion
         string $examenFinal,
         string $proyectoFinal,
         array $ciclos,
+        ?array $ponderacionesGrado = null,
     ): void {
-        DB::transaction(function () use ($periodo, $esquema, $nombreEsquema, $parciales, $examenFinal, $proyectoFinal, $ciclos): void {
+        DB::transaction(function () use ($periodo, $esquema, $nombreEsquema, $parciales, $examenFinal, $proyectoFinal, $ciclos, $ponderacionesGrado): void {
             $periodo = EstablecimientoPeriodo::query()
                 ->whereKey($periodo->id)
                 ->lockForUpdate()
@@ -50,6 +53,23 @@ class SyncPeriodoEvaluacion
                     'porcentaje_examen' => $ciclo['porcentaje_examen'],
                     'porcentaje_proyecto' => $ciclo['porcentaje_proyecto'],
                 ]);
+            }
+
+            if ($ponderacionesGrado !== null) {
+                EstablecimientoPeriodoAsignaturaCiclo::query()
+                    ->where('establecimiento_periodo_id', $periodo->id)
+                    ->delete();
+
+                foreach ($ponderacionesGrado as $ponderacionAsignatura) {
+                    foreach ($ponderacionAsignatura['ciclos'] as $ciclo) {
+                        EstablecimientoPeriodoAsignaturaCiclo::query()->create([
+                            'establecimiento_periodo_id' => $periodo->id,
+                            'establecimiento_asignatura_id' => $ponderacionAsignatura['establecimiento_asignatura_id'],
+                            'ciclo_orden' => $ciclo['orden'],
+                            'porcentaje' => $ciclo['porcentaje'],
+                        ]);
+                    }
+                }
             }
         });
     }

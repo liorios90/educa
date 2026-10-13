@@ -3,12 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Services\GeminiService;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
-use Illuminate\Http\Client\ConnectionException;
-
 
 class SecretariaController extends Controller
 {
@@ -21,6 +20,7 @@ class SecretariaController extends Controller
     {
         return view('secretaria.asistente');
     }
+
     public function store(Request $request, GeminiService $gemini): RedirectResponse
     {
         $validated = $request->validate([
@@ -41,7 +41,7 @@ class SecretariaController extends Controller
                 ->withInput()
                 ->with('error', $e->response?->json('error.message') ?? $e->getMessage());
         }
+
         return back()->with('respuesta', $texto);
     }
-    
 }

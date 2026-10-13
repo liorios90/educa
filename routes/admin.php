@@ -1,6 +1,8 @@
 <?php
 
+use App\Http\Controllers\Admin\EstablecimientoPeriodoConfiguracionGradoController;
 use App\Http\Controllers\Admin\HorarioClaseController;
+use App\Http\Controllers\Admin\ProcesoCierresController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AlumnoController;
 use App\Http\Controllers\DocenteController;
@@ -40,6 +42,14 @@ Route::middleware(['auth', 'verified', 'role:Admin'])
         Route::get('periodo', [EstablecimientoPeriodoEvaluacionController::class, 'edit'])->name('periodo');
         Route::put('periodo', [EstablecimientoPeriodoEvaluacionController::class, 'update'])->name('periodo.update');
         Route::post('periodo/aperturar', [EstablecimientoPeriodoEvaluacionController::class, 'aperturar'])->name('periodo.aperturar');
+        Route::get('configuracion-grados', [EstablecimientoPeriodoConfiguracionGradoController::class, 'index'])->name('configuracion-grados.index');
+        Route::get('configuracion-grados/crear', [EstablecimientoPeriodoConfiguracionGradoController::class, 'create'])->name('configuracion-grados.create');
+        Route::post('configuracion-grados', [EstablecimientoPeriodoConfiguracionGradoController::class, 'store'])->name('configuracion-grados.store');
+        Route::get('configuracion-grados/{configuracionGrado}/editar', [EstablecimientoPeriodoConfiguracionGradoController::class, 'edit'])->name('configuracion-grados.edit')->whereNumber('configuracionGrado');
+        Route::patch('configuracion-grados/{configuracionGrado}', [EstablecimientoPeriodoConfiguracionGradoController::class, 'update'])->name('configuracion-grados.update')->whereNumber('configuracionGrado');
+        Route::delete('configuracion-grados/{configuracionGrado}', [EstablecimientoPeriodoConfiguracionGradoController::class, 'destroy'])->name('configuracion-grados.destroy')->whereNumber('configuracionGrado');
+        Route::get('proceso-cierres', [ProcesoCierresController::class, 'index'])->name('proceso-cierres.index');
+        Route::put('proceso-cierres/parciales', [ProcesoCierresController::class, 'update'])->name('proceso-cierres.update');
         Route::get('asignaturas', [EstablecimientoAsignaturaController::class, 'index'])->name('asignaturas');
         Route::get('asignaturas/{oferta}', [EstablecimientoAsignaturaController::class, 'edit'])->name('asignaturas.edit');
         Route::put('asignaturas/{oferta}', [EstablecimientoAsignaturaController::class, 'update'])->name('asignaturas.update');

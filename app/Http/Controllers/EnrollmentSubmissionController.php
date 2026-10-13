@@ -31,7 +31,6 @@ class EnrollmentSubmissionController extends Controller
             ->get();
 
         return view('matriculas.index', [
-            'form' => $form,
             'periodo' => $periodo,
             'submissions' => $submissions,
         ]);

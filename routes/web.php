@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\EnrollmentSubmissionController;
 use App\Http\Controllers\NavigationHubController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReportRunController;
@@ -33,6 +34,17 @@ Route::middleware('auth')->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
+
+Route::middleware(['auth', 'verified', 'role:Padre'])
+    ->prefix('matriculas')
+    ->name('matriculas.')
+    ->group(function () {
+        Route::get('/', [EnrollmentSubmissionController::class, 'index'])->name('index');
+        Route::get('/crear', [EnrollmentSubmissionController::class, 'create'])->name('create');
+        Route::get('/{enrollmentSubmission}/editar', [EnrollmentSubmissionController::class, 'edit'])->name('edit');
+        Route::put('/{enrollmentSubmission}', [EnrollmentSubmissionController::class, 'update'])->name('update');
+        Route::post('/', [EnrollmentSubmissionController::class, 'store'])->name('store');
+    });
 
 require __DIR__.'/admin.php';
 require __DIR__.'/secretaria.php';

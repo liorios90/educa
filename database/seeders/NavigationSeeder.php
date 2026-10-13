@@ -17,10 +17,13 @@ class NavigationSeeder extends Seeder
     {
         $admin = Role::findOrCreate(RoleName::Admin->value, 'web');
         $sistemas = Role::findOrCreate(RoleName::Sistemas->value, 'web');
+        $padre = Role::findOrCreate(RoleName::Padre->value, 'web');
 
         $this->upsertItem('Inicio', 'dashboard', 'home', 1, true, []);
         $this->upsertItem('Usuarios', 'admin.users', 'users', 2, false, [$admin->id]);
         $this->upsertItem('Padres', 'Admin.padres', 'users', 3, false, [$admin->id]);
+        $this->upsertItem('Matrículas', 'Admin.matriculas.index', 'clipboard-document-list', 4, false, [$admin->id]);
+        $this->upsertItem('Respuestas de matrícula', 'Admin.matriculas.submissions', 'clipboard-document-list', 5, false, [$admin->id]);
         $this->upsertItem('Alumnos', 'Admin.alumnos', 'users', 4, false, [$admin->id]);
         $this->upsertItem('Empleados', 'Admin.empleados', 'users', 5, false, [$admin->id]);
         $this->upsertItem('Docentes', 'Admin.docentes', 'academic-cap', 5, false, [$admin->id]);
@@ -49,6 +52,7 @@ class NavigationSeeder extends Seeder
         $this->upsertItem('Nivel - Subnivel - Grado', 'sistemas.estructura', 'home', 1, false, [$sistemas->id], parentId: $estructura->id);
         $this->upsertItem('Áreas y asignaturas', 'sistemas.curriculo', 'home', 2, false, [$sistemas->id], parentId: $estructura->id);
         $this->upsertItem('Reportes', 'reports.index', 'home', 8, true, []);
+        $this->upsertItem('Matrícula', 'matriculas.index', 'clipboard-document-list', 1, false, [$padre->id]);
         $this->upsertItem('Perfil', 'profile.edit', 'user', 9, true, []);
     }
 

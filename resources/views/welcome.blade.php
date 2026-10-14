@@ -284,10 +284,13 @@
                     <span class="grid h-8 w-8 grid-cols-2 gap-0.5 rounded-lg bg-emerald-900 p-1.5" aria-hidden="true"><span class="rounded-tl-md rounded-br-md bg-emerald-100"></span><span class="rounded-tr-md rounded-bl-md bg-teal-300"></span><span class="rounded-bl-md rounded-tr-md bg-amber-300"></span><span class="rounded-br-md rounded-tl-md bg-white"></span></span>
                     <span class="text-sm font-bold text-slate-950">Educa</span>
                 </a>
-                <nav class="flex items-center gap-5 text-sm font-medium text-slate-500" aria-label="Navegación del pie de página">
+                <nav class="flex flex-wrap items-center gap-5 text-sm font-medium text-slate-500" aria-label="Navegación del pie de página">
                     <a href="#plataforma" class="hover:text-emerald-900">Plataforma</a>
                     <a href="#comunidad" class="hover:text-emerald-900">Comunidad</a>
                     <a href="#flexibilidad" class="hover:text-emerald-900">Flexibilidad</a>
+                    <a href="{{ route('privacy') }}" class="hover:text-emerald-900">Política de privacidad</a>
+                    <a href="{{ route('terms') }}" class="hover:text-emerald-900">Términos y condiciones</a>
+                    <a href="{{ route('cookies') }}" class="hover:text-emerald-900">Política de cookies</a>
                 </nav>
                 <p class="text-xs text-slate-400">&copy; {{ date('Y') }} Educa. Todos los derechos reservados.</p>
             </div>

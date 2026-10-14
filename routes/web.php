@@ -9,6 +9,9 @@ use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'welcome')->name('home');
+Route::view('/privacidad', 'privacy')->name('privacy');
+Route::view('/terminos', 'terms')->name('terms');
+Route::view('/cookies', 'cookies')->name('cookies');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');

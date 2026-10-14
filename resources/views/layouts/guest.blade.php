@@ -25,6 +25,12 @@
             <div class="w-full sm:max-w-md mt-6 px-6 py-4 bg-white shadow-md overflow-hidden sm:rounded-lg">
                 {{ $slot }}
             </div>
+
+            <p class="mt-6 flex flex-wrap items-center justify-center gap-4 text-center text-sm text-gray-600">
+                <a href="{{ route('privacy') }}" class="underline hover:text-gray-900 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">Política de privacidad</a>
+                <a href="{{ route('terms') }}" class="underline hover:text-gray-900 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">Términos y condiciones</a>
+                <a href="{{ route('cookies') }}" class="underline hover:text-gray-900 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">Política de cookies</a>
+            </p>
         </div>
     </body>
 </html>

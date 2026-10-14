@@ -70,6 +70,8 @@ Route::middleware(['auth', 'verified', 'role:Admin'])
         Route::get('tipos-insumos/{tipoInsumo}/editar', [TipoInsumoController::class, 'edit'])->name('tipos-insumos.edit')->whereNumber('tipoInsumo');
         Route::patch('tipos-insumos/{tipoInsumo}', [TipoInsumoController::class, 'update'])->name('tipos-insumos.update')->whereNumber('tipoInsumo');
         Route::delete('tipos-insumos/{tipoInsumo}', [TipoInsumoController::class, 'destroy'])->name('tipos-insumos.destroy')->whereNumber('tipoInsumo');
+        Route::get('tipos-insumos/{tipoInsumo}/asignaturas', [TipoInsumoController::class, 'asignaturas'])->name('tipos-insumos.asignaturas.index')->whereNumber('tipoInsumo');
+        Route::put('tipos-insumos/{tipoInsumo}/asignaturas', [TipoInsumoController::class, 'actualizarAsignaturas'])->name('tipos-insumos.asignaturas.update')->whereNumber('tipoInsumo');
         Route::get('tipos-insumos/{tipoInsumo}/detalles', [TipoInsumoController::class, 'detalles'])->name('tipos-insumos.detalles.index')->whereNumber('tipoInsumo');
         Route::post('tipos-insumos/{tipoInsumo}/detalles', [TipoInsumoController::class, 'storeDetalle'])->name('tipos-insumos.detalles.store')->whereNumber('tipoInsumo');
         Route::patch('tipos-insumos/{tipoInsumo}/detalles/{detalle}', [TipoInsumoController::class, 'updateDetalle'])->name('tipos-insumos.detalles.update')->scopeBindings()->whereNumber('tipoInsumo')->whereNumber('detalle');

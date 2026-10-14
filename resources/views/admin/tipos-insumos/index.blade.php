@@ -36,6 +36,7 @@
                                 <td class="px-6 py-3">{{ $tipoInsumo->activo ? 'Sí' : 'No' }}</td>
                                 <td class="px-6 py-3">
                                     <div class="flex items-center gap-3">
+                                        <a href="{{ route('Admin.tipos-insumos.asignaturas.index', $tipoInsumo) }}" class="font-medium text-indigo-600 hover:text-indigo-800">Asignaturas</a>
                                         <a href="{{ route('Admin.tipos-insumos.detalles.index', $tipoInsumo) }}" class="font-medium text-indigo-600 hover:text-indigo-800">Detalle</a>
                                         <a href="{{ route('Admin.tipos-insumos.edit', $tipoInsumo) }}" class="font-medium text-indigo-600 hover:text-indigo-800">Modificar</a>
                                         <form method="POST" action="{{ route('Admin.tipos-insumos.destroy', $tipoInsumo) }}" onsubmit="return confirm('¿Eliminar este tipo de Insumo?')">

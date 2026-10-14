@@ -2,17 +2,30 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Auth\ActiveOferta;
+use App\Auth\ActivePeriodo;
 use App\Enums\TipoCalificacion;
 use App\Http\Controllers\Controller;
+use App\Models\EstablecimientoAsignatura;
+use App\Models\EstablecimientoAula;
 use App\Models\TipoInsumo;
 use App\Models\TipoInsumoDetalle;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class TipoInsumoController extends Controller
 {
+    public function __construct(
+        private ActiveOferta $activeOferta,
+        private ActivePeriodo $activePeriodo,
+    ) {}
+
     public function index(): View
     {
         return view('admin.tipos-insumos.index', [
@@ -51,6 +64,150 @@ class TipoInsumoController extends Controller
         $tipoInsumo->delete();
 
         return redirect()->route('Admin.tipos-insumos.index')->with('status', 'tipos-insumos-deleted');
+    }
+
+    public function asignaturas(Request $request, TipoInsumo $tipoInsumo): View|RedirectResponse
+    {
+        $user = $request->user();
+        $establecimientoId = $user?->establecimiento_id;
+
+        abort_if($establecimientoId === null, 403);
+
+        if ($this->activeOferta->needsSelection($user)) {
+            return redirect()->guest(route('oferta.select'));
+        }
+
+        $oferta = $this->activeOferta->get($user);
+        $periodo = $this->activePeriodo->get($user);
+        $aulas = $oferta === null || $periodo === null
+            ? collect()
+            : $this->aulasPorContexto($establecimientoId, $oferta->id, $periodo->id);
+        $asignaturasPorGrado = $oferta === null
+            ? collect()
+            : $this->asignaturasPorGrado($establecimientoId, $oferta->id);
+
+        $columnasOrdenables = [
+            'id' => 'id',
+            'asignatura' => 'asignatura',
+            'grado' => 'grado',
+            'tipo' => 'tipoAsignado',
+        ];
+        $orden = $request->query('orden', 'id');
+        $direccion = $request->query('direccion', 'asc');
+        $orden = is_string($orden) && array_key_exists($orden, $columnasOrdenables) ? $orden : 'id';
+        $direccion = in_array($direccion, ['asc', 'desc'], true) ? $direccion : 'asc';
+        $filas = $this->filasAsignaturas($aulas, $asignaturasPorGrado, $tipoInsumo)
+            ->sortBy($columnasOrdenables[$orden], SORT_NATURAL | SORT_FLAG_CASE, $direccion === 'desc')
+            ->values();
+        $porPagina = 15;
+        $pagina = LengthAwarePaginator::resolveCurrentPage();
+        $asignaciones = new LengthAwarePaginator(
+            $filas->forPage($pagina, $porPagina)->values(),
+            $filas->count(),
+            $porPagina,
+            $pagina,
+            ['path' => $request->url(), 'query' => $request->query()],
+        );
+
+        return view('admin.tipos-insumos.asignaturas', [
+            'tipoInsumo' => $tipoInsumo,
+            'asignaciones' => $asignaciones,
+            'orden' => $orden,
+            'direccion' => $direccion,
+            'periodoAbierto' => $periodo?->estaAbierto() ?? false,
+        ]);
+    }
+
+    public function actualizarAsignaturas(Request $request, TipoInsumo $tipoInsumo): RedirectResponse
+    {
+        $user = $request->user();
+        $establecimientoId = $user?->establecimiento_id;
+
+        abort_if($establecimientoId === null, 403);
+
+        if ($this->activeOferta->needsSelection($user)) {
+            return redirect()->guest(route('oferta.select'));
+        }
+
+        $oferta = $this->activeOferta->get($user);
+        $periodo = $this->activePeriodo->get($user);
+
+        abort_if($oferta === null || $periodo === null, 403);
+        abort_if($periodo->estaAbierto(), 403, 'No se puede cambiar la asignación de un periodo aperturado.');
+
+        $aulas = $this->aulasPorContexto($establecimientoId, $oferta->id, $periodo->id);
+        $asignaturasPorGrado = $this->asignaturasPorGrado($establecimientoId, $oferta->id);
+        $filas = $this->filasAsignaturas($aulas, $asignaturasPorGrado, $tipoInsumo)->keyBy('key');
+
+        $validated = $request->validate([
+            'visibles' => ['sometimes', 'array'],
+            'visibles.*' => ['string', 'regex:/^\\d+:\\d+$/', 'distinct'],
+            'asignaciones' => ['sometimes', 'array'],
+            'asignaciones.*' => ['string', 'regex:/^\\d+:\\d+$/', 'distinct'],
+        ]);
+        $clavesSeleccionadas = collect($validated['asignaciones'] ?? [])->values();
+        $clavesVisibles = collect($validated['visibles'] ?? $filas->keys())->values();
+        $clavesAsignadasAOtroTipo = $filas
+            ->filter(fn (array $fila): bool => $fila['tipoAsignadoId'] !== null && $fila['tipoAsignadoId'] !== (int) $tipoInsumo->id)
+            ->keys();
+
+        if ($clavesVisibles->diff($filas->keys())->isNotEmpty()
+            || $clavesSeleccionadas->diff($clavesVisibles)->isNotEmpty()
+            || $clavesSeleccionadas->intersect($clavesAsignadasAOtroTipo)->isNotEmpty()) {
+            throw ValidationException::withMessages([
+                'asignaciones' => 'Selecciona únicamente asignaturas de las aulas del periodo activo.',
+            ]);
+        }
+
+        DB::transaction(function () use ($aulas, $filas, $clavesVisibles, $clavesSeleccionadas, $tipoInsumo): void {
+            $actuales = DB::table('establecimiento_aula_asignatura_tipo_insumos')
+                ->whereIn('establecimiento_aula_id', $aulas->pluck('id'))
+                ->where('tipo_insumo_id', $tipoInsumo->id)
+                ->get();
+            $idsParaQuitar = $actuales
+                ->filter(function (object $asignacion) use ($clavesVisibles, $clavesSeleccionadas): bool {
+                    $clave = $asignacion->establecimiento_aula_id.':'.$asignacion->establecimiento_asignatura_id;
+
+                    return $clavesVisibles->contains($clave) && ! $clavesSeleccionadas->contains($clave);
+                })
+                ->pluck('id');
+
+            if ($idsParaQuitar->isNotEmpty()) {
+                DB::table('establecimiento_aula_asignatura_tipo_insumos')->whereIn('id', $idsParaQuitar)->delete();
+            }
+
+            $filasParaGuardar = $clavesSeleccionadas
+                ->map(fn (string $clave): array => $filas->get($clave))
+                ->map(fn (array $fila): array => [
+                    'establecimiento_aula_id' => $fila['aulaId'],
+                    'establecimiento_asignatura_id' => $fila['asignaturaId'],
+                    'tipo_insumo_id' => $tipoInsumo->id,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ])
+                ->all();
+
+            if ($filasParaGuardar !== []) {
+                DB::table('establecimiento_aula_asignatura_tipo_insumos')->upsert(
+                    $filasParaGuardar,
+                    ['establecimiento_aula_id', 'establecimiento_asignatura_id'],
+                    ['tipo_insumo_id', 'updated_at'],
+                );
+            }
+        });
+
+        $orden = $request->input('orden', 'id');
+        $direccion = $request->input('direccion', 'asc');
+        $pagina = max(1, (int) $request->input('pagina', 1));
+
+        return redirect()
+            ->route('Admin.tipos-insumos.asignaturas.index', [
+                'tipoInsumo' => $tipoInsumo,
+                'orden' => in_array($orden, ['id', 'asignatura', 'grado', 'tipo'], true) ? $orden : 'id',
+                'direccion' => in_array($direccion, ['asc', 'desc'], true) ? $direccion : 'asc',
+                'page' => $pagina,
+            ])
+            ->with('status', 'tipo-insumo-asignaturas-updated');
     }
 
     public function detalles(TipoInsumo $tipoInsumo): View
@@ -97,6 +254,81 @@ class TipoInsumoController extends Controller
             'tipo_calificacion' => ['required', Rule::enum(TipoCalificacion::class)],
             'activo' => ['required', 'boolean'],
         ]);
+    }
+
+    /**
+     * @return Collection<int, EstablecimientoAula>
+     */
+    private function aulasPorContexto(int $establecimientoId, int $ofertaId, int $periodoId): Collection
+    {
+        return EstablecimientoAula::query()
+            ->with('establecimientoGrado.grado')
+            ->where('establecimiento_id', $establecimientoId)
+            ->where('establecimiento_modalidad_jornada_id', $ofertaId)
+            ->where('establecimiento_periodo_id', $periodoId)
+            ->orderBy('establecimiento_grado_id')
+            ->orderBy('paralelo')
+            ->get();
+    }
+
+    /**
+     * @return Collection<int, Collection<int, EstablecimientoAsignatura>>
+     */
+    private function asignaturasPorGrado(int $establecimientoId, int $ofertaId): Collection
+    {
+        return EstablecimientoAsignatura::query()
+            ->with(['asignatura', 'asignaturaPropia'])
+            ->where('establecimiento_id', $establecimientoId)
+            ->where('establecimiento_modalidad_jornada_id', $ofertaId)
+            ->orderBy('id')
+            ->get()
+            ->groupBy('grado_id');
+    }
+
+    /**
+     * @param  Collection<int, EstablecimientoAula>  $aulas
+     * @param  Collection<int, Collection<int, EstablecimientoAsignatura>>  $asignaturasPorGrado
+     * @return Collection<int, array{key: string, id: int, aulaId: int, asignaturaId: int, asignatura: string, grado: string, tipoAsignado: string, tipoAsignadoId: ?int, estaAsignada: bool, pertenece: bool}>
+     */
+    private function filasAsignaturas(Collection $aulas, Collection $asignaturasPorGrado, TipoInsumo $tipoInsumo): Collection
+    {
+        if ($aulas->isEmpty()) {
+            return collect();
+        }
+
+        $tiposAsignados = DB::table('establecimiento_aula_asignatura_tipo_insumos as asignacion')
+            ->join('tipos_insumos as tipo', 'tipo.id', '=', 'asignacion.tipo_insumo_id')
+            ->whereIn('asignacion.establecimiento_aula_id', $aulas->pluck('id'))
+            ->get([
+                'asignacion.establecimiento_aula_id',
+                'asignacion.establecimiento_asignatura_id',
+                'asignacion.tipo_insumo_id',
+                'tipo.nombre as tipo_insumo_nombre',
+            ])
+            ->keyBy(fn (object $asignacion): string => $asignacion->establecimiento_aula_id.':'.$asignacion->establecimiento_asignatura_id);
+
+        return $aulas->flatMap(function (EstablecimientoAula $aula) use ($asignaturasPorGrado, $tiposAsignados, $tipoInsumo): Collection {
+            $gradoId = $aula->establecimientoGrado?->grado_id;
+
+            return $asignaturasPorGrado->get($gradoId, collect())
+                ->map(function (EstablecimientoAsignatura $asignatura) use ($aula, $tiposAsignados, $tipoInsumo): array {
+                    $key = $aula->id.':'.$asignatura->id;
+                    $tipoAsignado = $tiposAsignados->get($key);
+
+                    return [
+                        'key' => $key,
+                        'id' => (int) $asignatura->id,
+                        'aulaId' => (int) $aula->id,
+                        'asignaturaId' => (int) $asignatura->id,
+                        'asignatura' => $asignatura->asignaturaPropia?->nombre ?? $asignatura->asignatura?->nombre ?? 'Asignatura',
+                        'grado' => $aula->etiqueta(),
+                        'tipoAsignado' => $tipoAsignado?->tipo_insumo_nombre ?? '—',
+                        'tipoAsignadoId' => $tipoAsignado === null ? null : (int) $tipoAsignado->tipo_insumo_id,
+                        'estaAsignada' => $tipoAsignado !== null,
+                        'pertenece' => (int) ($tipoAsignado?->tipo_insumo_id ?? 0) === (int) $tipoInsumo->id,
+                    ];
+                });
+        })->values();
     }
 
     /**

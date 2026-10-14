@@ -43,13 +43,17 @@
                 </div>
             @endif
 
-            <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                <div class="border-b border-slate-200 bg-slate-50 px-6 py-4">
-                    <h3 class="font-semibold text-slate-900">Nuevo detalle</h3>
-                    <p class="mt-1 text-sm text-slate-500">Completa los campos para agregar un registro al tipo de Insumo.</p>
-                </div>
-                <form method="POST" action="{{ route('Admin.tipos-insumos.detalles.store', $tipoInsumo) }}" class="grid grid-cols-1 gap-4 p-6 md:grid-cols-2 xl:grid-cols-5">
+            <div class="flex justify-end">
+                <x-primary-button type="button" x-on:click="$dispatch('open-modal', 'tipo-insumo-detalle-create')">Agregar detalle</x-primary-button>
+            </div>
+
+            <x-modal name="tipo-insumo-detalle-create" maxWidth="2xl" :show="$errors->any()" focusable>
+                <form method="POST" action="{{ route('Admin.tipos-insumos.detalles.store', $tipoInsumo) }}" class="p-6">
                     @csrf
+                    <h3 class="text-lg font-semibold text-slate-900">Agregar detalle</h3>
+                    <p class="mt-1 text-sm text-slate-500">Completa los campos para agregar un registro al tipo de Insumo.</p>
+
+                    <div class="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div>
                         <x-input-label for="nuevo_nombre" value="Nombre" />
                         <x-text-input id="nuevo_nombre" name="nombre" required maxlength="255" class="mt-1 block w-full" :value="old('nombre')" />
@@ -78,11 +82,13 @@
                         <input id="nuevo_activo" type="checkbox" name="activo" value="1" checked @if ($tipoInsumo->tipo_calificacion === \App\Enums\TipoCalificacion::Cuantitativa->value) data-nuevo-activo x-on:change="recalculate()" @endif class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500">
                         <x-input-label for="nuevo_activo" value="Activo" />
                     </div>
-                    <div class="flex items-center xl:justify-end">
+                    <div class="flex items-center justify-end gap-2 sm:col-span-2">
+                        <x-secondary-button type="button" x-on:click="$dispatch('close-modal', 'tipo-insumo-detalle-create')">Cancelar</x-secondary-button>
                         <x-primary-button>Agregar detalle</x-primary-button>
                     </div>
+                    </div>
                 </form>
-            </section>
+            </x-modal>
 
             <section class="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
                 <div class="border-b border-slate-200 px-6 py-4">

@@ -85,6 +85,9 @@ it('stores qualitative detail values on the same detail screen', function (): vo
         ->get(route('Admin.tipos-insumos.detalles.index', $tipoInsumo))
         ->assertOk()
         ->assertSee('Detalles creados')
+        ->assertSee('open-modal')
+        ->assertSee('tipo-insumo-detalle-create')
+        ->assertSee('Agregar detalle')
         ->assertSee('Destreza alcanzada');
 });
 

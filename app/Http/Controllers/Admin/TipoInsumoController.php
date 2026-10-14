@@ -150,10 +150,14 @@ class TipoInsumoController extends Controller
         $clavesAsignadasAOtroTipo = $filas
             ->filter(fn (array $fila): bool => $fila['tipoAsignadoId'] !== null && $fila['tipoAsignadoId'] !== (int) $tipoInsumo->id)
             ->keys();
+        $clavesConTipoIncompatible = $filas
+            ->filter(fn (array $fila): bool => ! $fila['compatible'])
+            ->keys();
 
         if ($clavesVisibles->diff($filas->keys())->isNotEmpty()
             || $clavesSeleccionadas->diff($clavesVisibles)->isNotEmpty()
-            || $clavesSeleccionadas->intersect($clavesAsignadasAOtroTipo)->isNotEmpty()) {
+            || $clavesSeleccionadas->intersect($clavesAsignadasAOtroTipo)->isNotEmpty()
+            || $clavesSeleccionadas->intersect($clavesConTipoIncompatible)->isNotEmpty()) {
             throw ValidationException::withMessages([
                 'asignaciones' => 'Selecciona únicamente asignaturas de las aulas del periodo activo.',
             ]);
@@ -165,10 +169,12 @@ class TipoInsumoController extends Controller
                 ->where('tipo_insumo_id', $tipoInsumo->id)
                 ->get();
             $idsParaQuitar = $actuales
-                ->filter(function (object $asignacion) use ($clavesVisibles, $clavesSeleccionadas): bool {
+                ->filter(function (object $asignacion) use ($clavesVisibles, $clavesSeleccionadas, $filas): bool {
                     $clave = $asignacion->establecimiento_aula_id.':'.$asignacion->establecimiento_asignatura_id;
 
-                    return $clavesVisibles->contains($clave) && ! $clavesSeleccionadas->contains($clave);
+                    return $clavesVisibles->contains($clave)
+                        && ($filas->get($clave)['compatible'] ?? false)
+                        && ! $clavesSeleccionadas->contains($clave);
                 })
                 ->pluck('id');
 
@@ -288,7 +294,7 @@ class TipoInsumoController extends Controller
     /**
      * @param  Collection<int, EstablecimientoAula>  $aulas
      * @param  Collection<int, Collection<int, EstablecimientoAsignatura>>  $asignaturasPorGrado
-     * @return Collection<int, array{key: string, id: int, aulaId: int, asignaturaId: int, asignatura: string, grado: string, tipoAsignado: string, tipoAsignadoId: ?int, estaAsignada: bool, pertenece: bool}>
+     * @return Collection<int, array{key: string, id: int, aulaId: int, asignaturaId: int, asignatura: string, grado: string, tipoAsignado: string, tipoAsignadoId: ?int, estaAsignada: bool, pertenece: bool, compatible: bool}>
      */
     private function filasAsignaturas(Collection $aulas, Collection $asignaturasPorGrado, TipoInsumo $tipoInsumo): Collection
     {
@@ -326,6 +332,7 @@ class TipoInsumoController extends Controller
                         'tipoAsignadoId' => $tipoAsignado === null ? null : (int) $tipoAsignado->tipo_insumo_id,
                         'estaAsignada' => $tipoAsignado !== null,
                         'pertenece' => (int) ($tipoAsignado?->tipo_insumo_id ?? 0) === (int) $tipoInsumo->id,
+                        'compatible' => $asignatura->tipo_calificacion?->value === $tipoInsumo->tipo_calificacion,
                     ];
                 });
         })->values();

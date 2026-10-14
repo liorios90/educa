@@ -71,7 +71,7 @@
                                             name="asignaciones[]"
                                             value="{{ $asignacion['key'] }}"
                                             @checked($asignacion['estaAsignada'])
-                                            @disabled($periodoAbierto || ($asignacion['estaAsignada'] && ! $asignacion['pertenece']))
+                                            @disabled($periodoAbierto || ! $asignacion['compatible'] || ($asignacion['estaAsignada'] && ! $asignacion['pertenece']))
                                             aria-label="{{ $asignacion['asignatura'] }} de {{ $asignacion['grado'] }} pertenece a {{ $tipoInsumo->nombre }}"
                                             class="rounded border-slate-300 text-indigo-600 shadow-sm focus:ring-indigo-500"
                                         >

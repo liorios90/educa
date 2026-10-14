@@ -80,6 +80,13 @@ it('assigns classroom subjects to a supply type and removes the assignment when 
         'grado_id' => $grado->id,
         'asignatura_id' => Sys_Asignatura::factory()->create(['nombre' => 'Experiencia de Aprendizaje'])->id,
     ]);
+    $asignaturaCualitativa = EstablecimientoAsignatura::factory()->create([
+        'establecimiento_id' => $establecimiento->id,
+        'establecimiento_modalidad_jornada_id' => $oferta->id,
+        'grado_id' => $grado->id,
+        'asignatura_id' => Sys_Asignatura::factory()->create(['nombre' => 'Arte cualitativa'])->id,
+        'tipo_calificacion' => 'cualitativa',
+    ]);
     $tipoInsumo = TipoInsumo::query()->create([
         'nombre' => 'Evaluación inicial',
         'tipo_calificacion' => 'cuantitativa',
@@ -103,6 +110,7 @@ it('assigns classroom subjects to a supply type and removes the assignment when 
         ->get(route('Admin.tipos-insumos.asignaturas.index', $tipoInsumo))
         ->assertOk()
         ->assertSee('Experiencia de Aprendizaje')
+        ->assertSee('Arte cualitativa')
         ->assertSee('Segundo de inicial A')
         ->assertSee('Tipo asignado')
         ->assertSee('Pertenece a este tipo')
@@ -113,6 +121,27 @@ it('assigns classroom subjects to a supply type and removes the assignment when 
         ->assertSee('checked', false)
         ->assertSee('disabled', false)
         ->assertSee('Segundo de inicial B');
+
+    $tipoCualitativo = TipoInsumo::query()->create([
+        'nombre' => 'Destrezas',
+        'tipo_calificacion' => 'cualitativa',
+        'activo' => true,
+    ]);
+    $this->actingAs($admin)
+        ->withSession(activeContextSession($oferta, $periodo))
+        ->get(route('Admin.tipos-insumos.asignaturas.index', $tipoCualitativo))
+        ->assertOk()
+        ->assertSee('Arte cualitativa')
+        ->assertSee('Experiencia de Aprendizaje');
+
+    $this->actingAs($admin)
+        ->withSession(activeContextSession($oferta, $periodo))
+        ->from(route('Admin.tipos-insumos.asignaturas.index', $tipoInsumo))
+        ->put(route('Admin.tipos-insumos.asignaturas.update', $tipoInsumo), [
+            'visibles' => [$aula->id.':'.$asignaturaCualitativa->id],
+            'asignaciones' => [$aula->id.':'.$asignaturaCualitativa->id],
+        ])
+        ->assertSessionHasErrors('asignaciones');
 
     $this->actingAs($admin)
         ->withSession(activeContextSession($oferta, $periodo))

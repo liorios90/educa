@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\ConfiguracionAsignaturasController;
+use App\Http\Controllers\Admin\EquivalenciaController;
 use App\Http\Controllers\Admin\EstablecimientoPeriodoConfiguracionGradoController;
 use App\Http\Controllers\Admin\HorarioClaseController;
 use App\Http\Controllers\Admin\ProcesoCierresController;
@@ -76,6 +77,18 @@ Route::middleware(['auth', 'verified', 'role:Admin'])
         Route::post('tipos-insumos/{tipoInsumo}/detalles', [TipoInsumoController::class, 'storeDetalle'])->name('tipos-insumos.detalles.store')->whereNumber('tipoInsumo');
         Route::patch('tipos-insumos/{tipoInsumo}/detalles/{detalle}', [TipoInsumoController::class, 'updateDetalle'])->name('tipos-insumos.detalles.update')->scopeBindings()->whereNumber('tipoInsumo')->whereNumber('detalle');
         Route::delete('tipos-insumos/{tipoInsumo}/detalles/{detalle}', [TipoInsumoController::class, 'destroyDetalle'])->name('tipos-insumos.detalles.destroy')->scopeBindings()->whereNumber('tipoInsumo')->whereNumber('detalle');
+        Route::get('tablas-equivalencias', [EquivalenciaController::class, 'index'])->name('tablas-equivalencias.index');
+        Route::get('tablas-equivalencias/crear', [EquivalenciaController::class, 'create'])->name('tablas-equivalencias.create');
+        Route::post('tablas-equivalencias', [EquivalenciaController::class, 'store'])->name('tablas-equivalencias.store');
+        Route::get('tablas-equivalencias/{equivalencia}/editar', [EquivalenciaController::class, 'edit'])->name('tablas-equivalencias.edit')->whereNumber('equivalencia');
+        Route::patch('tablas-equivalencias/{equivalencia}', [EquivalenciaController::class, 'update'])->name('tablas-equivalencias.update')->whereNumber('equivalencia');
+        Route::delete('tablas-equivalencias/{equivalencia}', [EquivalenciaController::class, 'destroy'])->name('tablas-equivalencias.destroy')->whereNumber('equivalencia');
+        Route::get('tablas-equivalencias/{equivalencia}/detalles', [EquivalenciaController::class, 'detalles'])->name('tablas-equivalencias.detalles.index')->whereNumber('equivalencia');
+        Route::post('tablas-equivalencias/{equivalencia}/detalles', [EquivalenciaController::class, 'storeDetalle'])->name('tablas-equivalencias.detalles.store')->whereNumber('equivalencia');
+        Route::patch('tablas-equivalencias/{equivalencia}/detalles/{detalle}', [EquivalenciaController::class, 'updateDetalle'])->name('tablas-equivalencias.detalles.update')->scopeBindings()->whereNumber('equivalencia')->whereNumber('detalle');
+        Route::delete('tablas-equivalencias/{equivalencia}/detalles/{detalle}', [EquivalenciaController::class, 'destroyDetalle'])->name('tablas-equivalencias.detalles.destroy')->scopeBindings()->whereNumber('equivalencia')->whereNumber('detalle');
+        Route::get('tablas-equivalencias/{equivalencia}/asignaturas', [EquivalenciaController::class, 'asignaturas'])->name('tablas-equivalencias.asignaturas.index')->whereNumber('equivalencia');
+        Route::put('tablas-equivalencias/{equivalencia}/asignaturas', [EquivalenciaController::class, 'actualizarAsignaturas'])->name('tablas-equivalencias.asignaturas.update')->whereNumber('equivalencia');
         Route::get('proceso-cierres', [ProcesoCierresController::class, 'index'])->name('proceso-cierres.index');
         Route::put('proceso-cierres/parciales', [ProcesoCierresController::class, 'update'])->name('proceso-cierres.update');
         Route::get('asignaturas', [EstablecimientoAsignaturaController::class, 'index'])->name('asignaturas');

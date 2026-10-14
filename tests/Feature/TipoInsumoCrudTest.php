@@ -112,7 +112,8 @@ it('assigns classroom subjects to a supply type and removes the assignment when 
         ->assertSee('Experiencia de Aprendizaje')
         ->assertSee('Arte cualitativa')
         ->assertSee('Segundo de inicial A')
-        ->assertSee('Tipo asignado')
+        ->assertSee('Asignaturas de las aulas · Evaluación inicial')
+        ->assertSee('Tipo de insumo asignado')
         ->assertSee('Pertenece a este tipo')
         ->assertSee('orden=asignatura', false)
         ->assertSee('value="'.$aula->id.':'.$asignatura->id.'"', false)
@@ -132,7 +133,17 @@ it('assigns classroom subjects to a supply type and removes the assignment when 
         ->get(route('Admin.tipos-insumos.asignaturas.index', $tipoCualitativo))
         ->assertOk()
         ->assertSee('Arte cualitativa')
-        ->assertSee('Experiencia de Aprendizaje');
+        ->assertSee('Experiencia de Aprendizaje')
+        ->assertSee('value="cualitativa"', false)
+        ->assertDontSee('value="cuantitativa"', false);
+
+    $this->actingAs($admin)
+        ->withSession(activeContextSession($oferta, $periodo))
+        ->get(route('Admin.tipos-insumos.asignaturas.index', ['tipoInsumo' => $tipoInsumo, 'tipo_calificacion' => 'cuantitativa']))
+        ->assertOk()
+        ->assertSee('Experiencia de Aprendizaje')
+        ->assertDontSee('Arte cualitativa')
+        ->assertSee('Mostrando 1–2 de 2 asignaturas.');
 
     $this->actingAs($admin)
         ->withSession(activeContextSession($oferta, $periodo))
@@ -232,6 +243,13 @@ it('paginates and sorts classroom subjects without removing assignments from oth
         ->assertSee('Mostrando 1–15 de 16 asignaturas.')
         ->assertSee('page=2', false)
         ->assertSee('orden=asignatura', false);
+
+    $this->actingAs($admin)
+        ->withSession(activeContextSession($oferta, $periodo))
+        ->get(route('Admin.tipos-insumos.asignaturas.index', ['tipoInsumo' => $tipoInsumo, 'buscar' => 'Materia 16']))
+        ->assertOk()
+        ->assertSee('Materia 16')
+        ->assertSee('Mostrando 1–1 de 1 asignaturas.');
 
     $visiblesPrimeraPagina = $asignaturas->take(15)->map(fn (EstablecimientoAsignatura $asignatura): string => $aula->id.':'.$asignatura->id)->all();
     $this->actingAs($admin)

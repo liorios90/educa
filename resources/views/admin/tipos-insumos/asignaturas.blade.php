@@ -10,7 +10,7 @@
     </x-slot>
 
     <div class="py-8">
-        <div class="mx-auto max-w-7xl space-y-5 px-4 sm:px-6 lg:px-8" x-data="{ buscar: '' }">
+        <div class="mx-auto max-w-7xl space-y-5 px-4 sm:px-6 lg:px-8">
             @if (session('status') === 'tipo-insumo-asignaturas-updated')
                 <p class="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-800">Asignaturas actualizadas correctamente.</p>
             @endif
@@ -23,29 +23,50 @@
                 <p class="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-800">{{ $errors->first('asignaciones') }}</p>
             @endif
 
+            <form method="GET" action="{{ route('Admin.tipos-insumos.asignaturas.index', $tipoInsumo) }}" class="flex flex-wrap items-end justify-end gap-3">
+                <input type="hidden" name="orden" value="{{ $orden }}">
+                <input type="hidden" name="direccion" value="{{ $direccion }}">
+                <input type="hidden" name="page" value="1">
+                <label class="flex flex-col gap-1 text-sm text-slate-600">
+                    <span>Tipo de calificación</span>
+                    <select name="tipo_calificacion" class="rounded-lg border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                        <option value="" @selected($tipoCalificacionFiltro === '')>Todas</option>
+                        <option value="{{ $tipoInsumo->tipo_calificacion }}" @selected($tipoCalificacionFiltro === $tipoInsumo->tipo_calificacion)>
+                            {{ $tipoInsumo->tipo_calificacion === 'cualitativa' ? 'Cualitativa' : 'Cuantitativa' }}
+                        </option>
+                    </select>
+                </label>
+                <label class="flex flex-col gap-1 text-sm text-slate-600">
+                    <span>Buscar en todas las páginas</span>
+                    <input type="search" name="buscar" value="{{ $busqueda }}" class="w-56 rounded-lg border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="Asignatura, grado o tipo">
+                </label>
+                <x-primary-button>Buscar</x-primary-button>
+                @if ($busqueda !== '')
+                    <a href="{{ route('Admin.tipos-insumos.asignaturas.index', ['tipoInsumo' => $tipoInsumo, 'orden' => $orden, 'direccion' => $direccion, 'tipo_calificacion' => $tipoCalificacionFiltro ?: null]) }}" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Limpiar búsqueda</a>
+                @endif
+            </form>
+
             <form method="POST" action="{{ route('Admin.tipos-insumos.asignaturas.update', $tipoInsumo) }}" class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                 @csrf
                 @method('put')
                 <input type="hidden" name="orden" value="{{ $orden }}">
                 <input type="hidden" name="direccion" value="{{ $direccion }}">
                 <input type="hidden" name="pagina" value="{{ $asignaciones->currentPage() }}">
+                <input type="hidden" name="buscar" value="{{ $busqueda }}">
+                <input type="hidden" name="tipo_calificacion" value="{{ $tipoCalificacionFiltro }}">
 
-                <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 px-5 py-4">
+                <div class="border-b border-slate-200 px-5 py-4">
                     <div>
-                        <h3 class="font-semibold text-slate-900">Asignaturas de las aulas</h3>
+                        <h3 class="font-semibold text-slate-900">Asignaturas de las aulas · {{ $tipoInsumo->nombre }}</h3>
                         <p class="mt-1 text-sm text-slate-500">El tipo que aparece en cada fila es el tipo actualmente asignado.</p>
                     </div>
-                    <label class="flex items-center gap-2 text-sm text-slate-600">
-                        <span>Buscar</span>
-                        <input type="search" x-model.debounce.150ms="buscar" class="w-56 rounded-lg border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="Asignatura o grado">
-                    </label>
                 </div>
 
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
                         <thead class="bg-slate-50 text-slate-600">
                             <tr>
-                                @foreach (['id' => 'ID', 'asignatura' => 'Asignatura', 'grado' => 'Grado / aula', 'tipo' => 'Tipo asignado'] as $columna => $titulo)
+                                @foreach (['id' => 'ID', 'asignatura' => 'Asignatura', 'grado' => 'Grado / aula', 'tipo' => 'Tipo de insumo asignado'] as $columna => $titulo)
                                     @php($sentido = $orden === $columna && $direccion === 'asc' ? 'desc' : 'asc')
                                     <th scope="col" class="whitespace-nowrap px-5 py-3 font-medium">
                                         <a href="{{ request()->fullUrlWithQuery(['orden' => $columna, 'direccion' => $sentido, 'page' => 1]) }}" class="inline-flex items-center gap-1 hover:text-indigo-700">
@@ -59,7 +80,7 @@
                         </thead>
                         <tbody class="divide-y divide-slate-100 text-slate-800">
                             @forelse ($asignaciones as $asignacion)
-                                <tr data-buscar="{{ \Illuminate\Support\Str::lower($asignacion['id'].' '.$asignacion['asignatura'].' '.$asignacion['grado'].' '.$asignacion['tipoAsignado']) }}" x-show="buscar === '' || $el.dataset.buscar.includes(buscar.toLocaleLowerCase())">
+                                <tr>
                                     <td class="whitespace-nowrap px-5 py-3 text-slate-600">{{ $asignacion['id'] }}</td>
                                     <td class="px-5 py-3 font-medium">{{ $asignacion['asignatura'] }}</td>
                                     <td class="px-5 py-3">{{ $asignacion['grado'] }}</td>

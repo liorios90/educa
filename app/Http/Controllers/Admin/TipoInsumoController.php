@@ -15,6 +15,7 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -94,9 +95,28 @@ class TipoInsumoController extends Controller
         ];
         $orden = $request->query('orden', 'id');
         $direccion = $request->query('direccion', 'asc');
+        $busqueda = trim((string) $request->query('buscar', ''));
+        $tipoCalificacionFiltro = $request->query('tipo_calificacion', '');
+        $tipoCalificacionFiltro = is_string($tipoCalificacionFiltro) && $tipoCalificacionFiltro === $tipoInsumo->tipo_calificacion
+            ? $tipoCalificacionFiltro
+            : '';
         $orden = is_string($orden) && array_key_exists($orden, $columnasOrdenables) ? $orden : 'id';
         $direccion = in_array($direccion, ['asc', 'desc'], true) ? $direccion : 'asc';
-        $filas = $this->filasAsignaturas($aulas, $asignaturasPorGrado, $tipoInsumo)
+        $filas = $this->filasAsignaturas($aulas, $asignaturasPorGrado, $tipoInsumo);
+
+        if ($busqueda !== '') {
+            $termino = Str::lower($busqueda);
+            $filas = $filas->filter(fn (array $fila): bool => Str::contains(
+                Str::lower($fila['id'].' '.$fila['asignatura'].' '.$fila['grado'].' '.$fila['tipoAsignado']),
+                $termino,
+            ));
+        }
+
+        if ($tipoCalificacionFiltro !== '') {
+            $filas = $filas->filter(fn (array $fila): bool => $fila['tipoCalificacion'] === $tipoCalificacionFiltro);
+        }
+
+        $filas = $filas
             ->sortBy($columnasOrdenables[$orden], SORT_NATURAL | SORT_FLAG_CASE, $direccion === 'desc')
             ->values();
         $porPagina = 15;
@@ -114,6 +134,8 @@ class TipoInsumoController extends Controller
             'asignaciones' => $asignaciones,
             'orden' => $orden,
             'direccion' => $direccion,
+            'busqueda' => $busqueda,
+            'tipoCalificacionFiltro' => $tipoCalificacionFiltro,
             'periodoAbierto' => $periodo?->estaAbierto() ?? false,
         ]);
     }
@@ -140,6 +162,8 @@ class TipoInsumoController extends Controller
         $filas = $this->filasAsignaturas($aulas, $asignaturasPorGrado, $tipoInsumo)->keyBy('key');
 
         $validated = $request->validate([
+            'buscar' => ['nullable', 'string', 'max:255'],
+            'tipo_calificacion' => ['nullable', Rule::in([$tipoInsumo->tipo_calificacion])],
             'visibles' => ['sometimes', 'array'],
             'visibles.*' => ['string', 'regex:/^\\d+:\\d+$/', 'distinct'],
             'asignaciones' => ['sometimes', 'array'],
@@ -205,14 +229,25 @@ class TipoInsumoController extends Controller
         $orden = $request->input('orden', 'id');
         $direccion = $request->input('direccion', 'asc');
         $pagina = max(1, (int) $request->input('pagina', 1));
+        $busqueda = trim((string) ($validated['buscar'] ?? ''));
+        $tipoCalificacionFiltro = $validated['tipo_calificacion'] ?? '';
+        $parametrosRuta = [
+            'tipoInsumo' => $tipoInsumo,
+            'orden' => in_array($orden, ['id', 'asignatura', 'grado', 'tipo'], true) ? $orden : 'id',
+            'direccion' => in_array($direccion, ['asc', 'desc'], true) ? $direccion : 'asc',
+            'page' => $pagina,
+        ];
+
+        if ($busqueda !== '') {
+            $parametrosRuta['buscar'] = $busqueda;
+        }
+
+        if ($tipoCalificacionFiltro !== '') {
+            $parametrosRuta['tipo_calificacion'] = $tipoCalificacionFiltro;
+        }
 
         return redirect()
-            ->route('Admin.tipos-insumos.asignaturas.index', [
-                'tipoInsumo' => $tipoInsumo,
-                'orden' => in_array($orden, ['id', 'asignatura', 'grado', 'tipo'], true) ? $orden : 'id',
-                'direccion' => in_array($direccion, ['asc', 'desc'], true) ? $direccion : 'asc',
-                'page' => $pagina,
-            ])
+            ->route('Admin.tipos-insumos.asignaturas.index', $parametrosRuta)
             ->with('status', 'tipo-insumo-asignaturas-updated');
     }
 
@@ -294,7 +329,7 @@ class TipoInsumoController extends Controller
     /**
      * @param  Collection<int, EstablecimientoAula>  $aulas
      * @param  Collection<int, Collection<int, EstablecimientoAsignatura>>  $asignaturasPorGrado
-     * @return Collection<int, array{key: string, id: int, aulaId: int, asignaturaId: int, asignatura: string, grado: string, tipoAsignado: string, tipoAsignadoId: ?int, estaAsignada: bool, pertenece: bool, compatible: bool}>
+     * @return Collection<int, array{key: string, id: int, aulaId: int, asignaturaId: int, asignatura: string, grado: string, tipoAsignado: string, tipoAsignadoId: ?int, estaAsignada: bool, pertenece: bool, compatible: bool, tipoCalificacion: string}>
      */
     private function filasAsignaturas(Collection $aulas, Collection $asignaturasPorGrado, TipoInsumo $tipoInsumo): Collection
     {
@@ -333,6 +368,7 @@ class TipoInsumoController extends Controller
                         'estaAsignada' => $tipoAsignado !== null,
                         'pertenece' => (int) ($tipoAsignado?->tipo_insumo_id ?? 0) === (int) $tipoInsumo->id,
                         'compatible' => $asignatura->tipo_calificacion?->value === $tipoInsumo->tipo_calificacion,
+                        'tipoCalificacion' => $asignatura->tipo_calificacion?->value ?? '',
                     ];
                 });
         })->values();

@@ -32,6 +32,7 @@ class NavigationSeeder extends Seeder
         $this->upsertItem('Periodo', 'Admin.periodo', 'calendar-days', 1, false, [$admin->id], parentId: $configuracion->id);
         $this->upsertItem('Por grados', 'Admin.configuracion-grados.index', 'cog', 2, false, [$admin->id], parentId: $configuracion->id);
         $this->upsertItem('Por asignaturas', 'Admin.configuracion-asignaturas.index', 'book-open', 3, false, [$admin->id], parentId: $configuracion->id);
+        $this->upsertItem('Tipos de Insumo', 'Admin.tipos-insumos.index', 'clipboard-document-list', 4, false, [$admin->id], parentId: $configuracion->id);
         $this->upsertItem('Proceso de Cierres', 'Admin.proceso-cierres.index', 'clipboard-document-list', 8, false, [$admin->id]);
         $this->upsertItem('Asignaturas', 'Admin.asignaturas', 'book-open', 8, false, [$admin->id]);
         $this->upsertItem('Aulas', 'Admin.aulas', 'academic-cap', 9, false, [$admin->id]);

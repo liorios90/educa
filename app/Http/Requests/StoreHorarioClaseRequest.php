@@ -21,6 +21,7 @@ class StoreHorarioClaseRequest extends FormRequest
     {
         return [
             'clases' => ['required', 'array', 'min:1', 'max:30'],
+            'clases.*.establecimiento_aula_id' => ['required', 'integer', 'min:1'],
             'clases.*.establecimiento_asignatura_id' => ['required', 'integer', 'min:1'],
             'clases.*.dia_semana' => ['required', 'integer', 'between:1,7'],
             'clases.*.hora_inicio' => ['required', 'date_format:H:i'],

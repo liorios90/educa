@@ -12,7 +12,7 @@ use Illuminate\Validation\ValidationException;
 class HorarioClaseService
 {
     /**
-     * @param  list<array{establecimiento_asignatura_id: int, dia_semana: int, hora_inicio: string, hora_fin: string}>  $clases
+     * @param  list<array{establecimiento_aula_id: int, establecimiento_asignatura_id: int, dia_semana: int, hora_inicio: string, hora_fin: string}>  $clases
      */
     public function store(EstablecimientoAula $aula, array $clases): int
     {
@@ -22,31 +22,54 @@ class HorarioClaseService
                 ->lockForUpdate()
                 ->firstOrFail();
 
+            $aulaIds = collect($clases)
+                ->pluck('establecimiento_aula_id')
+                ->map(fn (mixed $id): int => (int) $id)
+                ->unique()
+                ->sort()
+                ->values();
+            $aulas = EstablecimientoAula::query()
+                ->with('establecimientoGrado')
+                ->whereIn('id', $aulaIds)
+                ->where('establecimiento_id', $aulaBloqueada->establecimiento_id)
+                ->where('establecimiento_modalidad_jornada_id', $aulaBloqueada->establecimiento_modalidad_jornada_id)
+                ->where('establecimiento_periodo_id', $aulaBloqueada->establecimiento_periodo_id)
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->get()
+                ->keyBy('id');
+
+            if ($aulas->count() !== $aulaIds->count()) {
+                throw ValidationException::withMessages([
+                    'clases' => 'Selecciona aulas activas de esta institución, modalidad y periodo.',
+                ])->errorBag('horario');
+            }
+
             $malla = EstablecimientoAsignatura::query()
                 ->where('establecimiento_id', $aulaBloqueada->establecimiento_id)
                 ->where('establecimiento_modalidad_jornada_id', $aulaBloqueada->establecimiento_modalidad_jornada_id)
-                ->whereIn('grado_id', function ($query) use ($aulaBloqueada): void {
-                    $query->select('grado_id')
-                        ->from('establecimiento_grados')
-                        ->where('id', $aulaBloqueada->establecimiento_grado_id);
-                })
+                ->whereIn('id', collect($clases)->pluck('establecimiento_asignatura_id')->unique())
                 ->get()
                 ->keyBy('id');
 
             $asignaciones = DB::table('establecimiento_aula_docentes')
-                ->where('establecimiento_aula_id', $aulaBloqueada->id)
+                ->whereIn('establecimiento_aula_id', $aulaIds)
+                ->whereIn('establecimiento_asignatura_id', $malla->keys())
                 ->get()
-                ->keyBy('establecimiento_asignatura_id');
+                ->keyBy(fn (object $asignacion): string => $asignacion->establecimiento_aula_id.':'.$asignacion->establecimiento_asignatura_id);
 
             $errores = [];
             $docentePorFila = [];
 
             foreach ($clases as $indice => $clase) {
                 $mallaId = (int) $clase['establecimiento_asignatura_id'];
-                $asignacion = $asignaciones->get($mallaId);
+                $aulaId = (int) $clase['establecimiento_aula_id'];
+                $asignacion = $asignaciones->get($aulaId.':'.$mallaId);
 
-                if (! $malla->has($mallaId) || $asignacion === null) {
-                    $errores['clases.'.$indice.'.establecimiento_asignatura_id'] = 'Selecciona una asignatura de esta aula que ya tenga docente asignado.';
+                if (! $malla->has($mallaId)
+                    || $asignacion === null
+                    || (int) $malla->get($mallaId)->grado_id !== (int) $aulas->get($aulaId)?->establecimientoGrado?->grado_id) {
+                    $errores['clases.'.$indice.'.establecimiento_asignatura_id'] = 'Selecciona una asignatura que tenga docente asignado en el aula elegida.';
 
                     continue;
                 }
@@ -67,12 +90,13 @@ class HorarioClaseService
                 ->get(['id']);
 
             $existentes = HorarioClase::query()
-                ->where('establecimiento_aula_id', $aulaBloqueada->id)
+                ->whereIn('establecimiento_aula_id', $aulaIds)
                 ->get();
 
             foreach ($clases as $indice => $clase) {
                 foreach ($existentes as $existente) {
-                    if ((int) $existente->dia_semana === (int) $clase['dia_semana']
+                    if ((int) $existente->establecimiento_aula_id === (int) $clase['establecimiento_aula_id']
+                        && (int) $existente->dia_semana === (int) $clase['dia_semana']
                         && $this->seCruzan(
                             $clase['hora_inicio'],
                             $clase['hora_fin'],
@@ -86,7 +110,8 @@ class HorarioClaseService
                 }
 
                 foreach (array_slice($clases, 0, $indice, true) as $anteriorIndice => $anterior) {
-                    if ((int) $anterior['dia_semana'] === (int) $clase['dia_semana']
+                    if ((int) $anterior['establecimiento_aula_id'] === (int) $clase['establecimiento_aula_id']
+                        && (int) $anterior['dia_semana'] === (int) $clase['dia_semana']
                         && $this->seCruzan(
                             $clase['hora_inicio'],
                             $clase['hora_fin'],
@@ -109,11 +134,18 @@ class HorarioClaseService
                     ->where('horario.dia_semana', $clase['dia_semana'])
                     ->where('horario.hora_inicio', '<', $clase['hora_fin'])
                     ->where('horario.hora_fin', '>', $clase['hora_inicio'])
-                    ->where('horario.establecimiento_aula_id', '<>', $aulaBloqueada->id)
                     ->exists();
 
                 if ($choqueDocente) {
                     $errores['clases.'.$indice.'.hora_inicio'] = 'El docente asignado ya tiene otra clase en ese horario.';
+                }
+
+                foreach (array_slice($clases, 0, $indice, true) as $anteriorIndice => $anterior) {
+                    if (($docentePorFila[$anteriorIndice] ?? null) === $docentePorFila[$indice]
+                        && (int) $anterior['dia_semana'] === (int) $clase['dia_semana']
+                        && $this->seCruzan($clase['hora_inicio'], $clase['hora_fin'], $anterior['hora_inicio'], $anterior['hora_fin'])) {
+                        $errores['clases.'.$indice.'.hora_inicio'] = 'El docente no puede tener dos clases al mismo tiempo.';
+                    }
                 }
             }
 
@@ -123,7 +155,7 @@ class HorarioClaseService
 
             foreach ($clases as $clase) {
                 HorarioClase::query()->create([
-                    'establecimiento_aula_id' => $aulaBloqueada->id,
+                    'establecimiento_aula_id' => (int) $clase['establecimiento_aula_id'],
                     'establecimiento_asignatura_id' => (int) $clase['establecimiento_asignatura_id'],
                     'dia_semana' => (int) $clase['dia_semana'],
                     'hora_inicio' => $clase['hora_inicio'],
@@ -142,7 +174,10 @@ class HorarioClaseService
     {
         DB::transaction(function () use ($aula, $horario, $clase): void {
             $aulaBloqueada = EstablecimientoAula::query()
-                ->whereKey($aula->id)
+                ->whereKey($horario->establecimiento_aula_id)
+                ->where('establecimiento_id', $aula->establecimiento_id)
+                ->where('establecimiento_modalidad_jornada_id', $aula->establecimiento_modalidad_jornada_id)
+                ->where('establecimiento_periodo_id', $aula->establecimiento_periodo_id)
                 ->lockForUpdate()
                 ->firstOrFail();
             $horarioBloqueado = HorarioClase::query()

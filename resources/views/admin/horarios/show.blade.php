@@ -7,7 +7,7 @@
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
                 <h2 class="text-xl font-semibold leading-tight text-slate-800">Horario de clases</h2>
-                <p class="mt-1 text-sm text-slate-500">{{ $aula->establecimientoGrado?->etiqueta() }} · Paralelo {{ $aula->paralelo }}</p>
+                <p class="mt-1 text-sm text-slate-500">Aula: {{ $aula->etiqueta() }}</p>
             </div>
             <a href="{{ route('Admin.aulas') }}" class="text-sm font-medium text-indigo-600 hover:text-indigo-500">Volver a aulas</a>
         </div>
@@ -53,8 +53,11 @@
                     x-data="{
                         dias: @js($dias),
                         materias: @js($materias),
+                        aulasDisponibles: @js($aulasDisponibles),
+                        aulaActualId: @js((int) $aula->id),
                         existentes: @js($horariosVisuales),
                         bloqueosDocentes: @js($bloqueosDocentes),
+                        bloqueosAulas: @js($bloqueosAulas),
                         csrfToken: @js(csrf_token()),
                         moverUrlBase: @js(route('Admin.aulas.horario.update', [$aula, '__HORARIO__'])),
                         eliminarUrlBase: @js(route('Admin.aulas.horario.destroy', [$aula, '__HORARIO__'])),
@@ -63,9 +66,10 @@
                         guardandoMovimiento: false,
                         bloquearClickHasta: 0,
                         errorMovimiento: '',
-                        editor: { abierto: false, dia: 1, inicio: '07:00', fin: '08:00', asignaturaId: '' },
+                        editor: { abierto: false, dia: 1, inicio: '07:00', fin: '08:00', asignaturaId: '', aulaId: @js((int) $aula->id) },
                         horaInicio: @js($horaInicio),
                         horaFin: @js($horaFin),
+                        aulaActual: @js($aula->etiqueta()),
                         minutos(hora) {
                             if (!hora || !hora.includes(':')) return 0
                             const [horas, minutos] = hora.split(':').map(Number)
@@ -95,12 +99,44 @@
                                 gridTemplateRows: '2.75rem repeat(' + this.filasHora().length + ', 1.75rem)',
                             }
                         },
-                        claseDisponible(dia, inicio, fin, excluirId = null) {
+                        estiloClase(clase) {
+                            const clasesDia = [...this.existentes, ...this.pendientes]
+                                .filter((item) => Number(item.dia) === Number(clase.dia) && !this.fueraDeRango(item))
+                                .sort((primera, segunda) => this.minutos(primera.inicio) - this.minutos(segunda.inicio))
+                            const carriles = []
+                            const posiciones = new Map()
+
+                            clasesDia.forEach((item) => {
+                                let carril = carriles.findIndex((fin) => fin <= this.minutos(item.inicio))
+                                if (carril === -1) {
+                                    carril = carriles.length
+                                }
+                                carriles[carril] = this.minutos(item.fin)
+                                posiciones.set(String(item.id), carril)
+                            })
+
+                            const cantidadCarriles = Math.max(carriles.length, 1)
+                            const carril = posiciones.get(String(clase.id)) || 0
+
+                            return 'grid-column: ' + (Number(clase.dia) + 1)
+                                + '; grid-row: ' + this.fila(clase.inicio) + ' / span ' + this.filasClase(clase)
+                                + '; width: calc((100% - 0.5rem) / ' + cantidadCarriles + ')'
+                                + '; margin-left: calc(100% * ' + carril + ' / ' + cantidadCarriles + ')'
+                                + '; justify-self: start'
+                        },
+                        estiloAula(aulaId) {
+                            const indiceAula = this.aulasDisponibles.findIndex((aula) => Number(aula.id) === Number(aulaId))
+                            const tono = (Math.max(indiceAula, 0) * 137.508) % 360
+
+                            return 'background-color: hsl(' + tono + ', 80%, 92%); border-color: hsl(' + tono + ', 55%, 68%); color: hsl(' + tono + ', 55%, 25%)'
+                        },
+                        claseDisponible(dia, inicio, fin, aulaId = this.aulaActualId, excluirId = null) {
                             const seCruza = (clase) => Number(clase.dia) === Number(dia)
+                                && Number(clase.aulaId) === Number(aulaId)
                                 && Number(clase.id) !== Number(excluirId)
                                 && this.minutos(inicio) < this.minutos(clase.fin)
                                 && this.minutos(fin) > this.minutos(clase.inicio)
-                            return ![...this.existentes, ...this.pendientes.filter((clase) => Number(clase.id) !== Number(excluirId))].some(seCruza)
+                            return ![...this.bloqueosAulas, ...this.pendientes.filter((clase) => Number(clase.id) !== Number(excluirId))].some(seCruza)
                         },
                         docenteOcupado(asignaturaId, dia, inicio, fin, excluirId = null) {
                             const materia = this.materias.find((item) => String(item.id) === String(asignaturaId))
@@ -110,13 +146,13 @@
                                 && this.minutos(inicio) < this.minutos(clase.fin)
                                 && this.minutos(fin) > this.minutos(clase.inicio)
                             return this.bloqueosDocentes.some(seCruza)
-                                || this.existentes.some((clase) => Number(clase.id) !== Number(excluirId)
-                                    && Number(this.materias.find((item) => String(item.id) === String(clase.asignaturaId))?.docenteId) === Number(materia.docenteId)
+                                || this.bloqueosAulas.some((clase) => Number(clase.id) !== Number(excluirId)
+                                    && Number(clase.docenteId) === Number(materia.docenteId)
                                     && Number(clase.dia) === Number(dia)
                                     && this.minutos(inicio) < this.minutos(clase.fin)
                                     && this.minutos(fin) > this.minutos(clase.inicio))
                                 || this.pendientes.some((clase) => Number(clase.id) !== Number(this.editor.editandoId)
-                                    && Number(this.materias.find((item) => String(item.id) === String(clase.asignaturaId))?.docenteId) === Number(materia.docenteId)
+                                    && Number(clase.docenteId) === Number(materia.docenteId)
                                     && Number(clase.dia) === Number(dia)
                                     && this.minutos(inicio) < this.minutos(clase.fin)
                                     && this.minutos(fin) > this.minutos(clase.inicio))
@@ -127,7 +163,7 @@
                             const duracion = this.minutos(clase.fin) - this.minutos(clase.inicio)
                             const fin = this.hora(this.minutos(inicio) + duracion)
                             return this.minutos(fin) <= this.minutos(this.horaFin)
-                                && this.claseDisponible(dia, inicio, fin, id)
+                                && this.claseDisponible(dia, inicio, fin, clase.aulaId, id)
                                 && !this.docenteOcupado(clase.asignaturaId, dia, inicio, fin, id)
                         },
                         soltarEnCoordenadas(event) {
@@ -162,6 +198,8 @@
                                 const resultado = await response.json()
                                 if (!response.ok) throw new Error(resultado.errors?.hora_inicio?.[0] || resultado.errors?.hora_fin?.[0] || resultado.message || 'No se pudo mover la clase.')
                                 Object.assign(clase, { dia: Number(dia), inicio, fin })
+                                const bloqueoActualizado = this.bloqueosAulas.find((item) => Number(item.id) === Number(id))
+                                if (bloqueoActualizado) Object.assign(bloqueoActualizado, { dia: Number(dia), inicio, fin })
                                 this.moviendoId = null
                             } catch (error) {
                                 this.errorMovimiento = error.message
@@ -181,6 +219,7 @@
                                 const resultado = await response.json()
                                 if (!response.ok) throw new Error(resultado.message || 'No se pudo eliminar la clase.')
                                 this.existentes = this.existentes.filter((clase) => Number(clase.id) !== Number(id))
+                                this.bloqueosAulas = this.bloqueosAulas.filter((clase) => Number(clase.id) !== Number(id))
                                 this.moviendoId = null
                             } catch (error) {
                                 this.errorMovimiento = error.message
@@ -189,12 +228,12 @@
                             }
                         },
                         abrirEditor(dia, inicio) {
-                            if (!this.claseDisponible(dia, inicio, this.hora(this.minutos(inicio) + 15))) return
-                            this.editor = { abierto: true, dia: Number(dia), inicio, fin: this.hora(this.minutos(inicio) + 60), asignaturaId: '', editandoId: null }
+                            if (!this.claseDisponible(dia, inicio, this.hora(this.minutos(inicio) + 15), this.aulaActualId)) return
+                            this.editor = { abierto: true, dia: Number(dia), inicio, fin: this.hora(this.minutos(inicio) + 60), asignaturaId: '', aulaId: this.aulaActualId, editandoId: null }
                         },
                         guardarPendiente() {
                             if (!this.editor.asignaturaId || !this.editor.inicio || !this.editor.fin || this.minutos(this.editor.fin) <= this.minutos(this.editor.inicio)) return
-                            if (!this.claseDisponible(this.editor.dia, this.editor.inicio, this.editor.fin, this.editor.editandoId)) return
+                            if (!this.claseDisponible(this.editor.dia, this.editor.inicio, this.editor.fin, this.editor.aulaId, this.editor.editandoId)) return
                             if (this.docenteOcupado(this.editor.asignaturaId, this.editor.dia, this.editor.inicio, this.editor.fin)) return
                             this.pendientes.push({
                                 id: Date.now() + Math.random(),
@@ -202,6 +241,8 @@
                                 inicio: this.editor.inicio,
                                 fin: this.editor.fin,
                                 asignaturaId: String(this.editor.asignaturaId),
+                                aulaId: Number(this.editor.aulaId),
+                                docenteId: Number(this.materia(this.editor.asignaturaId)?.docenteId),
                             })
                             this.editor.abierto = false
                         },
@@ -210,6 +251,29 @@
                         },
                         materia(id) {
                             return this.materias.find((item) => String(item.id) === String(id))
+                        },
+                        materiasDelAula(aulaId) {
+                            return this.materias.filter((item) => item.aulas.some((aula) => Number(aula.id) === Number(aulaId)))
+                        },
+                        cambiarAulaEditor() {
+                            if (!this.materiasDelAula(this.editor.aulaId).some((item) => String(item.id) === String(this.editor.asignaturaId))) {
+                                this.editor.asignaturaId = ''
+                            }
+                            this.aulaActualId = Number(this.editor.aulaId)
+                        },
+                        nombreAula(id) {
+                            return this.aulasDisponibles.find((aula) => Number(aula.id) === Number(id))?.nombre || 'Aula'
+                        },
+                        descripcionClase(clase, asignatura, docente, aula) {
+                            const dia = this.dias.find((item) => Number(item.numero) === Number(clase.dia))?.nombre || 'Día'
+
+                            return [
+                                'Asignatura: ' + (asignatura || 'Asignatura'),
+                                'Docente: ' + (docente || 'Sin docente'),
+                                'Aula: ' + (aula || 'Aula'),
+                                'Día: ' + dia,
+                                'Hora: ' + clase.inicio + '–' + clase.fin,
+                            ].join(String.fromCharCode(10))
                         },
                         fueraDeRango(clase) {
                             return this.minutos(clase.inicio) < this.minutos(this.horaInicio)
@@ -222,8 +286,16 @@
                     <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
                         <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                             <div>
-                                <h3 class="text-lg font-semibold text-slate-900">Semana del aula</h3>
-                                <p class="mt-1 text-sm text-slate-500">Haz clic en una celda libre para agregar una clase. Arrastra una clase existente a un espacio disponible para moverla.</p>
+                                <h3 class="text-lg font-semibold text-slate-900">Horario semanal de los docentes</h3>
+                                <p class="mt-1 text-sm text-slate-500">Se muestran las clases de todas las aulas. Al agregar una clase, elige el aula en el formulario.</p>
+                                <div class="mt-3 flex flex-wrap gap-2" aria-label="Leyenda de aulas">
+                                    <template x-for="(aulaDisponible, indiceAula) in aulasDisponibles" :key="'leyenda-aula-' + aulaDisponible.id">
+                                        <span class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium" :style="estiloAula(aulaDisponible.id)">
+                                            <span class="font-bold" x-text="String(indiceAula + 1).padStart(2, '0')"></span>
+                                            <span x-text="aulaDisponible.nombre"></span>
+                                        </span>
+                                    </template>
+                                </div>
                             </div>
                             <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                 <label class="text-xs font-semibold text-slate-600">
@@ -259,41 +331,44 @@
                                                 :style="'grid-column: ' + (dia.numero + 1) + '; grid-row: ' + (indice + 2)"
                                                 :data-dia="dia.numero"
                                                 :data-inicio="franja.hora"
-                                                :disabled="guardandoMovimiento || (moviendoId ? !destinoDisponible(moviendoId, dia.numero, franja.hora) : (!claseDisponible(dia.numero, franja.hora, hora(minutos(franja.hora) + 15)) || minutos(franja.hora) + 15 > minutos(horaFin)))"
+                                                :disabled="guardandoMovimiento || (moviendoId ? !destinoDisponible(moviendoId, dia.numero, franja.hora) : (!claseDisponible(dia.numero, franja.hora, hora(minutos(franja.hora) + 15), aulaActualId) || minutos(franja.hora) + 15 > minutos(horaFin)))"
                                                 :aria-label="moviendoId ? 'Mover clase a ' + dia.nombre + ' ' + franja.hora : 'Agregar clase ' + dia.nombre + ' ' + franja.hora"
                                                 x-on:click="if (!moviendoId && !guardandoMovimiento && Date.now() > bloquearClickHasta) abrirEditor(dia.numero, franja.hora)"
-                                                x-text="moviendoId ? (destinoDisponible(moviendoId, dia.numero, franja.hora) ? '↔' : '') : (claseDisponible(dia.numero, franja.hora, hora(minutos(franja.hora) + 15)) ? '+' : '')"
+                                                x-text="moviendoId ? (destinoDisponible(moviendoId, dia.numero, franja.hora) ? '↔' : '') : (claseDisponible(dia.numero, franja.hora, hora(minutos(franja.hora) + 15), aulaActualId) ? '+' : '')"
                                             ></button>
                                         </template>
                                     </template>
 
                                     <template x-for="clase in existentes" :key="'existente-' + clase.id">
                                         <div
-                                            class="z-20 m-0.5 flex min-h-0 flex-col overflow-hidden rounded-md border border-indigo-200 bg-indigo-100 px-1.5 py-1 text-indigo-950 shadow-sm cursor-grab active:cursor-grabbing"
+                                            class="z-20 m-0.5 flex min-h-0 flex-col overflow-hidden rounded-md border px-1.5 py-1 shadow-sm cursor-grab active:cursor-grabbing"
                                             :class="moviendoId ? 'pointer-events-none' : ''"
-                                            :style="'grid-column: ' + (Number(clase.dia) + 1) + '; grid-row: ' + fila(clase.inicio) + ' / span ' + filasClase(clase)"
+                                            :style="estiloClase(clase) + '; ' + estiloAula(clase.aulaId)"
                                             x-show="!fueraDeRango(clase)"
                                             x-on:mousedown="iniciarMovimiento(clase, $event)"
-                                            :title="clase.inicio + '–' + clase.fin + ' · ' + clase.asignatura + ' · ' + clase.docente"
+                                            :title="descripcionClase(clase, clase.asignatura, clase.docente, clase.aula)"
                                         >
                                             <div class="flex items-center justify-between gap-1">
                                                 <span class="truncate text-[11px] font-bold" x-text="clase.asignatura"></span>
                                                 <button type="button" class="shrink-0 rounded px-1 text-[10px] font-bold text-red-700 hover:bg-red-100" aria-label="Eliminar clase" title="Eliminar clase" x-on:click.stop="eliminarClase(clase.id)">×</button>
                                             </div>
                                             <span class="truncate text-[10px]" x-text="clase.inicio + '–' + clase.fin"></span>
-                                            <span class="truncate text-[10px]" x-text="clase.docente"></span>
+                                            <span class="truncate text-[10px]" x-text="'Docente: ' + clase.docente"></span>
+                                            <span class="break-words text-[10px] leading-tight" x-text="'Aula: ' + clase.aula"></span>
                                         </div>
                                     </template>
 
                                     <template x-for="clase in pendientes" :key="'pendiente-' + clase.id">
                                         <div
-                                            class="z-20 m-0.5 flex min-h-0 flex-col overflow-hidden rounded-md border border-emerald-300 bg-emerald-100 px-1.5 py-1 text-emerald-950 shadow-sm"
-                                            :style="'grid-column: ' + (Number(clase.dia) + 1) + '; grid-row: ' + fila(clase.inicio) + ' / span ' + filasClase(clase)"
+                                            class="z-20 m-0.5 flex min-h-0 flex-col overflow-hidden rounded-md border border-dashed px-1.5 py-1 opacity-90 shadow-sm"
+                                            :style="estiloClase(clase) + '; ' + estiloAula(clase.aulaId)"
                                             x-show="!fueraDeRango(clase)"
+                                            :title="descripcionClase(clase, materia(clase.asignaturaId)?.nombre, materia(clase.asignaturaId)?.docente, nombreAula(clase.aulaId))"
                                         >
                                             <span class="truncate text-[11px] font-bold" x-text="materia(clase.asignaturaId)?.nombre || 'Asignatura'"></span>
                                             <span class="truncate text-[10px]" x-text="clase.inicio + '–' + clase.fin"></span>
-                                            <span class="truncate text-[10px]" x-text="materia(clase.asignaturaId)?.docente || ''"></span>
+                                            <span class="truncate text-[10px]" x-text="'Docente: ' + (materia(clase.asignaturaId)?.docente || '')"></span>
+                                            <span class="break-words text-[10px] leading-tight" x-text="'Aula: ' + nombreAula(clase.aulaId)"></span>
                                         </div>
                                     </template>
                                 </div>
@@ -310,10 +385,11 @@
                                 <div class="flex flex-col gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 sm:flex-row sm:items-center sm:justify-between">
                                     <div>
                                         <p class="text-sm font-semibold text-emerald-950" x-text="materia(clase.asignaturaId)?.nombre + ' · ' + dias.find((dia) => dia.numero === Number(clase.dia))?.nombre"></p>
-                                        <p class="text-xs text-emerald-800" x-text="clase.inicio + '–' + clase.fin + ' · ' + (materia(clase.asignaturaId)?.docente || '')"></p>
+                                        <p class="text-xs text-emerald-800" x-text="clase.inicio + '–' + clase.fin + ' · ' + (materia(clase.asignaturaId)?.docente || '') + ' · Aula ' + nombreAula(clase.aulaId)"></p>
                                     </div>
                                     <div class="flex items-center gap-3">
                                         <input type="hidden" :name="'clases[' + indice + '][establecimiento_asignatura_id]'" :value="clase.asignaturaId">
+                                        <input type="hidden" :name="'clases[' + indice + '][establecimiento_aula_id]'" :value="clase.aulaId">
                                         <input type="hidden" :name="'clases[' + indice + '][dia_semana]'" :value="clase.dia">
                                         <input type="hidden" :name="'clases[' + indice + '][hora_inicio]'" :value="clase.inicio">
                                         <input type="hidden" :name="'clases[' + indice + '][hora_fin]'" :value="clase.fin">
@@ -341,12 +417,20 @@
 
                             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                 <label class="block text-sm font-medium text-slate-700 sm:col-span-2">
+                                    Aula
+                                    <select x-model.number="editor.aulaId" x-on:change="cambiarAulaEditor()" class="mt-1 block w-full rounded-lg border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                        @foreach ($aulasDisponibles as $aulaDisponible)
+                                            <option value="{{ $aulaDisponible['id'] }}">{{ $aulaDisponible['nombre'] }}</option>
+                                        @endforeach
+                                    </select>
+                                </label>
+                                <label class="block text-sm font-medium text-slate-700 sm:col-span-2">
                                     Asignatura y docente
                                     <select x-model="editor.asignaturaId" class="mt-1 block w-full rounded-lg border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                                        <option value="">Selecciona una asignatura</option>
-                                        @foreach ($materias as $materia)
-                                            <option value="{{ $materia['id'] }}">{{ $materia['nombre'] }} · {{ $materia['docente'] }}</option>
-                                        @endforeach
+                                        <option value="">Selecciona una asignatura para el aula elegida</option>
+                                        <template x-for="materiaAula in materiasDelAula(editor.aulaId)" :key="'materia-aula-' + materiaAula.id">
+                                            <option :value="materiaAula.id" x-text="materiaAula.nombre + ' · ' + materiaAula.docente"></option>
+                                        </template>
                                     </select>
                                 </label>
                                 <label class="block text-sm font-medium text-slate-700">
@@ -368,12 +452,12 @@
                             </div>
 
                             <p x-cloak x-show="editor.inicio && editor.fin && minutos(editor.fin) <= minutos(editor.inicio)" class="mt-3 text-sm font-medium text-red-700">La hora de fin debe ser posterior a la hora de inicio.</p>
-                            <p x-cloak x-show="editor.inicio && editor.fin && minutos(editor.fin) > minutos(editor.inicio) && !claseDisponible(editor.dia, editor.inicio, editor.fin, editor.editandoId)" class="mt-3 text-sm font-medium text-red-700">Ese horario se cruza con otra clase de esta aula.</p>
+                            <p x-cloak x-show="editor.inicio && editor.fin && minutos(editor.fin) > minutos(editor.inicio) && !claseDisponible(editor.dia, editor.inicio, editor.fin, editor.aulaId, editor.editandoId)" class="mt-3 text-sm font-medium text-red-700">Ese horario se cruza con otra clase del aula seleccionada.</p>
                             <p x-cloak x-show="editor.asignaturaId && editor.inicio && editor.fin && docenteOcupado(editor.asignaturaId, editor.dia, editor.inicio, editor.fin)" class="mt-3 text-sm font-medium text-red-700">El docente asignado ya tiene una clase en ese horario.</p>
 
                             <div class="mt-6 flex justify-end gap-3">
                                 <button type="button" class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" x-on:click="editor.abierto = false">Cancelar</button>
-                                <button type="button" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50" x-on:click="guardarPendiente()" x-bind:disabled="!editor.asignaturaId || !editor.inicio || !editor.fin || minutos(editor.fin) <= minutos(editor.inicio) || !claseDisponible(editor.dia, editor.inicio, editor.fin, editor.editandoId) || docenteOcupado(editor.asignaturaId, editor.dia, editor.inicio, editor.fin)">Agregar al horario</button>
+                                <button type="button" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50" x-on:click="guardarPendiente()" x-bind:disabled="!editor.asignaturaId || !editor.aulaId || !editor.inicio || !editor.fin || minutos(editor.fin) <= minutos(editor.inicio) || !claseDisponible(editor.dia, editor.inicio, editor.fin, editor.aulaId, editor.editandoId) || docenteOcupado(editor.asignaturaId, editor.dia, editor.inicio, editor.fin)">Agregar al horario</button>
                             </div>
                         </div>
                     </div>

@@ -17,13 +17,17 @@ class UpdateHorarioClaseRequest extends FormRequest
         $user = $this->user();
         $aula = $this->route('aula');
         $horario = $this->route('horario');
+        $aulaHorario = $horario instanceof HorarioClase ? $horario->aula : null;
 
         return $user?->hasRole(Role::Admin) === true
             && $user->establecimiento_id !== null
             && $aula instanceof EstablecimientoAula
             && $horario instanceof HorarioClase
             && (int) $aula->establecimiento_id === (int) $user->establecimiento_id
-            && (int) $horario->establecimiento_aula_id === (int) $aula->id;
+            && $aulaHorario instanceof EstablecimientoAula
+            && (int) $aulaHorario->establecimiento_id === (int) $aula->establecimiento_id
+            && (int) $aulaHorario->establecimiento_modalidad_jornada_id === (int) $aula->establecimiento_modalidad_jornada_id
+            && (int) $aulaHorario->establecimiento_periodo_id === (int) $aula->establecimiento_periodo_id;
     }
 
     /**
@@ -64,6 +68,7 @@ class UpdateHorarioClaseRequest extends FormRequest
         $user = $this->user();
         $aula = $this->route('aula');
         $horario = $this->route('horario');
+        $aulaHorario = $horario instanceof HorarioClase ? $horario->aula : null;
         $oferta = $this->container->make(ActiveOferta::class)->get($user);
         $periodo = $this->container->make(ActivePeriodo::class)->get($user);
 
@@ -71,12 +76,15 @@ class UpdateHorarioClaseRequest extends FormRequest
             $user !== null
             && $aula instanceof EstablecimientoAula
             && $horario instanceof HorarioClase
+            && $aulaHorario instanceof EstablecimientoAula
             && $oferta !== null
             && $periodo !== null
             && (int) $aula->establecimiento_id === (int) $user->establecimiento_id
             && (int) $aula->establecimiento_modalidad_jornada_id === (int) $oferta->id
             && (int) $aula->establecimiento_periodo_id === (int) $periodo->id
-            && (int) $horario->establecimiento_aula_id === (int) $aula->id,
+            && (int) $aulaHorario->establecimiento_id === (int) $aula->establecimiento_id
+            && (int) $aulaHorario->establecimiento_modalidad_jornada_id === (int) $aula->establecimiento_modalidad_jornada_id
+            && (int) $aulaHorario->establecimiento_periodo_id === (int) $aula->establecimiento_periodo_id,
             404,
         );
 

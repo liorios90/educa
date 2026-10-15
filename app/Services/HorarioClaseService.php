@@ -135,6 +135,76 @@ class HorarioClaseService
         }, attempts: 3);
     }
 
+    /**
+     * @param  array{dia_semana: int, hora_inicio: string, hora_fin: string}  $clase
+     */
+    public function update(EstablecimientoAula $aula, HorarioClase $horario, array $clase): void
+    {
+        DB::transaction(function () use ($aula, $horario, $clase): void {
+            $aulaBloqueada = EstablecimientoAula::query()
+                ->whereKey($aula->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+            $horarioBloqueado = HorarioClase::query()
+                ->whereKey($horario->id)
+                ->where('establecimiento_aula_id', $aulaBloqueada->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $asignacion = DB::table('establecimiento_aula_docentes')
+                ->where('establecimiento_aula_id', $aulaBloqueada->id)
+                ->where('establecimiento_asignatura_id', $horarioBloqueado->establecimiento_asignatura_id)
+                ->first();
+
+            if ($asignacion === null) {
+                throw ValidationException::withMessages([
+                    'hora_inicio' => 'La asignatura debe tener un docente asignado antes de moverla.',
+                ])->errorBag('horario');
+            }
+
+            Empleado::query()
+                ->whereKey($asignacion->empleado_id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $cruceEnAula = HorarioClase::query()
+                ->where('establecimiento_aula_id', $aulaBloqueada->id)
+                ->whereKeyNot($horarioBloqueado->id)
+                ->where('dia_semana', $clase['dia_semana'])
+                ->where('hora_inicio', '<', $clase['hora_fin'])
+                ->where('hora_fin', '>', $clase['hora_inicio'])
+                ->exists();
+
+            if ($cruceEnAula) {
+                throw ValidationException::withMessages([
+                    'hora_inicio' => 'Ese horario se cruza con otra clase de esta aula.',
+                ])->errorBag('horario');
+            }
+
+            $cruceDocente = DB::table('horario_clases as horario')
+                ->join('establecimiento_aulas as aula', 'aula.id', '=', 'horario.establecimiento_aula_id')
+                ->join('establecimiento_aula_docentes as asignacion', function ($join): void {
+                    $join->on('asignacion.establecimiento_aula_id', '=', 'horario.establecimiento_aula_id')
+                        ->on('asignacion.establecimiento_asignatura_id', '=', 'horario.establecimiento_asignatura_id');
+                })
+                ->where('aula.establecimiento_periodo_id', $aulaBloqueada->establecimiento_periodo_id)
+                ->where('asignacion.empleado_id', $asignacion->empleado_id)
+                ->where('horario.id', '<>', $horarioBloqueado->id)
+                ->where('horario.dia_semana', $clase['dia_semana'])
+                ->where('horario.hora_inicio', '<', $clase['hora_fin'])
+                ->where('horario.hora_fin', '>', $clase['hora_inicio'])
+                ->exists();
+
+            if ($cruceDocente) {
+                throw ValidationException::withMessages([
+                    'hora_inicio' => 'El docente asignado ya tiene otra clase en ese horario.',
+                ])->errorBag('horario');
+            }
+
+            $horarioBloqueado->update($clase);
+        }, attempts: 3);
+    }
+
     private function seCruzan(string $inicio, string $fin, string $otroInicio, string $otroFin): bool
     {
         return $inicio < $otroFin && $fin > $otroInicio;

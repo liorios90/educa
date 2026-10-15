@@ -6,11 +6,13 @@ use App\Auth\ActiveOferta;
 use App\Auth\ActivePeriodo;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreHorarioClaseRequest;
+use App\Http\Requests\UpdateHorarioClaseRequest;
 use App\Models\EstablecimientoAsignatura;
 use App\Models\EstablecimientoAula;
 use App\Models\EstablecimientoAulaDocente;
 use App\Models\HorarioClase;
 use App\Services\HorarioClaseService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -114,6 +116,7 @@ class HorarioClaseController extends Controller
             'dia' => (int) $horario->dia_semana,
             'inicio' => substr($horario->hora_inicio, 0, 5),
             'fin' => substr($horario->hora_fin, 0, 5),
+            'asignaturaId' => (int) $horario->establecimiento_asignatura_id,
             'asignatura' => $horario->malla?->asignatura?->nombre ?? 'Asignatura',
             'docente' => $docentesPorMalla->get($horario->establecimiento_asignatura_id, 'Sin docente asignado'),
         ])->values();
@@ -149,12 +152,36 @@ class HorarioClaseController extends Controller
             ->with('clases_creadas', $cantidad);
     }
 
-    public function destroy(Request $request, EstablecimientoAula $aula, HorarioClase $horario): RedirectResponse
+    public function update(
+        UpdateHorarioClaseRequest $request,
+        EstablecimientoAula $aula,
+        HorarioClase $horario,
+        HorarioClaseService $service,
+    ): RedirectResponse|JsonResponse {
+        $this->authorizeAula($request, $aula);
+        abort_unless((int) $horario->establecimiento_aula_id === (int) $aula->id, 404);
+
+        $service->update($aula, $horario, $request->validated());
+
+        if ($request->expectsJson()) {
+            return response()->json(['message' => 'Clase movida al nuevo horario.']);
+        }
+
+        return redirect()
+            ->route('Admin.aulas.horario', $aula)
+            ->with('status', 'horario-updated');
+    }
+
+    public function destroy(Request $request, EstablecimientoAula $aula, HorarioClase $horario): RedirectResponse|JsonResponse
     {
         $this->authorizeAula($request, $aula);
         abort_unless((int) $horario->establecimiento_aula_id === (int) $aula->id, 404);
 
         $horario->delete();
+
+        if ($request->expectsJson()) {
+            return response()->json(['message' => 'Clase eliminada del horario.']);
+        }
 
         return redirect()
             ->route('Admin.aulas.horario', $aula)

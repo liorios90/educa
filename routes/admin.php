@@ -100,6 +100,7 @@ Route::middleware(['auth', 'verified', 'role:Admin'])
         Route::patch('aulas/{aula}/docentes', [EstablecimientoAulaController::class, 'updateDocentes'])->name('aulas.docentes.update')->whereNumber('aula');
         Route::get('aulas/{aula}/horario', [HorarioClaseController::class, 'show'])->name('aulas.horario')->whereNumber('aula');
         Route::post('aulas/{aula}/horario', [HorarioClaseController::class, 'store'])->name('aulas.horario.store')->whereNumber('aula');
+        Route::patch('aulas/{aula}/horario/{horario}', [HorarioClaseController::class, 'update'])->name('aulas.horario.update')->whereNumber('aula')->whereNumber('horario');
         Route::delete('aulas/{aula}/horario/{horario}', [HorarioClaseController::class, 'destroy'])->name('aulas.horario.destroy')->whereNumber('aula')->whereNumber('horario');
         Route::delete('aulas/{aula}', [EstablecimientoAulaController::class, 'destroy'])->name('aulas.destroy')->whereNumber('aula');
         Route::get('empleados', [EmpleadoController::class, 'index'])->name('empleados');

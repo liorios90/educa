@@ -25,9 +25,13 @@
                 <p class="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-800">Clase eliminada del horario.</p>
             @endif
 
+            @if (session('status') === 'horario-updated')
+                <p class="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-800">La clase se movió al nuevo horario.</p>
+            @endif
+
             @if ($horarioBag->isNotEmpty())
                 <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800" role="alert">
-                    <p class="font-semibold">No se pudo guardar el horario.</p>
+                    <p class="font-semibold">No se pudo guardar el cambio del horario.</p>
                     <ul class="mt-2 list-inside list-disc space-y-1">
                         @foreach ($horarioBag->all() as $mensaje)
                             <li>{{ $mensaje }}</li>
@@ -51,7 +55,14 @@
                         materias: @js($materias),
                         existentes: @js($horariosVisuales),
                         bloqueosDocentes: @js($bloqueosDocentes),
+                        csrfToken: @js(csrf_token()),
+                        moverUrlBase: @js(route('Admin.aulas.horario.update', [$aula, '__HORARIO__'])),
+                        eliminarUrlBase: @js(route('Admin.aulas.horario.destroy', [$aula, '__HORARIO__'])),
                         pendientes: [],
+                        moviendoId: null,
+                        guardandoMovimiento: false,
+                        bloquearClickHasta: 0,
+                        errorMovimiento: '',
                         editor: { abierto: false, dia: 1, inicio: '07:00', fin: '08:00', asignaturaId: '' },
                         horaInicio: @js($horaInicio),
                         horaFin: @js($horaFin),
@@ -86,11 +97,12 @@
                         },
                         claseDisponible(dia, inicio, fin, excluirId = null) {
                             const seCruza = (clase) => Number(clase.dia) === Number(dia)
+                                && Number(clase.id) !== Number(excluirId)
                                 && this.minutos(inicio) < this.minutos(clase.fin)
                                 && this.minutos(fin) > this.minutos(clase.inicio)
-                            return ![...this.existentes, ...this.pendientes.filter((clase) => clase.id !== excluirId)].some(seCruza)
+                            return ![...this.existentes, ...this.pendientes.filter((clase) => Number(clase.id) !== Number(excluirId))].some(seCruza)
                         },
-                        docenteOcupado(asignaturaId, dia, inicio, fin) {
+                        docenteOcupado(asignaturaId, dia, inicio, fin, excluirId = null) {
                             const materia = this.materias.find((item) => String(item.id) === String(asignaturaId))
                             if (!materia || !inicio || !fin) return false
                             const seCruza = (clase) => Number(clase.docenteId) === Number(materia.docenteId)
@@ -98,11 +110,83 @@
                                 && this.minutos(inicio) < this.minutos(clase.fin)
                                 && this.minutos(fin) > this.minutos(clase.inicio)
                             return this.bloqueosDocentes.some(seCruza)
+                                || this.existentes.some((clase) => Number(clase.id) !== Number(excluirId)
+                                    && Number(this.materias.find((item) => String(item.id) === String(clase.asignaturaId))?.docenteId) === Number(materia.docenteId)
+                                    && Number(clase.dia) === Number(dia)
+                                    && this.minutos(inicio) < this.minutos(clase.fin)
+                                    && this.minutos(fin) > this.minutos(clase.inicio))
                                 || this.pendientes.some((clase) => Number(clase.id) !== Number(this.editor.editandoId)
                                     && Number(this.materias.find((item) => String(item.id) === String(clase.asignaturaId))?.docenteId) === Number(materia.docenteId)
                                     && Number(clase.dia) === Number(dia)
                                     && this.minutos(inicio) < this.minutos(clase.fin)
                                     && this.minutos(fin) > this.minutos(clase.inicio))
+                        },
+                        destinoDisponible(id, dia, inicio) {
+                            const clase = this.existentes.find((item) => Number(item.id) === Number(id))
+                            if (!clase) return false
+                            const duracion = this.minutos(clase.fin) - this.minutos(clase.inicio)
+                            const fin = this.hora(this.minutos(inicio) + duracion)
+                            return this.minutos(fin) <= this.minutos(this.horaFin)
+                                && this.claseDisponible(dia, inicio, fin, id)
+                                && !this.docenteOcupado(clase.asignaturaId, dia, inicio, fin, id)
+                        },
+                        soltarEnCoordenadas(event) {
+                            if (!this.moviendoId) return
+                            const celda = document.elementFromPoint(event.clientX, event.clientY)?.closest('[data-dia][data-inicio]')
+                            this.bloquearClickHasta = Date.now() + 400
+                            if (celda && this.destinoDisponible(this.moviendoId, celda.dataset.dia, celda.dataset.inicio)) {
+                                this.soltarClase(this.moviendoId, celda.dataset.dia, celda.dataset.inicio)
+                            } else {
+                                this.moviendoId = null
+                            }
+                        },
+                        iniciarMovimiento(clase, event) {
+                            if (event.button !== 0 || event.target.closest('button') || this.guardandoMovimiento) return
+                            event.preventDefault()
+                            this.moviendoId = Number(clase.id)
+                            this.bloquearClickHasta = Date.now() + 400
+                            this.errorMovimiento = ''
+                        },
+                        async soltarClase(id, dia, inicio) {
+                            if (!this.destinoDisponible(id, dia, inicio) || this.guardandoMovimiento) return
+                            const clase = this.existentes.find((item) => Number(item.id) === Number(id))
+                            const fin = this.hora(this.minutos(inicio) + this.minutos(clase.fin) - this.minutos(clase.inicio))
+                            this.guardandoMovimiento = true
+                            this.errorMovimiento = ''
+                            try {
+                                const response = await fetch(this.moverUrlBase.replace('__HORARIO__', id), {
+                                    method: 'PATCH',
+                                    headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': this.csrfToken },
+                                    body: JSON.stringify({ dia_semana: Number(dia), hora_inicio: inicio, hora_fin: fin }),
+                                })
+                                const resultado = await response.json()
+                                if (!response.ok) throw new Error(resultado.errors?.hora_inicio?.[0] || resultado.errors?.hora_fin?.[0] || resultado.message || 'No se pudo mover la clase.')
+                                Object.assign(clase, { dia: Number(dia), inicio, fin })
+                                this.moviendoId = null
+                            } catch (error) {
+                                this.errorMovimiento = error.message
+                            } finally {
+                                this.guardandoMovimiento = false
+                            }
+                        },
+                        async eliminarClase(id) {
+                            if (!window.confirm('¿Eliminar esta clase del horario?') || this.guardandoMovimiento) return
+                            this.guardandoMovimiento = true
+                            this.errorMovimiento = ''
+                            try {
+                                const response = await fetch(this.eliminarUrlBase.replace('__HORARIO__', id), {
+                                    method: 'DELETE',
+                                    headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': this.csrfToken },
+                                })
+                                const resultado = await response.json()
+                                if (!response.ok) throw new Error(resultado.message || 'No se pudo eliminar la clase.')
+                                this.existentes = this.existentes.filter((clase) => Number(clase.id) !== Number(id))
+                                this.moviendoId = null
+                            } catch (error) {
+                                this.errorMovimiento = error.message
+                            } finally {
+                                this.guardandoMovimiento = false
+                            }
                         },
                         abrirEditor(dia, inicio) {
                             if (!this.claseDisponible(dia, inicio, this.hora(this.minutos(inicio) + 15))) return
@@ -139,7 +223,7 @@
                         <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                             <div>
                                 <h3 class="text-lg font-semibold text-slate-900">Semana del aula</h3>
-                                <p class="mt-1 text-sm text-slate-500">Haz clic en una celda libre para elegir asignatura y configurar sus horas.</p>
+                                <p class="mt-1 text-sm text-slate-500">Haz clic en una celda libre para agregar una clase. Arrastra una clase existente a un espacio disponible para moverla.</p>
                             </div>
                             <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                 <label class="text-xs font-semibold text-slate-600">
@@ -155,7 +239,7 @@
 
                         <div class="mt-5 overflow-x-auto rounded-xl border border-slate-200">
                             <div class="min-w-[1060px] p-2">
-                                <div class="grid" :style="estiloCuadricula()">
+                                <div class="grid" :style="estiloCuadricula()" x-on:mouseup.window="soltarEnCoordenadas($event)">
                                     <div class="sticky top-0 z-30 flex items-center justify-center border-b border-r border-slate-200 bg-slate-50 text-xs font-semibold text-slate-500" style="grid-column: 1; grid-row: 1">Hora</div>
 
                                     <template x-for="dia in dias" :key="'encabezado-' + dia.numero">
@@ -171,23 +255,31 @@
                                             <button
                                                 type="button"
                                                 class="group z-0 flex items-center justify-center border-b border-r border-slate-100 bg-white text-xs text-indigo-500 hover:bg-indigo-50 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-transparent"
+                                                :class="moviendoId && destinoDisponible(moviendoId, dia.numero, franja.hora) ? '!bg-emerald-100 !text-emerald-700 hover:!bg-emerald-200' : ''"
                                                 :style="'grid-column: ' + (dia.numero + 1) + '; grid-row: ' + (indice + 2)"
-                                                :disabled="!claseDisponible(dia.numero, franja.hora, hora(minutos(franja.hora) + 15)) || minutos(franja.hora) + 15 > minutos(horaFin)"
-                                                :aria-label="'Agregar clase ' + dia.nombre + ' ' + franja.hora"
-                                                x-on:click="abrirEditor(dia.numero, franja.hora)"
-                                                x-text="claseDisponible(dia.numero, franja.hora, hora(minutos(franja.hora) + 15)) ? '+' : ''"
+                                                :data-dia="dia.numero"
+                                                :data-inicio="franja.hora"
+                                                :disabled="guardandoMovimiento || (moviendoId ? !destinoDisponible(moviendoId, dia.numero, franja.hora) : (!claseDisponible(dia.numero, franja.hora, hora(minutos(franja.hora) + 15)) || minutos(franja.hora) + 15 > minutos(horaFin)))"
+                                                :aria-label="moviendoId ? 'Mover clase a ' + dia.nombre + ' ' + franja.hora : 'Agregar clase ' + dia.nombre + ' ' + franja.hora"
+                                                x-on:click="if (!moviendoId && !guardandoMovimiento && Date.now() > bloquearClickHasta) abrirEditor(dia.numero, franja.hora)"
+                                                x-text="moviendoId ? (destinoDisponible(moviendoId, dia.numero, franja.hora) ? '↔' : '') : (claseDisponible(dia.numero, franja.hora, hora(minutos(franja.hora) + 15)) ? '+' : '')"
                                             ></button>
                                         </template>
                                     </template>
 
                                     <template x-for="clase in existentes" :key="'existente-' + clase.id">
                                         <div
-                                            class="z-20 m-0.5 flex min-h-0 flex-col overflow-hidden rounded-md border border-indigo-200 bg-indigo-100 px-1.5 py-1 text-indigo-950 shadow-sm"
+                                            class="z-20 m-0.5 flex min-h-0 flex-col overflow-hidden rounded-md border border-indigo-200 bg-indigo-100 px-1.5 py-1 text-indigo-950 shadow-sm cursor-grab active:cursor-grabbing"
+                                            :class="moviendoId ? 'pointer-events-none' : ''"
                                             :style="'grid-column: ' + (Number(clase.dia) + 1) + '; grid-row: ' + fila(clase.inicio) + ' / span ' + filasClase(clase)"
                                             x-show="!fueraDeRango(clase)"
+                                            x-on:mousedown="iniciarMovimiento(clase, $event)"
                                             :title="clase.inicio + '–' + clase.fin + ' · ' + clase.asignatura + ' · ' + clase.docente"
                                         >
-                                            <span class="truncate text-[11px] font-bold" x-text="clase.asignatura"></span>
+                                            <div class="flex items-center justify-between gap-1">
+                                                <span class="truncate text-[11px] font-bold" x-text="clase.asignatura"></span>
+                                                <button type="button" class="shrink-0 rounded px-1 text-[10px] font-bold text-red-700 hover:bg-red-100" aria-label="Eliminar clase" title="Eliminar clase" x-on:click.stop="eliminarClase(clase.id)">×</button>
+                                            </div>
                                             <span class="truncate text-[10px]" x-text="clase.inicio + '–' + clase.fin"></span>
                                             <span class="truncate text-[10px]" x-text="clase.docente"></span>
                                         </div>
@@ -209,6 +301,8 @@
                         </div>
 
                         <p x-cloak x-show="pendientes.some((clase) => fueraDeRango(clase))" class="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">Hay clases pendientes fuera del rango mostrado. Ajusta “Mostrar desde” o “Mostrar hasta” para verlas.</p>
+                        <p x-cloak x-show="moviendoId" class="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900">Mantén presionada la clase, arrástrala y suéltala sobre una celda verde disponible. Su duración se conservará.</p>
+                        <p x-cloak x-show="errorMovimiento" x-text="errorMovimiento" class="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800" role="alert"></p>
 
                         <div x-cloak x-show="pendientes.length > 0" class="mt-5 flex flex-col gap-3">
                             <h4 class="text-sm font-semibold text-slate-800">Clases por guardar</h4>
@@ -289,7 +383,7 @@
             <section>
                 <div class="mb-3">
                     <h3 class="text-lg font-semibold text-slate-900">Clases programadas</h3>
-                    <p class="mt-1 text-sm text-slate-500">Desde aquí puedes quitar una clase si necesitas cambiarla de día u hora.</p>
+                    <p class="mt-1 text-sm text-slate-500">Desde la cuadrícula semanal puedes arrastrar clases y eliminarlas con el botón ×. Esta lista conserva una opción adicional para eliminar.</p>
                 </div>
 
                 <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -302,16 +396,20 @@
                             </div>
 
                             @forelse ($clasesDelDia as $clase)
-                                <div class="flex items-center justify-between gap-3 border-t border-slate-100 py-3 first:border-t-0">
-                                    <div class="min-w-0">
-                                        <p class="font-medium text-slate-800">{{ substr($clase->hora_inicio, 0, 5) }}–{{ substr($clase->hora_fin, 0, 5) }} · {{ $clase->malla?->asignatura?->nombre ?? 'Asignatura' }}</p>
-                                        <p class="mt-0.5 truncate text-sm text-slate-500">{{ $docentesPorMalla->get($clase->establecimiento_asignatura_id, 'Sin docente asignado') }}</p>
+                                <div class="border-t border-slate-100 py-3 first:border-t-0">
+                                    <div class="flex items-center justify-between gap-3">
+                                        <div class="min-w-0">
+                                            <p class="font-medium text-slate-800">{{ substr($clase->hora_inicio, 0, 5) }}–{{ substr($clase->hora_fin, 0, 5) }} · {{ $clase->malla?->asignatura?->nombre ?? 'Asignatura' }}</p>
+                                            <p class="mt-0.5 truncate text-sm text-slate-500">{{ $docentesPorMalla->get($clase->establecimiento_asignatura_id, 'Sin docente asignado') }}</p>
+                                        </div>
+                                        <div class="flex shrink-0 items-center gap-1">
+                                            <form method="POST" action="{{ route('Admin.aulas.horario.destroy', [$aula, $clase]) }}" onsubmit="return confirm('¿Eliminar esta clase del horario?')">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="rounded-lg px-2.5 py-1.5 text-sm font-medium text-slate-500 hover:bg-red-50 hover:text-red-700">Eliminar</button>
+                                            </form>
+                                        </div>
                                     </div>
-                                    <form method="POST" action="{{ route('Admin.aulas.horario.destroy', [$aula, $clase]) }}" onsubmit="return confirm('¿Eliminar esta clase del horario?')">
-                                        @csrf
-                                        @method('DELETE')
-                                        <button type="submit" class="shrink-0 rounded-lg px-2.5 py-1.5 text-sm font-medium text-slate-500 hover:bg-red-50 hover:text-red-700">Eliminar</button>
-                                    </form>
                                 </div>
                             @empty
                                 <p class="border-t border-slate-100 py-4 text-sm text-slate-400">Sin clases programadas.</p>

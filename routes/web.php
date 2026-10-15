@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\HorarioDocenteController;
 use App\Http\Controllers\EnrollmentSubmissionController;
 use App\Http\Controllers\NavigationHubController;
 use App\Http\Controllers\ProfileController;
@@ -15,6 +16,14 @@ Route::view('/cookies', 'cookies')->name('cookies');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
+
+    Route::middleware('role:Docente')
+        ->prefix('docente')
+        ->name('Docente.')
+        ->group(function () {
+            Route::get('/horarios', HorarioDocenteController::class)->name('horarios');
+        });
+
     Route::get('/menu/{navigationItem}', [NavigationHubController::class, 'show'])->name('navigation.hub');
     Route::get('/reportes', [ReportRunController::class, 'index'])->name('reports.index');
     Route::get('/reportes/{reportDefinition}/pdf', [ReportRunController::class, 'pdf'])

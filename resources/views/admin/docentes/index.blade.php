@@ -24,6 +24,16 @@
                     </thead>
                     <tbody class="divide-y divide-slate-100 text-slate-800">
                         @forelse ($docentes as $docente)
+                            @php
+                                $especializacion = $docente->especialidades->map(function ($asignatura): string {
+                                    $subnivel = $asignatura->area?->subnivel?->nombre;
+                                    $area = $asignatura->area?->nombre ?? $asignatura->nombre;
+
+                                    return $subnivel !== null && $subnivel !== ''
+                                        ? $subnivel.' · '.$area
+                                        : $area;
+                                })->unique()->join(', ') ?: '—';
+                            @endphp
                             <tr>
                                 <td class="px-6 py-3">
                                     <span class="inline-flex items-center gap-2">
@@ -36,14 +46,11 @@
                                 <td class="px-6 py-3">{{ $docente->persona?->nombres }}</td>
                                 <td class="px-6 py-3">{{ $docente->persona?->identificacion }}</td>
                                 <td class="px-6 py-3">
-                                    {{ $docente->especialidades->map(function ($asignatura): string {
-                                        $subnivel = $asignatura->area?->subnivel?->nombre;
-                                        $area = $asignatura->area?->nombre ?? $asignatura->nombre;
-
-                                        return $subnivel !== null && $subnivel !== ''
-                                            ? $subnivel.' · '.$area
-                                            : $area;
-                                    })->unique()->join(', ') ?: '—' }}
+                                    <span
+                                        class="block overflow-hidden"
+                                        style="display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3;"
+                                        title="{{ $especializacion }}"
+                                    >{{ $especializacion }}</span>
                                 </td>
                                 <td class="sticky right-0 whitespace-nowrap bg-white px-6 py-3 text-right">
                                     <a href="{{ route('Admin.docentes.areas', $docente) }}" class="inline-flex rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800">

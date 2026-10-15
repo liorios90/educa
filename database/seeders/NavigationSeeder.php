@@ -18,8 +18,10 @@ class NavigationSeeder extends Seeder
         $admin = Role::findOrCreate(RoleName::Admin->value, 'web');
         $sistemas = Role::findOrCreate(RoleName::Sistemas->value, 'web');
         $padre = Role::findOrCreate(RoleName::Padre->value, 'web');
+        $docente = Role::findOrCreate(RoleName::Docente->value, 'web');
 
         $this->upsertItem('Inicio', 'dashboard', 'home', 1, true, []);
+        $this->upsertItem('Horarios', 'Docente.horarios', 'calendar-days', 2, false, [$docente->id]);
         $this->upsertItem('Usuarios', 'admin.users', 'users', 2, false, [$admin->id]);
         $this->upsertItem('Padres', 'Admin.padres', 'users', 3, false, [$admin->id]);
         $this->upsertItem('Matrículas', 'Admin.matriculas.index', 'clipboard-document-list', 4, false, [$admin->id]);

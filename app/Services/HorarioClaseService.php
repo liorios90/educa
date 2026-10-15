@@ -12,7 +12,7 @@ use Illuminate\Validation\ValidationException;
 class HorarioClaseService
 {
     /**
-     * @param  list<array{establecimiento_aula_id: int, establecimiento_asignatura_id: int, dia_semana: int, hora_inicio: string, hora_fin: string}>  $clases
+     * @param  list<array{establecimiento_asignatura_id: int, dia_semana: int, hora_inicio: string, hora_fin: string}>  $clases
      */
     public function store(EstablecimientoAula $aula, array $clases): int
     {
@@ -22,12 +22,7 @@ class HorarioClaseService
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            $aulaIds = collect($clases)
-                ->pluck('establecimiento_aula_id')
-                ->map(fn (mixed $id): int => (int) $id)
-                ->unique()
-                ->sort()
-                ->values();
+            $aulaIds = collect([(int) $aulaBloqueada->id]);
             $aulas = EstablecimientoAula::query()
                 ->with('establecimientoGrado')
                 ->whereIn('id', $aulaIds)
@@ -63,13 +58,13 @@ class HorarioClaseService
 
             foreach ($clases as $indice => $clase) {
                 $mallaId = (int) $clase['establecimiento_asignatura_id'];
-                $aulaId = (int) $clase['establecimiento_aula_id'];
+                $aulaId = (int) $aulaBloqueada->id;
                 $asignacion = $asignaciones->get($aulaId.':'.$mallaId);
 
                 if (! $malla->has($mallaId)
                     || $asignacion === null
                     || (int) $malla->get($mallaId)->grado_id !== (int) $aulas->get($aulaId)?->establecimientoGrado?->grado_id) {
-                    $errores['clases.'.$indice.'.establecimiento_asignatura_id'] = 'Selecciona una asignatura que tenga docente asignado en el aula elegida.';
+                    $errores['clases.'.$indice.'.establecimiento_asignatura_id'] = 'Selecciona una asignatura que tenga docente asignado en esta aula.';
 
                     continue;
                 }
@@ -95,8 +90,7 @@ class HorarioClaseService
 
             foreach ($clases as $indice => $clase) {
                 foreach ($existentes as $existente) {
-                    if ((int) $existente->establecimiento_aula_id === (int) $clase['establecimiento_aula_id']
-                        && (int) $existente->dia_semana === (int) $clase['dia_semana']
+                    if ((int) $existente->dia_semana === (int) $clase['dia_semana']
                         && $this->seCruzan(
                             $clase['hora_inicio'],
                             $clase['hora_fin'],
@@ -110,8 +104,7 @@ class HorarioClaseService
                 }
 
                 foreach (array_slice($clases, 0, $indice, true) as $anteriorIndice => $anterior) {
-                    if ((int) $anterior['establecimiento_aula_id'] === (int) $clase['establecimiento_aula_id']
-                        && (int) $anterior['dia_semana'] === (int) $clase['dia_semana']
+                    if ((int) $anterior['dia_semana'] === (int) $clase['dia_semana']
                         && $this->seCruzan(
                             $clase['hora_inicio'],
                             $clase['hora_fin'],
@@ -155,7 +148,7 @@ class HorarioClaseService
 
             foreach ($clases as $clase) {
                 HorarioClase::query()->create([
-                    'establecimiento_aula_id' => (int) $clase['establecimiento_aula_id'],
+                    'establecimiento_aula_id' => (int) $aulaBloqueada->id,
                     'establecimiento_asignatura_id' => (int) $clase['establecimiento_asignatura_id'],
                     'dia_semana' => (int) $clase['dia_semana'],
                     'hora_inicio' => $clase['hora_inicio'],
@@ -174,15 +167,12 @@ class HorarioClaseService
     {
         DB::transaction(function () use ($aula, $horario, $clase): void {
             $aulaBloqueada = EstablecimientoAula::query()
-                ->whereKey($horario->establecimiento_aula_id)
-                ->where('establecimiento_id', $aula->establecimiento_id)
-                ->where('establecimiento_modalidad_jornada_id', $aula->establecimiento_modalidad_jornada_id)
-                ->where('establecimiento_periodo_id', $aula->establecimiento_periodo_id)
+                ->whereKey($aula->id)
                 ->lockForUpdate()
                 ->firstOrFail();
             $horarioBloqueado = HorarioClase::query()
                 ->whereKey($horario->id)
-                ->where('establecimiento_aula_id', $aulaBloqueada->id)
+                ->where('establecimiento_aula_id', $aula->id)
                 ->lockForUpdate()
                 ->firstOrFail();
 

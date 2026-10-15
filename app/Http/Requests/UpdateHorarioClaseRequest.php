@@ -25,6 +25,7 @@ class UpdateHorarioClaseRequest extends FormRequest
             && $horario instanceof HorarioClase
             && (int) $aula->establecimiento_id === (int) $user->establecimiento_id
             && $aulaHorario instanceof EstablecimientoAula
+            && (int) $horario->establecimiento_aula_id === (int) $aula->id
             && (int) $aulaHorario->establecimiento_id === (int) $aula->establecimiento_id
             && (int) $aulaHorario->establecimiento_modalidad_jornada_id === (int) $aula->establecimiento_modalidad_jornada_id
             && (int) $aulaHorario->establecimiento_periodo_id === (int) $aula->establecimiento_periodo_id;
@@ -82,6 +83,7 @@ class UpdateHorarioClaseRequest extends FormRequest
             && (int) $aula->establecimiento_id === (int) $user->establecimiento_id
             && (int) $aula->establecimiento_modalidad_jornada_id === (int) $oferta->id
             && (int) $aula->establecimiento_periodo_id === (int) $periodo->id
+            && (int) $horario->establecimiento_aula_id === (int) $aula->id
             && (int) $aulaHorario->establecimiento_id === (int) $aula->establecimiento_id
             && (int) $aulaHorario->establecimiento_modalidad_jornada_id === (int) $aula->establecimiento_modalidad_jornada_id
             && (int) $aulaHorario->establecimiento_periodo_id === (int) $aula->establecimiento_periodo_id,

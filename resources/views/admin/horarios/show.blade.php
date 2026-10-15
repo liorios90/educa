@@ -53,7 +53,6 @@
                     x-data="{
                         dias: @js($dias),
                         materias: @js($materias),
-                        aulasDisponibles: @js($aulasDisponibles),
                         aulaActualId: @js((int) $aula->id),
                         existentes: @js($horariosVisuales),
                         bloqueosDocentes: @js($bloqueosDocentes),
@@ -123,12 +122,6 @@
                                 + '; width: calc((100% - 0.5rem) / ' + cantidadCarriles + ')'
                                 + '; margin-left: calc(100% * ' + carril + ' / ' + cantidadCarriles + ')'
                                 + '; justify-self: start'
-                        },
-                        estiloAula(aulaId) {
-                            const indiceAula = this.aulasDisponibles.findIndex((aula) => Number(aula.id) === Number(aulaId))
-                            const tono = (Math.max(indiceAula, 0) * 137.508) % 360
-
-                            return 'background-color: hsl(' + tono + ', 80%, 92%); border-color: hsl(' + tono + ', 55%, 68%); color: hsl(' + tono + ', 55%, 25%)'
                         },
                         claseDisponible(dia, inicio, fin, aulaId = this.aulaActualId, excluirId = null) {
                             const seCruza = (clase) => Number(clase.dia) === Number(dia)
@@ -252,17 +245,8 @@
                         materia(id) {
                             return this.materias.find((item) => String(item.id) === String(id))
                         },
-                        materiasDelAula(aulaId) {
-                            return this.materias.filter((item) => item.aulas.some((aula) => Number(aula.id) === Number(aulaId)))
-                        },
-                        cambiarAulaEditor() {
-                            if (!this.materiasDelAula(this.editor.aulaId).some((item) => String(item.id) === String(this.editor.asignaturaId))) {
-                                this.editor.asignaturaId = ''
-                            }
-                            this.aulaActualId = Number(this.editor.aulaId)
-                        },
-                        nombreAula(id) {
-                            return this.aulasDisponibles.find((aula) => Number(aula.id) === Number(id))?.nombre || 'Aula'
+                        nombreAula() {
+                            return @js($aula->etiqueta())
                         },
                         descripcionClase(clase, asignatura, docente, aula) {
                             const dia = this.dias.find((item) => Number(item.numero) === Number(clase.dia))?.nombre || 'Día'
@@ -286,16 +270,8 @@
                     <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
                         <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                             <div>
-                                <h3 class="text-lg font-semibold text-slate-900">Horario semanal de los docentes</h3>
-                                <p class="mt-1 text-sm text-slate-500">Se muestran las clases de todas las aulas. Al agregar una clase, elige el aula en el formulario.</p>
-                                <div class="mt-3 flex flex-wrap gap-2" aria-label="Leyenda de aulas">
-                                    <template x-for="(aulaDisponible, indiceAula) in aulasDisponibles" :key="'leyenda-aula-' + aulaDisponible.id">
-                                        <span class="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium" :style="estiloAula(aulaDisponible.id)">
-                                            <span class="font-bold" x-text="String(indiceAula + 1).padStart(2, '0')"></span>
-                                            <span x-text="aulaDisponible.nombre"></span>
-                                        </span>
-                                    </template>
-                                </div>
+                                <h3 class="text-lg font-semibold text-slate-900">Horario semanal del aula</h3>
+                                <p class="mt-1 text-sm text-slate-500">Se muestran únicamente las clases, docentes y asignaturas asignados a esta aula. Haz clic en un espacio libre para agregar una clase.</p>
                             </div>
                             <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                                 <label class="text-xs font-semibold text-slate-600">
@@ -341,9 +317,9 @@
 
                                     <template x-for="clase in existentes" :key="'existente-' + clase.id">
                                         <div
-                                            class="z-20 m-0.5 flex min-h-0 flex-col overflow-hidden rounded-md border px-1.5 py-1 shadow-sm cursor-grab active:cursor-grabbing"
+                                            class="z-20 m-0.5 flex min-h-0 flex-col overflow-hidden rounded-md border border-indigo-200 bg-indigo-100 px-1.5 py-1 text-indigo-950 shadow-sm cursor-grab active:cursor-grabbing"
                                             :class="moviendoId ? 'pointer-events-none' : ''"
-                                            :style="estiloClase(clase) + '; ' + estiloAula(clase.aulaId)"
+                                            :style="estiloClase(clase)"
                                             x-show="!fueraDeRango(clase)"
                                             x-on:mousedown="iniciarMovimiento(clase, $event)"
                                             :title="descripcionClase(clase, clase.asignatura, clase.docente, clase.aula)"
@@ -360,15 +336,15 @@
 
                                     <template x-for="clase in pendientes" :key="'pendiente-' + clase.id">
                                         <div
-                                            class="z-20 m-0.5 flex min-h-0 flex-col overflow-hidden rounded-md border border-dashed px-1.5 py-1 opacity-90 shadow-sm"
-                                            :style="estiloClase(clase) + '; ' + estiloAula(clase.aulaId)"
+                                            class="z-20 m-0.5 flex min-h-0 flex-col overflow-hidden rounded-md border border-dashed border-emerald-300 bg-emerald-100 px-1.5 py-1 text-emerald-950 opacity-90 shadow-sm"
+                                            :style="estiloClase(clase)"
                                             x-show="!fueraDeRango(clase)"
                                             :title="descripcionClase(clase, materia(clase.asignaturaId)?.nombre, materia(clase.asignaturaId)?.docente, nombreAula(clase.aulaId))"
                                         >
                                             <span class="truncate text-[11px] font-bold" x-text="materia(clase.asignaturaId)?.nombre || 'Asignatura'"></span>
                                             <span class="truncate text-[10px]" x-text="clase.inicio + '–' + clase.fin"></span>
                                             <span class="truncate text-[10px]" x-text="'Docente: ' + (materia(clase.asignaturaId)?.docente || '')"></span>
-                                            <span class="break-words text-[10px] leading-tight" x-text="'Aula: ' + nombreAula(clase.aulaId)"></span>
+                                            <span class="break-words text-[10px] leading-tight" x-text="'Aula: ' + nombreAula()"></span>
                                         </div>
                                     </template>
                                 </div>
@@ -385,11 +361,10 @@
                                 <div class="flex flex-col gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 sm:flex-row sm:items-center sm:justify-between">
                                     <div>
                                         <p class="text-sm font-semibold text-emerald-950" x-text="materia(clase.asignaturaId)?.nombre + ' · ' + dias.find((dia) => dia.numero === Number(clase.dia))?.nombre"></p>
-                                        <p class="text-xs text-emerald-800" x-text="clase.inicio + '–' + clase.fin + ' · ' + (materia(clase.asignaturaId)?.docente || '') + ' · Aula ' + nombreAula(clase.aulaId)"></p>
+                                        <p class="text-xs text-emerald-800" x-text="clase.inicio + '–' + clase.fin + ' · ' + (materia(clase.asignaturaId)?.docente || '') + ' · Aula ' + nombreAula()"></p>
                                     </div>
                                     <div class="flex items-center gap-3">
                                         <input type="hidden" :name="'clases[' + indice + '][establecimiento_asignatura_id]'" :value="clase.asignaturaId">
-                                        <input type="hidden" :name="'clases[' + indice + '][establecimiento_aula_id]'" :value="clase.aulaId">
                                         <input type="hidden" :name="'clases[' + indice + '][dia_semana]'" :value="clase.dia">
                                         <input type="hidden" :name="'clases[' + indice + '][hora_inicio]'" :value="clase.inicio">
                                         <input type="hidden" :name="'clases[' + indice + '][hora_fin]'" :value="clase.fin">
@@ -410,27 +385,19 @@
                             <div class="mb-5 flex items-start justify-between gap-4">
                                 <div>
                                     <h3 id="editor-horario-titulo" class="text-lg font-semibold text-slate-900">Agregar clase</h3>
-                                    <p class="mt-1 text-sm text-slate-500">Selecciona una asignatura y define el horario de esta clase.</p>
+                                    <p class="mt-1 text-sm text-slate-500">Aula: {{ $aula->etiqueta() }}. Selecciona una asignatura y define el horario.</p>
                                 </div>
                                 <button type="button" class="rounded-lg px-2 py-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700" aria-label="Cerrar" x-on:click="editor.abierto = false">✕</button>
                             </div>
 
                             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                                 <label class="block text-sm font-medium text-slate-700 sm:col-span-2">
-                                    Aula
-                                    <select x-model.number="editor.aulaId" x-on:change="cambiarAulaEditor()" class="mt-1 block w-full rounded-lg border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                                        @foreach ($aulasDisponibles as $aulaDisponible)
-                                            <option value="{{ $aulaDisponible['id'] }}">{{ $aulaDisponible['nombre'] }}</option>
-                                        @endforeach
-                                    </select>
-                                </label>
-                                <label class="block text-sm font-medium text-slate-700 sm:col-span-2">
                                     Asignatura y docente
                                     <select x-model="editor.asignaturaId" class="mt-1 block w-full rounded-lg border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                                        <option value="">Selecciona una asignatura para el aula elegida</option>
-                                        <template x-for="materiaAula in materiasDelAula(editor.aulaId)" :key="'materia-aula-' + materiaAula.id">
-                                            <option :value="materiaAula.id" x-text="materiaAula.nombre + ' · ' + materiaAula.docente"></option>
-                                        </template>
+                                        <option value="">Selecciona una asignatura</option>
+                                        @foreach ($materias as $materia)
+                                            <option value="{{ $materia['id'] }}">{{ $materia['nombre'] }} · {{ $materia['docente'] }}</option>
+                                        @endforeach
                                     </select>
                                 </label>
                                 <label class="block text-sm font-medium text-slate-700">
@@ -452,7 +419,7 @@
                             </div>
 
                             <p x-cloak x-show="editor.inicio && editor.fin && minutos(editor.fin) <= minutos(editor.inicio)" class="mt-3 text-sm font-medium text-red-700">La hora de fin debe ser posterior a la hora de inicio.</p>
-                            <p x-cloak x-show="editor.inicio && editor.fin && minutos(editor.fin) > minutos(editor.inicio) && !claseDisponible(editor.dia, editor.inicio, editor.fin, editor.aulaId, editor.editandoId)" class="mt-3 text-sm font-medium text-red-700">Ese horario se cruza con otra clase del aula seleccionada.</p>
+                            <p x-cloak x-show="editor.inicio && editor.fin && minutos(editor.fin) > minutos(editor.inicio) && !claseDisponible(editor.dia, editor.inicio, editor.fin, editor.aulaId, editor.editandoId)" class="mt-3 text-sm font-medium text-red-700">Ese horario se cruza con otra clase de esta aula.</p>
                             <p x-cloak x-show="editor.asignaturaId && editor.inicio && editor.fin && docenteOcupado(editor.asignaturaId, editor.dia, editor.inicio, editor.fin)" class="mt-3 text-sm font-medium text-red-700">El docente asignado ya tiene una clase en ese horario.</p>
 
                             <div class="mt-6 flex justify-end gap-3">

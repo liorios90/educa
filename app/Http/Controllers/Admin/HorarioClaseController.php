@@ -29,47 +29,20 @@ class HorarioClaseController extends Controller
         $this->authorizeAula($request, $aula);
         $aula->load('establecimientoGrado.grado');
 
-        $asignacionesActuales = EstablecimientoAulaDocente::query()
-            ->with('empleado.persona')
-            ->where('establecimiento_aula_id', $aula->id)
-            ->get();
-        $docenteIds = $asignacionesActuales->pluck('empleado_id')->unique()->values();
-
-        $aulasDeDocentes = EstablecimientoAula::query()
-            ->with('establecimientoGrado.grado')
-            ->where('establecimiento_id', $aula->establecimiento_id)
-            ->where('establecimiento_modalidad_jornada_id', $aula->establecimiento_modalidad_jornada_id)
-            ->where('establecimiento_periodo_id', $aula->establecimiento_periodo_id)
-            ->whereHas('asignaciones', fn ($query) => $query->whereIn('empleado_id', $docenteIds))
-            ->get();
-        $aulasDeDocentesPorId = $aulasDeDocentes->keyBy('id');
-
         $asignaciones = EstablecimientoAulaDocente::query()
             ->with(['empleado.persona', 'malla.asignatura'])
-            ->whereIn('establecimiento_aula_id', $aulasDeDocentes->modelKeys())
-            ->whereIn('empleado_id', $docenteIds)
+            ->where('establecimiento_aula_id', $aula->id)
             ->get();
 
         $materias = $asignaciones
             ->filter(fn (EstablecimientoAulaDocente $asignacion): bool => $asignacion->malla?->asignatura !== null)
-            ->groupBy(fn (EstablecimientoAulaDocente $asignacion): string => $asignacion->establecimiento_asignatura_id.':'.$asignacion->empleado_id)
-            ->map(function ($asignacionesMateria) use ($aulasDeDocentesPorId): array {
-                /** @var EstablecimientoAulaDocente $asignacion */
-                $asignacion = $asignacionesMateria->first();
-
+            ->map(function (EstablecimientoAulaDocente $asignacion) use ($aula): array {
                 return [
                     'id' => (int) $asignacion->establecimiento_asignatura_id,
                     'nombre' => $asignacion->malla->asignatura->nombre,
                     'docente' => trim(($asignacion->empleado?->persona?->apellidos ?? '').' '.($asignacion->empleado?->persona?->nombres ?? '')),
                     'docenteId' => (int) $asignacion->empleado_id,
-                    'aulas' => $asignacionesMateria
-                        ->map(fn (EstablecimientoAulaDocente $item): ?array => ($aulaAsignada = $aulasDeDocentesPorId->get($item->establecimiento_aula_id)) === null
-                            ? null
-                            : ['id' => (int) $aulaAsignada->id, 'nombre' => $aulaAsignada->etiqueta()])
-                        ->filter()
-                        ->unique('id')
-                        ->values()
-                        ->all(),
+                    'aulaId' => (int) $aula->id,
                 ];
             })
             ->sortBy('nombre')
@@ -77,7 +50,7 @@ class HorarioClaseController extends Controller
 
         $horarios = HorarioClase::query()
             ->with('malla.asignatura')
-            ->whereIn('establecimiento_aula_id', $aulasDeDocentes->modelKeys())
+            ->where('establecimiento_aula_id', $aula->id)
             ->orderBy('hora_inicio')
             ->get();
         $horaInicioMinutos = 7 * 60;
@@ -93,9 +66,7 @@ class HorarioClaseController extends Controller
 
         $horaFinMinutos = min($horaFinMinutos, 23 * 60 + 45);
 
-        $docentesPorAulaMalla = $asignaciones->keyBy(fn (EstablecimientoAulaDocente $asignacion): string =>
-            $asignacion->establecimiento_aula_id.':'.$asignacion->establecimiento_asignatura_id
-        );
+        $docentesPorAulaMalla = $asignaciones->keyBy('establecimiento_asignatura_id');
 
         $bloqueosDocentes = DB::table('horario_clases as horario')
             ->join('establecimiento_aulas as aula', 'aula.id', '=', 'horario.establecimiento_aula_id')
@@ -104,8 +75,8 @@ class HorarioClaseController extends Controller
                     ->on('asignacion.establecimiento_asignatura_id', '=', 'horario.establecimiento_asignatura_id');
             })
             ->where('aula.establecimiento_periodo_id', $aula->establecimiento_periodo_id)
-            ->whereNotIn('horario.establecimiento_aula_id', $aulasDeDocentes->modelKeys())
-            ->whereIn('asignacion.empleado_id', $docenteIds)
+            ->where('horario.establecimiento_aula_id', '<>', $aula->id)
+            ->whereIn('asignacion.empleado_id', $materias->pluck('docenteId')->unique())
             ->get([
                 'asignacion.empleado_id as docente_id',
                 'horario.dia_semana as dia',
@@ -126,7 +97,7 @@ class HorarioClaseController extends Controller
                 $join->on('asignacion.establecimiento_aula_id', '=', 'horario.establecimiento_aula_id')
                     ->on('asignacion.establecimiento_asignatura_id', '=', 'horario.establecimiento_asignatura_id');
             })
-            ->whereIn('horario.establecimiento_aula_id', $aulasDeDocentes->modelKeys())
+            ->where('horario.establecimiento_aula_id', $aula->id)
             ->get([
                 'horario.id',
                 'horario.establecimiento_aula_id as aula_id',
@@ -155,18 +126,14 @@ class HorarioClaseController extends Controller
             'fin' => substr($horario->hora_fin, 0, 5),
             'asignaturaId' => (int) $horario->establecimiento_asignatura_id,
             'asignatura' => $horario->malla?->asignatura?->nombre ?? 'Asignatura',
-            'docenteId' => (int) $docentesPorAulaMalla->get($horario->establecimiento_aula_id.':'.$horario->establecimiento_asignatura_id)?->empleado_id,
-            'docente' => trim(($docentesPorAulaMalla->get($horario->establecimiento_aula_id.':'.$horario->establecimiento_asignatura_id)?->empleado?->persona?->apellidos ?? '').' '.($docentesPorAulaMalla->get($horario->establecimiento_aula_id.':'.$horario->establecimiento_asignatura_id)?->empleado?->persona?->nombres ?? '')),
-            'aula' => $aulasDeDocentesPorId->get($horario->establecimiento_aula_id)?->etiqueta() ?? 'Aula',
+            'docenteId' => (int) $docentesPorAulaMalla->get($horario->establecimiento_asignatura_id)?->empleado_id,
+            'docente' => trim(($docentesPorAulaMalla->get($horario->establecimiento_asignatura_id)?->empleado?->persona?->apellidos ?? '').' '.($docentesPorAulaMalla->get($horario->establecimiento_asignatura_id)?->empleado?->persona?->nombres ?? '')),
+            'aula' => $aula->etiqueta(),
         ])->values();
 
         return view('admin.horarios.show', [
             'aula' => $aula,
             'materias' => $materias,
-            'aulasDisponibles' => $aulasDeDocentes->map(fn (EstablecimientoAula $aulaDisponible): array => [
-                'id' => (int) $aulaDisponible->id,
-                'nombre' => $aulaDisponible->etiqueta(),
-            ])->values(),
             'horariosVisuales' => $horariosVisuales,
             'bloqueosDocentes' => $bloqueosDocentes,
             'bloqueosAulas' => $bloqueosAulas,
@@ -188,10 +155,9 @@ class HorarioClaseController extends Controller
     {
         $clases = $request->validated()['clases'];
         $cantidad = $service->store($aula, $clases);
-        $aulaDestino = EstablecimientoAula::query()->findOrFail($clases[0]['establecimiento_aula_id']);
 
         return redirect()
-            ->route('Admin.aulas.horario', $aulaDestino)
+            ->route('Admin.aulas.horario', $aula)
             ->with('status', 'horario-created')
             ->with('clases_creadas', $cantidad);
     }
@@ -258,6 +224,7 @@ class HorarioClaseController extends Controller
 
         abort_unless(
             $aulaHorario !== null
+            && (int) $aulaHorario->id === (int) $aula->id
             && (int) $aulaHorario->establecimiento_id === (int) $aula->establecimiento_id
             && (int) $aulaHorario->establecimiento_modalidad_jornada_id === (int) $aula->establecimiento_modalidad_jornada_id
             && (int) $aulaHorario->establecimiento_periodo_id === (int) $aula->establecimiento_periodo_id,

@@ -3,7 +3,9 @@
     use App\Enums\TipoAsignatura;
     use App\Enums\TipoCalificacion;
 
-    $activeSubnivelId = $subniveles->first()?->id;
+    $niveles = $subniveles->pluck('nivel')->filter()->unique('id')->values();
+    $activeNivelId = $niveles->first()?->id;
+    $activeSubnivelId = $subniveles->first(fn ($subnivel) => (int) $subnivel->nivel_id === (int) $activeNivelId)?->id;
     $tiposCalificacion = TipoCalificacion::cases();
     $tiposAsignatura = TipoAsignatura::cases();
     $modosLibretaArea = ModoLibretaArea::cases();
@@ -24,9 +26,9 @@
     <div
         class="py-8"
         x-data="{
+            activeNivelId: @js($activeNivelId),
             activeSubnivelId: @js($activeSubnivelId),
             pantallaAsignaturasArea: null,
-            modalAsignatura: null,
             configuracionArea: null,
             asignaturas: @js($selectedGradosPorAsignatura),
             nuevas: {},
@@ -78,6 +80,10 @@
             tieneMultiplesPorGrado(asignaturaIds, areaId, gradoIds) {
                 return gradoIds.some((gradoId) => this.countSelectedInArea(this.idsArea(asignaturaIds, areaId), gradoId) > 1)
             },
+            seleccionarNivel(nivelId, subnivelId) {
+                this.activeNivelId = nivelId
+                this.activeSubnivelId = subnivelId
+            },
         }"
     >
         <div class="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
@@ -85,16 +91,10 @@
                 <p class="mb-4 text-sm font-medium text-green-700">Malla de la jornada guardada correctamente.</p>
             @endif
 
-            <p class="mb-4">
-                <a href="{{ route('Admin.asignaturas') }}" class="text-sm font-medium text-indigo-600 hover:text-indigo-500">
-                    Volver a modalidades y jornadas
-                </a>
-            </p>
-
             <section class="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                <h3 class="text-base font-semibold text-slate-800">Áreas por subnivel</h3>
+                <h3 class="text-base font-semibold text-slate-800">Áreas por nivel y subnivel</h3>
                 <p class="mt-2 text-sm leading-6 text-slate-600">
-                    Selecciona un subnivel para administrar sus áreas, asignaturas y presentación en la libreta.
+                    Selecciona un nivel y luego un subnivel para administrar sus áreas, asignaturas y presentación en la libreta.
                 </p>
             </section>
 
@@ -113,12 +113,32 @@
                         </a>
                     </p>
                 @else
+                    <div x-show="pantallaAsignaturasArea === null" class="mb-3">
+                        <label for="nivel-select" class="mb-1 block text-sm font-medium text-slate-700">Nivel</label>
+                        <select
+                            id="nivel-select"
+                            class="w-full max-w-md rounded-lg border-slate-300 text-sm text-slate-700 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                            x-model.number="activeNivelId"
+                            @change="seleccionarNivel(Number($event.target.value), Number($event.target.selectedOptions[0].dataset.subnivelId))"
+                        >
+                            @foreach ($niveles as $nivel)
+                                @php
+                                    $primerSubnivelDelNivel = $subniveles->first(fn ($subnivel) => (int) $subnivel->nivel_id === (int) $nivel->id);
+                                @endphp
+                                <option value="{{ $nivel->id }}" data-subnivel-id="{{ $primerSubnivelDelNivel?->id }}">
+                                    {{ $nivel->nombre }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+
                     <div x-show="pantallaAsignaturasArea === null" class="mb-4 flex flex-wrap gap-2">
                         @foreach ($subniveles as $subnivel)
                             <button
                                 type="button"
                                 class="rounded-lg px-3 py-2 text-sm font-medium"
                                 :class="activeSubnivelId === {{ $subnivel->id }} ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 border border-slate-200'"
+                                x-show="activeNivelId === {{ $subnivel->nivel_id }}"
                                 @click="activeSubnivelId = {{ $subnivel->id }}"
                             >
                                 {{ $subnivel->nombre }}
@@ -135,10 +155,6 @@
                         @endphp
 
                         <div x-show="activeSubnivelId === {{ $subnivel->id }}" class="space-y-4">
-                            <h3 x-show="pantallaAsignaturasArea === null" class="text-center text-lg font-semibold" style="color: #0f172a">
-                                Subnivel: {{ $subnivel->nombre }}
-                            </h3>
-
                             @forelse ($subnivel->areas as $area)
                                 @php
                                     $propiasDelArea = $propiasPorArea[(string) $area->id] ?? [];
@@ -213,187 +229,73 @@
                                       </div>
                                     </div>
 
-                                    <div x-show="pantallaAsignaturasArea === '{{ $area->id }}'" x-cloak class="mt-2 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                                        <div class="mb-4 flex items-center justify-between gap-4">
-                                            <div><h5 class="text-lg font-semibold text-slate-900">Asignaturas · {{ $area->nombre }}</h5><p class="mt-1 text-sm text-slate-500">Selecciona las asignaturas y define en qué grados se imparten.</p></div>
-                                            <button type="button" class="rounded-lg px-3 py-2 text-sm font-medium text-indigo-600 hover:bg-slate-100" @click="pantallaAsignaturasArea = null">Volver a áreas</button>
+                                    <div x-show="pantallaAsignaturasArea === '{{ $area->id }}'" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" @keydown.escape.window="pantallaAsignaturasArea = null">
+                                      <div class="max-h-[92vh] w-full max-w-6xl overflow-y-auto rounded-2xl bg-white p-5 shadow-xl sm:p-6" @click.outside="pantallaAsignaturasArea = null">
+                                        <div class="mb-5 flex items-center justify-between gap-4">
+                                            <div><h5 class="text-lg font-semibold text-slate-900">Asignaturas · {{ $area->nombre }}</h5><p class="mt-1 text-sm text-slate-500">Selecciona las asignaturas, grados y opciones para la libreta.</p></div>
+                                            <button type="button" class="rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-100" @click="pantallaAsignaturasArea = null">Cerrar</button>
                                         </div>
-                                        <div class="space-y-4">
-                                        @forelse ($area->asignaturas as $asignatura)
-                                            @php
-                                                $asignaturaKey = (string) $asignatura->id;
-                                                $gradosObligatoriosIds = $asignatura->gradosCurriculares
-                                                    ->filter(fn ($gradoCurricular): bool => (bool) $gradoCurricular->pivot->obligatoria)
-                                                    ->pluck('id')
-                                                    ->map(strval(...))
-                                                    ->all();
-                                            @endphp
-                                            <div class="rounded-xl border border-slate-100 p-4">
-                                                <label class="flex items-center gap-3 text-sm font-medium text-slate-800">
-                                                    <input
-                                                        type="checkbox"
-                                                        class="rounded border-slate-300"
-                                                        :checked="hasAsignatura('{{ $asignaturaKey }}')"
-                                                        @disabled($gradosObligatoriosIds !== [])
-                                                        @change="toggleAsignatura('{{ $asignaturaKey }}', @js($gradoIds))"
-                                                    >
-                                                    <span>{{ $etiquetaAsignatura }}: {{ $asignatura->nombre }}</span>
-                                                    <span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-normal text-slate-600">
-                                                        Catálogo nacional
-                                                    </span>
-                                                </label>
-
-                                                <button type="button" class="mt-3 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" @click="modalAsignatura = '{{ $asignaturaKey }}'">Grados y opciones</button>
-
-                                                <div x-show="modalAsignatura === '{{ $asignaturaKey }}'" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" @keydown.escape.window="modalAsignatura = null">
-                                                  <div class="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-5 shadow-xl sm:p-6" @click.outside="modalAsignatura = null">
-                                                <div class="mb-4 flex items-center justify-between gap-4"><div><h5 class="text-lg font-semibold text-slate-900">Grados · {{ $asignatura->nombre }}</h5><p class="mt-1 text-sm text-slate-500">Marca los grados donde se imparte esta asignatura.</p></div><button type="button" class="rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-100" @click="modalAsignatura = null">Cerrar</button></div>
-                                                <div class="space-y-3" x-show="hasAsignatura('{{ $asignaturaKey }}')">
-                                                    <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Grados</p>
-
+                                        <div class="overflow-x-auto rounded-xl border border-slate-200">
+                                            <table class="min-w-full divide-y divide-slate-200 text-sm">
+                                                <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                                    <tr><th class="px-4 py-3">{{ $etiquetaAsignatura }}</th><th class="px-4 py-3">Grado</th><th class="px-4 py-3">Seleccionar</th><th class="px-4 py-3">En libreta</th><th class="px-4 py-3">Calificación</th><th class="px-4 py-3">Con Equivalencia</th></tr>
+                                                </thead>
+                                                <tbody class="divide-y divide-slate-100">
+                                                @forelse ($area->asignaturas as $asignatura)
+                                                    @php
+                                                        $asignaturaKey = (string) $asignatura->id;
+                                                        $gradosObligatoriosIds = $asignatura->gradosCurriculares
+                                                            ->filter(fn ($gradoCurricular): bool => (bool) $gradoCurricular->pivot->obligatoria)
+                                                            ->pluck('id')
+                                                            ->map(strval(...))
+                                                            ->all();
+                                                    @endphp
                                                     @foreach ($gradosDelSubnivel as $grado)
                                                         @php
                                                             $gradoKey = (string) $grado->id;
                                                             $esObligatoria = in_array($gradoKey, $gradosObligatoriosIds, true);
                                                             $config = $configPorAsignatura[$asignaturaKey][$gradoKey] ?? [];
-                                                            $libreta = array_key_exists('libreta', $config)
-                                                                ? (bool) $config['libreta']
-                                                                : (bool) $asignatura->aparece_en_libreta;
-                                                            $tipo = ($config['tipo'] ?? '') !== ''
-                                                                ? $config['tipo']
-                                                                : ($subnivel->tipo_calificacion?->value ?? TipoCalificacion::Cuantitativa->value);
-                                                            $destrezas = array_key_exists('destrezas', $config)
-                                                                ? (bool) $config['destrezas']
-                                                                : ($tipo === TipoCalificacion::Cualitativa->value && (bool) $subnivel->califica_por_destrezas);
+                                                            $libreta = array_key_exists('libreta', $config) ? (bool) $config['libreta'] : (bool) $asignatura->aparece_en_libreta;
+                                                            $tipo = ($config['tipo'] ?? '') !== '' ? $config['tipo'] : ($subnivel->tipo_calificacion?->value ?? TipoCalificacion::Cuantitativa->value);
+                                                            $destrezas = array_key_exists('destrezas', $config) ? (bool) $config['destrezas'] : ($tipo === TipoCalificacion::Cualitativa->value && (bool) $subnivel->califica_por_destrezas);
                                                             $equivalencias = (bool) ($config['equivalencias'] ?? false);
                                                             $porcentaje = $config['porcentaje'] ?? '';
                                                         @endphp
-                                                        <div class="rounded-lg bg-slate-50 p-3">
-                                                            <label class="flex items-center gap-2 text-sm text-slate-800">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    class="rounded border-slate-300"
-                                                                    name="asignaturas[{{ $asignatura->id }}][grados][]"
-                                                                    value="{{ $grado->id }}"
-                                                                    @checked($esObligatoria)
-                                                                    @disabled($esObligatoria)
-                                                                    x-model="asignaturas['{{ $asignaturaKey }}']"
-                                                                >
-                                                                {{ $grado->pivot->nombre ?? $grado->nombre }}
-                                                                <span class="ml-2 rounded-full px-2 py-0.5 text-xs {{ $esObligatoria ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-100 text-slate-600' }}">
-                                                                    {{ $esObligatoria ? 'Obligatoria · tronco común' : 'Optativa o adicional' }}
-                                                                </span>
-                                                            </label>
-                                                            @if ($esObligatoria)
-                                                                <input type="hidden" name="asignaturas[{{ $asignatura->id }}][grados][]" value="{{ $grado->id }}">
-                                                            @endif
-
-                                                            <div
-                                                                class="mt-3 grid items-start gap-3 sm:grid-cols-2"
-                                                                x-data="{ escala: @js($tipo) }"
-                                                                x-show="(asignaturas['{{ $asignaturaKey }}'] || []).map(String).includes('{{ $gradoKey }}')"
-                                                            >
-                                                                <div>
-                                                                    <label class="block text-xs text-slate-500" for="tipo-{{ $asignatura->id }}-{{ $grado->id }}">
-                                                                        Escala de calificación
-                                                                    </label>
-                                                                    <select
-                                                                        id="tipo-{{ $asignatura->id }}-{{ $grado->id }}"
-                                                                        name="asignaturas[{{ $asignatura->id }}][tipo_calificacion][{{ $grado->id }}]"
-                                                                        class="mt-1 block w-full rounded-md border-slate-300 text-sm"
-                                                                        x-model="escala"
-                                                                    >
-                                                                        @foreach ($tiposCalificacion as $tipoCalificacion)
-                                                                            <option
-                                                                                value="{{ $tipoCalificacion->value }}"
-                                                                                @selected($tipo === $tipoCalificacion->value)
-                                                                            >
-                                                                                {{ $tipoCalificacion->label() }}
-                                                                            </option>
-                                                                        @endforeach
-                                                                    </select>
-                                                                    <x-input-error class="mt-1" :messages="$errors->get('asignaturas.'.$asignatura->id.'.tipo_calificacion.'.$grado->id)" />
-                                                                    <label
-                                                                        class="mt-2 flex items-center gap-2 text-sm text-slate-700"
-                                                                        x-show="escala === 'cualitativa'"
-                                                                        x-cloak
-                                                                    >
-                                                                        <input
-                                                                            type="checkbox"
-                                                                            class="rounded border-slate-300"
-                                                                            name="asignaturas[{{ $asignatura->id }}][califica_por_destrezas][{{ $grado->id }}]"
-                                                                            value="1"
-                                                                            @checked($destrezas)
-                                                                            :disabled="escala !== 'cualitativa'"
-                                                                        >
-                                                                        Califica por destrezas
-                                                                    </label>
-                                                                    <label
-                                                                        class="mt-2 flex items-start gap-2 text-sm text-slate-700"
-                                                                        x-show="escala === 'cuantitativa'"
-                                                                        x-cloak
-                                                                    >
-                                                                        <input
-                                                                            type="checkbox"
-                                                                            class="mt-0.5 rounded border-slate-300"
-                                                                            name="asignaturas[{{ $asignatura->id }}][usa_tabla_equivalencias][{{ $grado->id }}]"
-                                                                            value="1"
-                                                                            @checked($equivalencias)
-                                                                            :disabled="escala !== 'cuantitativa'"
-                                                                        >
-                                                                        <span>
-                                                                            Tabla de equivalencias
-                                                                            <span class="block text-xs text-slate-500">Para presentar letras al ministerio.</span>
-                                                                        </span>
-                                                                    </label>
-                                                                    <div
-                                                                        class="mt-3"
-                                                                        x-show="escala === 'cuantitativa' && usaPorcentaje('{{ $area->id }}', '{{ $grado->id }}', @js($asignaturaIdsDelArea))"
-                                                                        x-cloak
-                                                                    >
-                                                                        <label class="block text-xs text-slate-500" for="porcentaje-{{ $asignatura->id }}-{{ $grado->id }}">
-                                                                            Porcentaje (opcional; vacío usa promedio simple)
-                                                                        </label>
-                                                                        <input
-                                                                            id="porcentaje-{{ $asignatura->id }}-{{ $grado->id }}"
-                                                                            type="number"
-                                                                            min="0"
-                                                                            max="100"
-                                                                            step="0.01"
-                                                                            name="asignaturas[{{ $asignatura->id }}][porcentaje][{{ $grado->id }}]"
-                                                                            value="{{ $porcentaje }}"
-                                                                            class="mt-1 block w-full rounded-md border-slate-300 text-sm"
-                                                                            :disabled="escala !== 'cuantitativa' || !usaPorcentaje('{{ $area->id }}', '{{ $grado->id }}', @js($asignaturaIdsDelArea))"
-                                                                        >
-                                                                        <x-input-error class="mt-1" :messages="$errors->get('asignaturas.'.$asignatura->id.'.porcentaje.'.$grado->id)" />
-                                                                    </div>
-                                                                </div>
-                                                                <div class="flex items-center pt-5">
-                                                                    <input type="hidden" name="asignaturas[{{ $asignatura->id }}][libreta][{{ $grado->id }}]" value="0">
-                                                                    <label class="flex items-center gap-2 text-sm text-slate-700">
-                                                                        <input
-                                                                            type="checkbox"
-                                                                            class="rounded border-slate-300"
-                                                                            name="asignaturas[{{ $asignatura->id }}][libreta][{{ $grado->id }}]"
-                                                                            value="1"
-                                                                            @checked($libreta)
-                                                                        >
-                                                                        Aparece en libreta
-                                                                    </label>
-                                                                </div>
-                                                            </div>
-                                                        </div>
+                                                        <tr x-data="{ escala: @js($tipo) }" class="align-top">
+                                                            <td class="px-4 py-3 font-medium text-slate-800">{{ $asignatura->nombre }} <span class="block text-xs font-normal text-slate-500">Catálogo de Sistemas</span></td>
+                                                            <td class="px-4 py-3 text-slate-700">{{ $grado->pivot->nombre ?? $grado->nombre }} @if ($esObligatoria)<span class="block text-xs text-indigo-700">Tronco común</span>@endif</td>
+                                                            <td class="px-4 py-3">
+                                                                <input type="checkbox" class="rounded border-slate-300" name="asignaturas[{{ $asignatura->id }}][grados][]" value="{{ $grado->id }}" @checked($esObligatoria) @disabled($esObligatoria) x-model="asignaturas['{{ $asignaturaKey }}']" aria-label="Seleccionar {{ $asignatura->nombre }} para {{ $grado->nombre }}">
+                                                                @if ($esObligatoria)<input type="hidden" name="asignaturas[{{ $asignatura->id }}][grados][]" value="{{ $grado->id }}">@endif
+                                                            </td>
+                                                            <td class="px-4 py-3">
+                                                                <input type="hidden" name="asignaturas[{{ $asignatura->id }}][libreta][{{ $grado->id }}]" value="0">
+                                                                <input type="checkbox" class="rounded border-slate-300" name="asignaturas[{{ $asignatura->id }}][libreta][{{ $grado->id }}]" value="1" @checked($libreta) aria-label="Mostrar {{ $asignatura->nombre }} en libreta">
+                                                            </td>
+                                                            <td class="min-w-48 px-4 py-3">
+                                                                <select name="asignaturas[{{ $asignatura->id }}][tipo_calificacion][{{ $grado->id }}]" class="block w-full rounded-md border-slate-300 text-sm" x-model="escala" aria-label="Tipo de calificación de {{ $asignatura->nombre }}">
+                                                                    @foreach ($tiposCalificacion as $tipoCalificacion)<option value="{{ $tipoCalificacion->value }}" @selected($tipo === $tipoCalificacion->value)>{{ $tipoCalificacion->label() }}</option>@endforeach
+                                                                </select>
+                                                                <label class="mt-2 flex items-center gap-2 text-xs text-slate-600" x-show="escala === 'cualitativa'" x-cloak>
+                                                                    <input type="checkbox" class="rounded border-slate-300" name="asignaturas[{{ $asignatura->id }}][califica_por_destrezas][{{ $grado->id }}]" value="1" @checked($destrezas) :disabled="escala !== 'cualitativa'"> Califica por destrezas
+                                                                </label>
+                                                                <input type="number" min="0" max="100" step="0.01" name="asignaturas[{{ $asignatura->id }}][porcentaje][{{ $grado->id }}]" value="{{ $porcentaje }}" placeholder="Porcentaje opcional" class="mt-2 block w-full rounded-md border-slate-300 text-xs" x-show="escala === 'cuantitativa' && usaPorcentaje('{{ $area->id }}', '{{ $grado->id }}', @js($asignaturaIdsDelArea))" :disabled="escala !== 'cuantitativa' || !usaPorcentaje('{{ $area->id }}', '{{ $grado->id }}', @js($asignaturaIdsDelArea))" x-cloak>
+                                                            </td>
+                                                            <td class="px-4 py-3">
+                                                                <input type="checkbox" class="rounded border-slate-300" name="asignaturas[{{ $asignatura->id }}][usa_tabla_equivalencias][{{ $grado->id }}]" value="1" @checked($equivalencias) :disabled="escala !== 'cuantitativa'" x-show="escala === 'cuantitativa'" x-cloak aria-label="{{ $asignatura->nombre }} con equivalencia para {{ $grado->pivot->nombre ?? $grado->nombre }}">
+                                                            </td>
+                                                        </tr>
                                                     @endforeach
-                                                </div>
-                                                  </div>
-                                                </div>
-                                            </div>
-                                        @empty
-                                            <p class="text-sm text-slate-500">
-                                                Sistemas aún no ha definido {{ $esInicial ? 'ámbitos' : 'asignaturas' }} en esta área.
-                                            </p>
-                                        @endforelse
+                                                @empty
+                                                    <tr><td colspan="6" class="px-4 py-6 text-center text-slate-500">Sistemas aún no ha definido asignaturas en esta área.</td></tr>
+                                                @endforelse
+                                                </tbody>
+                                            </table>
+                                        </div>
 
+                                        @if ($propiasDelArea !== [])
+                                            <div class="mt-5 space-y-4">
+                                                <h6 class="text-sm font-semibold text-slate-800">Asignaturas creadas por el establecimiento</h6>
                                         @foreach ($propiasDelArea as $propia)
                                             <div class="rounded-xl border border-slate-200 p-4" x-init="asignaturas['{{ $propia['alpine'] }}'] = asignaturas['{{ $propia['alpine'] }}'] || []">
                                                 <div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_12rem]">
@@ -500,6 +402,8 @@
                                                 </div>
                                             </div>
                                         @endforeach
+                                            </div>
+                                        @endif
 
                                         <template x-for="item in (nuevas['{{ $area->id }}'] || [])" :key="item.clave">
                                             <div class="rounded-xl border border-dashed border-slate-300 p-4">
@@ -567,10 +471,10 @@
 
                                         <button
                                             type="button"
-                                            class="text-sm font-medium text-indigo-600 hover:text-indigo-500"
+                                            class="mt-5 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-slate-50"
                                             @click="agregarAsignatura('{{ $area->id }}', @js($gradoIds))"
                                         >
-                                            Agregar asignatura
+                                            Crear nueva asignatura
                                         </button>
                                         </div>
                                     </div>

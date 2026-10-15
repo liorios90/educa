@@ -67,8 +67,6 @@ class HorarioClaseController extends Controller
             ->where('establecimiento_aula_id', $aula->id)
             ->orderBy('hora_inicio')
             ->get();
-        $horariosPorDia = $horarios->groupBy('dia_semana');
-
         $horaInicioMinutos = 7 * 60;
         $horaFinMinutos = 18 * 60;
 
@@ -124,9 +122,7 @@ class HorarioClaseController extends Controller
         return view('admin.horarios.show', [
             'aula' => $aula,
             'materias' => $materias,
-            'horariosPorDia' => $horariosPorDia,
             'horariosVisuales' => $horariosVisuales,
-            'docentesPorMalla' => $docentesPorMalla,
             'bloqueosDocentes' => $bloqueosDocentes,
             'horaInicio' => sprintf('%02d:%02d', intdiv($horaInicioMinutos, 60), $horaInicioMinutos % 60),
             'horaFin' => sprintf('%02d:%02d', intdiv($horaFinMinutos, 60), $horaFinMinutos % 60),

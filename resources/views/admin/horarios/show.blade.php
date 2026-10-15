@@ -380,44 +380,6 @@
                 </form>
             @endif
 
-            <section>
-                <div class="mb-3">
-                    <h3 class="text-lg font-semibold text-slate-900">Clases programadas</h3>
-                    <p class="mt-1 text-sm text-slate-500">Desde la cuadrícula semanal puedes arrastrar clases y eliminarlas con el botón ×. Esta lista conserva una opción adicional para eliminar.</p>
-                </div>
-
-                <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                    @foreach ($dias as $dia)
-                        @php($clasesDelDia = $horariosPorDia->get($dia['numero'], collect()))
-                        <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-                            <div class="mb-3 flex items-center justify-between gap-3">
-                                <h4 class="font-semibold text-slate-900">{{ $dia['nombre'] }}</h4>
-                                <span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600">{{ $clasesDelDia->count() }} {{ $clasesDelDia->count() === 1 ? 'clase' : 'clases' }}</span>
-                            </div>
-
-                            @forelse ($clasesDelDia as $clase)
-                                <div class="border-t border-slate-100 py-3 first:border-t-0">
-                                    <div class="flex items-center justify-between gap-3">
-                                        <div class="min-w-0">
-                                            <p class="font-medium text-slate-800">{{ substr($clase->hora_inicio, 0, 5) }}–{{ substr($clase->hora_fin, 0, 5) }} · {{ $clase->malla?->asignatura?->nombre ?? 'Asignatura' }}</p>
-                                            <p class="mt-0.5 truncate text-sm text-slate-500">{{ $docentesPorMalla->get($clase->establecimiento_asignatura_id, 'Sin docente asignado') }}</p>
-                                        </div>
-                                        <div class="flex shrink-0 items-center gap-1">
-                                            <form method="POST" action="{{ route('Admin.aulas.horario.destroy', [$aula, $clase]) }}" onsubmit="return confirm('¿Eliminar esta clase del horario?')">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button type="submit" class="rounded-lg px-2.5 py-1.5 text-sm font-medium text-slate-500 hover:bg-red-50 hover:text-red-700">Eliminar</button>
-                                            </form>
-                                        </div>
-                                    </div>
-                                </div>
-                            @empty
-                                <p class="border-t border-slate-100 py-4 text-sm text-slate-400">Sin clases programadas.</p>
-                            @endforelse
-                        </article>
-                    @endforeach
-                </div>
-            </section>
         </div>
     </div>
 </x-app-layout>

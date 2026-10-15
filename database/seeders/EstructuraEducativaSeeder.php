@@ -16,10 +16,6 @@ class EstructuraEducativaSeeder extends Seeder
      */
     public function run(): void
     {
-        Sys_Grado::query()->delete();
-        Sys_Subnivel::query()->delete();
-        Sys_Nivel::query()->delete();
-
         foreach ($this->estructura() as $nivelData) {
             $subniveles = $nivelData['subniveles'];
             unset($nivelData['subniveles']);

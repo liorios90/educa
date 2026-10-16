@@ -12,17 +12,26 @@ class EnsureRoleIsActive
 {
     public function __construct(private ActiveRole $activeRole) {}
 
-    public function handle(Request $request, Closure $next, string $role): Response
+    public function handle(Request $request, Closure $next, string ...$roles): Response
     {
         $user = $request->user();
-        $required = Role::tryFrom($role);
+        $required = collect($roles)
+            ->flatMap(fn (string $role): array => explode('|', $role))
+            ->map(fn (string $role): ?Role => Role::tryFrom(trim($role)))
+            ->filter()
+            ->values();
 
-        abort_unless($user !== null && $required !== null && $user->hasRole($required), 403);
+        abort_unless(
+            $user !== null
+            && $required->isNotEmpty()
+            && $required->contains(fn (Role $role): bool => $user->hasRole($role)),
+            403,
+        );
 
         $active = $this->activeRole->get($user);
 
         if ($active !== null) {
-            abort_unless($active === $required, 403);
+            abort_unless($required->contains($active), 403);
         }
 
         return $next($request);

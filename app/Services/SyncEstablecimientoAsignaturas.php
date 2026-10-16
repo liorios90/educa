@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\EscalaCalificacion;
 use App\Enums\ModoLibretaArea;
 use App\Enums\TipoAsignatura;
 use App\Enums\TipoCalificacion;
@@ -10,7 +11,10 @@ use App\Models\EstablecimientoAreaLibreta;
 use App\Models\EstablecimientoAsignatura;
 use App\Models\EstablecimientoAsignaturaPropia;
 use App\Models\EstablecimientoModalidadJornada;
+use Illuminate\Database\QueryException;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class SyncEstablecimientoAsignaturas
 {
@@ -57,26 +61,34 @@ class SyncEstablecimientoAsignaturas
                 ->get();
             $horasCatalogo = [];
             $horasPropia = [];
+            $organizacionCatalogo = [];
+            $organizacionPropia = [];
 
             foreach ($anteriores as $anterior) {
+                $organizacion = [
+                    'es_flotante' => $anterior->es_flotante,
+                    'escala' => $anterior->escala,
+                    'establecimiento_programa_id' => $anterior->establecimiento_programa_id,
+                ];
+
                 if ($anterior->asignatura_id !== null) {
                     $horasCatalogo[$anterior->asignatura_id][$anterior->grado_id] = $anterior->horas_semanales;
+                    $organizacionCatalogo[$anterior->asignatura_id][$anterior->grado_id] = $organizacion;
                 }
 
                 if ($anterior->asignatura_propia_id !== null) {
                     $horasPropia[$anterior->asignatura_propia_id][$anterior->grado_id] = $anterior->horas_semanales;
+                    $organizacionPropia[$anterior->asignatura_propia_id][$anterior->grado_id] = $organizacion;
                 }
             }
 
             $idPorClave = $this->sincronizarPropias($establecimiento, $oferta, $definiciones);
 
-            EstablecimientoAsignatura::query()
-                ->where('establecimiento_modalidad_jornada_id', $oferta->id)
-                ->delete();
-
             EstablecimientoAreaLibreta::query()
                 ->where('establecimiento_modalidad_jornada_id', $oferta->id)
                 ->delete();
+
+            $conservar = [];
 
             foreach ($filas as $fila) {
                 $propiaId = null;
@@ -92,8 +104,11 @@ class SyncEstablecimientoAsignaturas
                 $horas = $propiaId !== null
                     ? ($horasPropia[$propiaId][$fila['grado_id']] ?? null)
                     : ($horasCatalogo[$fila['asignatura_id']][$fila['grado_id']] ?? $fila['horas_catalogo']);
+                $organizacion = $propiaId !== null
+                    ? ($organizacionPropia[$propiaId][$fila['grado_id']] ?? null)
+                    : ($organizacionCatalogo[$fila['asignatura_id']][$fila['grado_id']] ?? null);
 
-                EstablecimientoAsignatura::query()->create([
+                $atributos = [
                     'establecimiento_id' => $establecimiento->id,
                     'establecimiento_modalidad_jornada_id' => $oferta->id,
                     'asignatura_id' => $fila['asignatura_id'],
@@ -103,9 +118,38 @@ class SyncEstablecimientoAsignaturas
                     'horas_semanales' => $horas,
                     'tipo_calificacion' => $fila['tipo_calificacion'],
                     'tipo_asignatura' => $fila['tipo_asignatura'],
+                    'es_flotante' => $organizacion['es_flotante'] ?? false,
+                    'escala' => $organizacion['escala'] ?? EscalaCalificacion::Nacional,
+                    'establecimiento_programa_id' => $organizacion['establecimiento_programa_id'] ?? null,
                     'califica_por_destrezas' => $fila['califica_por_destrezas'],
                     'usa_tabla_equivalencias' => $fila['usa_tabla_equivalencias'],
                     'porcentaje' => $fila['porcentaje'],
+                ];
+
+                $existente = $this->filaExistente($anteriores, $fila['asignatura_id'], $propiaId, $fila['grado_id']);
+
+                if ($existente !== null && EstablecimientoAsignatura::query()->whereKey($existente->id)->exists()) {
+                    $existente->update($atributos);
+                    $conservar[] = $existente->id;
+
+                    continue;
+                }
+
+                $conservar[] = EstablecimientoAsignatura::query()->create($atributos)->id;
+            }
+
+            $sobrantes = EstablecimientoAsignatura::query()
+                ->where('establecimiento_modalidad_jornada_id', $oferta->id);
+
+            if ($conservar !== []) {
+                $sobrantes->whereNotIn('id', $conservar);
+            }
+
+            try {
+                $sobrantes->delete();
+            } catch (QueryException) {
+                throw ValidationException::withMessages([
+                    'asignaturas' => 'No puedes quitar una asignatura que ya tiene grupos, inscripciones o calificaciones.',
                 ]);
             }
 
@@ -191,6 +235,25 @@ class SyncEstablecimientoAsignaturas
         return $ids;
     }
 
+    /**
+     * @param  Collection<int, EstablecimientoAsignatura>  $anteriores
+     */
+    private function filaExistente(Collection $anteriores, ?int $asignaturaId, ?int $propiaId, int $gradoId): ?EstablecimientoAsignatura
+    {
+        return $anteriores->first(function (EstablecimientoAsignatura $anterior) use ($asignaturaId, $propiaId, $gradoId): bool {
+            if ((int) $anterior->grado_id !== $gradoId) {
+                return false;
+            }
+
+            if ($propiaId !== null) {
+                return (int) $anterior->asignatura_propia_id === $propiaId;
+            }
+
+            return (int) $anterior->asignatura_id === (int) $asignaturaId
+                && $anterior->asignatura_propia_id === null;
+        });
+    }
+
     public function pruneGradosFueraDeOferta(EstablecimientoModalidadJornada $oferta, array $gradoIds): void
     {
         $malla = EstablecimientoAsignatura::query()
@@ -198,14 +261,20 @@ class SyncEstablecimientoAsignaturas
         $areas = EstablecimientoAreaLibreta::query()
             ->where('establecimiento_modalidad_jornada_id', $oferta->id);
 
-        if ($gradoIds === []) {
-            $malla->delete();
-            $areas->delete();
+        try {
+            if ($gradoIds === []) {
+                $malla->delete();
+                $areas->delete();
 
-            return;
+                return;
+            }
+
+            $malla->whereNotIn('grado_id', $gradoIds)->delete();
+            $areas->whereNotIn('grado_id', $gradoIds)->delete();
+        } catch (QueryException) {
+            throw ValidationException::withMessages([
+                'asignaturas' => 'No puedes quitar una asignatura que ya tiene grupos, inscripciones o calificaciones.',
+            ]);
         }
-
-        $malla->whereNotIn('grado_id', $gradoIds)->delete();
-        $areas->whereNotIn('grado_id', $gradoIds)->delete();
     }
 }

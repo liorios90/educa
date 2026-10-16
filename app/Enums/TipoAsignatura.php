@@ -8,6 +8,7 @@ enum TipoAsignatura: string
     case Pedagogica = 'pedagogica';
     case Optativa = 'optativa';
     case Extra = 'extra';
+    case ProgramaInternacional = 'programa_internacional';
 
     public function label(): string
     {
@@ -16,6 +17,12 @@ enum TipoAsignatura: string
             self::Pedagogica => 'Pedagógica',
             self::Optativa => 'Optativa',
             self::Extra => 'Extra',
+            self::ProgramaInternacional => 'Programa internacional',
         };
+    }
+
+    public function exigeInscripcionIndividual(): bool
+    {
+        return $this === self::Optativa || $this === self::ProgramaInternacional;
     }
 }

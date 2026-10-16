@@ -41,6 +41,7 @@ class EstablecimientoPeriodo extends Model
      */
     protected $attributes = [
         'activo' => false,
+        'ultima_secuencia_matricula' => 0,
     ];
 
     /**
@@ -53,6 +54,7 @@ class EstablecimientoPeriodo extends Model
             'fecha_fin' => 'date',
             'activo' => 'boolean',
             'abierto_en' => 'datetime',
+            'ultima_secuencia_matricula' => 'integer',
             'esquema_ciclo' => EsquemaCiclo::class,
             'numero_parciales' => 'integer',
             'porcentaje_examen_final' => 'decimal:2',

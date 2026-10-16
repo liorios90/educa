@@ -2,12 +2,14 @@
 
 namespace App\Models;
 
+use App\Enums\EscalaCalificacion;
 use App\Enums\TipoAsignatura;
 use App\Enums\TipoCalificacion;
 use Database\Factories\EstablecimientoAsignaturaFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class EstablecimientoAsignatura extends Model
 {
@@ -29,6 +31,9 @@ class EstablecimientoAsignatura extends Model
         'horas_semanales',
         'tipo_calificacion',
         'tipo_asignatura',
+        'es_flotante',
+        'escala',
+        'establecimiento_programa_id',
         'califica_por_destrezas',
         'usa_tabla_equivalencias',
         'porcentaje',
@@ -40,6 +45,8 @@ class EstablecimientoAsignatura extends Model
     protected $attributes = [
         'aparece_en_libreta' => true,
         'tipo_asignatura' => TipoAsignatura::TroncoComun,
+        'es_flotante' => false,
+        'escala' => EscalaCalificacion::Nacional,
         'califica_por_destrezas' => false,
         'usa_tabla_equivalencias' => false,
     ];
@@ -54,6 +61,8 @@ class EstablecimientoAsignatura extends Model
             'horas_semanales' => 'integer',
             'tipo_calificacion' => TipoCalificacion::class,
             'tipo_asignatura' => TipoAsignatura::class,
+            'es_flotante' => 'boolean',
+            'escala' => EscalaCalificacion::class,
             'califica_por_destrezas' => 'boolean',
             'usa_tabla_equivalencias' => 'boolean',
             'porcentaje' => 'decimal:2',
@@ -103,5 +112,46 @@ class EstablecimientoAsignatura extends Model
     public function asignaturaPropia(): BelongsTo
     {
         return $this->belongsTo(EstablecimientoAsignaturaPropia::class, 'asignatura_propia_id');
+    }
+
+    /**
+     * @return BelongsTo<EstablecimientoPrograma, $this>
+     */
+    public function programa(): BelongsTo
+    {
+        return $this->belongsTo(EstablecimientoPrograma::class, 'establecimiento_programa_id');
+    }
+
+    /**
+     * @return HasMany<EstablecimientoGrupo, $this>
+     */
+    public function grupos(): HasMany
+    {
+        return $this->hasMany(EstablecimientoGrupo::class, 'establecimiento_asignatura_id');
+    }
+
+    /**
+     * @return HasMany<EstablecimientoAlumnoAsignatura, $this>
+     */
+    public function inscripciones(): HasMany
+    {
+        return $this->hasMany(EstablecimientoAlumnoAsignatura::class, 'establecimiento_asignatura_id');
+    }
+
+    public function nombre(): string
+    {
+        $this->loadMissing(['asignatura', 'asignaturaPropia']);
+
+        return $this->asignatura?->nombre
+            ?? $this->asignaturaPropia?->nombre
+            ?? 'Asignatura';
+    }
+
+    public function areaNombre(): ?string
+    {
+        $this->loadMissing(['asignatura.area', 'asignaturaPropia.area']);
+
+        return $this->asignatura?->area?->nombre
+            ?? $this->asignaturaPropia?->area?->nombre;
     }
 }

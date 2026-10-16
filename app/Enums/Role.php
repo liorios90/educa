@@ -33,6 +33,14 @@ enum Role: string
         };
     }
 
+    public function usesOfertaPeriodo(): bool
+    {
+        return match ($this) {
+            self::Admin, self::Secretaria => true,
+            default => false,
+        };
+    }
+
     public function isAssignableToEmpleado(): bool
     {
         return match ($this) {

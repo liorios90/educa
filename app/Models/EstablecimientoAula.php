@@ -71,6 +71,14 @@ class EstablecimientoAula extends Model
         return $this->hasMany(EstablecimientoAulaDocente::class, 'establecimiento_aula_id');
     }
 
+    /**
+     * @return HasMany<EstablecimientoMatricula, $this>
+     */
+    public function matriculas(): HasMany
+    {
+        return $this->hasMany(EstablecimientoMatricula::class, 'establecimiento_aula_id');
+    }
+
     public function etiqueta(): string
     {
         $this->loadMissing('establecimientoGrado.grado');

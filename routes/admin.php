@@ -3,8 +3,10 @@
 use App\Http\Controllers\Admin\ConfiguracionAsignaturasController;
 use App\Http\Controllers\Admin\EquivalenciaController;
 use App\Http\Controllers\Admin\EstablecimientoPeriodoConfiguracionGradoController;
+use App\Http\Controllers\Admin\GrupoAsignaturaController;
 use App\Http\Controllers\Admin\HorarioClaseController;
 use App\Http\Controllers\Admin\ProcesoCierresController;
+use App\Http\Controllers\Admin\ProgramaAcademicoController;
 use App\Http\Controllers\Admin\TipoInsumoController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AlumnoController;
@@ -113,4 +115,21 @@ Route::middleware(['auth', 'verified', 'role:Admin'])
         Route::get('docentes/{empleado}/areas', [DocenteController::class, 'areas'])->name('docentes.areas');
         Route::patch('docentes/{empleado}', [DocenteController::class, 'update'])->name('docentes.update');
 
+    });
+
+Route::middleware(['auth', 'verified', 'role:Admin|Secretaria'])
+    ->prefix('Admin')
+    ->name('Admin.')
+    ->group(function () {
+        Route::get('grupos-asignatura', [GrupoAsignaturaController::class, 'index'])->name('grupos-asignatura.index');
+        Route::post('grupos-asignatura/matriculas', [GrupoAsignaturaController::class, 'storeMatricula'])->name('grupos-asignatura.matriculas.store');
+        Route::delete('grupos-asignatura/matriculas/{matricula}', [GrupoAsignaturaController::class, 'destroyMatricula'])->name('grupos-asignatura.matriculas.destroy')->whereNumber('matricula');
+        Route::post('grupos-asignatura', [GrupoAsignaturaController::class, 'store'])->name('grupos-asignatura.store');
+        Route::put('grupos-asignatura/{grupo}/alumnos', [GrupoAsignaturaController::class, 'updateAlumnos'])->name('grupos-asignatura.alumnos.update')->whereNumber('grupo');
+        Route::delete('grupos-asignatura/{grupo}', [GrupoAsignaturaController::class, 'destroy'])->name('grupos-asignatura.destroy')->whereNumber('grupo');
+        Route::get('programas', [ProgramaAcademicoController::class, 'index'])->name('programas.index');
+        Route::post('programas', [ProgramaAcademicoController::class, 'store'])->name('programas.store');
+        Route::put('programas/{programa}/alumnos', [ProgramaAcademicoController::class, 'updateAlumnos'])->name('programas.alumnos.update')->whereNumber('programa');
+        Route::put('programas/{programa}/asignaturas', [ProgramaAcademicoController::class, 'updateAsignaturas'])->name('programas.asignaturas.update')->whereNumber('programa');
+        Route::put('programas/{programa}/asignaturas/{asignatura}/inscripciones', [ProgramaAcademicoController::class, 'updateInscripciones'])->name('programas.inscripciones.update')->whereNumber('programa')->whereNumber('asignatura');
     });

@@ -16,6 +16,7 @@ class NavigationSeeder extends Seeder
     public function run(): void
     {
         $admin = Role::findOrCreate(RoleName::Admin->value, 'web');
+        $secretaria = Role::findOrCreate(RoleName::Secretaria->value, 'web');
         $sistemas = Role::findOrCreate(RoleName::Sistemas->value, 'web');
         $padre = Role::findOrCreate(RoleName::Padre->value, 'web');
         $docente = Role::findOrCreate(RoleName::Docente->value, 'web');
@@ -25,7 +26,6 @@ class NavigationSeeder extends Seeder
         $this->upsertItem('Usuarios', 'admin.users', 'users', 2, false, [$admin->id]);
         $this->upsertItem('Padres', 'Admin.padres', 'users', 3, false, [$admin->id]);
         $this->upsertItem('Matrículas', 'Admin.matriculas.index', 'clipboard-document-list', 4, false, [$admin->id]);
-        $this->upsertItem('Respuestas de matrícula', 'Admin.matriculas.submissions', 'clipboard-document-list', 5, false, [$admin->id]);
         $this->upsertItem('Alumnos', 'Admin.alumnos', 'users', 4, false, [$admin->id]);
         $this->upsertItem('Empleados', 'Admin.empleados', 'users', 5, false, [$admin->id]);
         $this->upsertItem('Docentes', 'Admin.docentes', 'academic-cap', 5, false, [$admin->id]);
@@ -39,6 +39,14 @@ class NavigationSeeder extends Seeder
         $this->upsertItem('Proceso de Cierres', 'Admin.proceso-cierres.index', 'clipboard-document-list', 8, false, [$admin->id]);
         $this->upsertItem('Asignaturas', 'Admin.asignaturas', 'book-open', 8, false, [$admin->id]);
         $this->upsertItem('Aulas', 'Admin.aulas', 'academic-cap', 9, false, [$admin->id]);
+        $this->grantRoles(
+            $this->upsertItem('Grupos de clase', 'Admin.grupos-asignatura.index', 'academic-cap', 10, false, [$admin->id, $secretaria->id]),
+            [$admin->id, $secretaria->id],
+        );
+        $this->grantRoles(
+            $this->upsertItem('Programas', 'Admin.programas.index', 'book-open', 11, false, [$admin->id, $secretaria->id]),
+            [$admin->id, $secretaria->id],
+        );
         $this->upsertItem('Sistemas', 'sistemas.home', 'cog', 3, false, [$sistemas->id]);
         $this->upsertItem('Menú', 'sistemas.navigation-items.index', 'cog', 4, false, [$sistemas->id]);
         $catalogos = $this->upsertItem('Catálogos', 'navigation.hub', 'cog', 5, false, [$sistemas->id], isGroup: true);
@@ -74,7 +82,7 @@ class NavigationSeeder extends Seeder
         ?int $parentId = null,
         NavigationGroupDisplay $groupDisplay = NavigationGroupDisplay::Screen,
     ): NavigationItem {
-        $item = NavigationItem::query()->updateOrCreate(
+        $item = NavigationItem::query()->firstOrCreate(
             [
                 'route_name' => $routeName,
                 'label' => $label,
@@ -89,9 +97,19 @@ class NavigationSeeder extends Seeder
                 'group_display' => $groupDisplay,
             ],
         );
-
-        $item->roles()->sync($visibleToAll ? [] : $roleIds);
+        if ($item->wasRecentlyCreated) {
+            $item->roles()->sync($visibleToAll ? [] : $roleIds);
+        }
+        // $item->roles()->sync($visibleToAll ? [] : $roleIds);
 
         return $item;
+    }
+
+    /**
+     * @param  list<int>  $roleIds
+     */
+    private function grantRoles(NavigationItem $item, array $roleIds): void
+    {
+        $item->roles()->syncWithoutDetaching($roleIds);
     }
 }

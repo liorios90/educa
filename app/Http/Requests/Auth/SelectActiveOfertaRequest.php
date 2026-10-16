@@ -5,7 +5,6 @@ namespace App\Http\Requests\Auth;
 use App\Auth\ActiveOferta;
 use App\Auth\ActivePeriodo;
 use App\Auth\ActiveRole;
-use App\Enums\Role;
 use App\Models\EstablecimientoModalidadJornada;
 use App\Models\EstablecimientoPeriodo;
 use App\Models\User;
@@ -20,7 +19,7 @@ class SelectActiveOfertaRequest extends FormRequest
         $user = $this->user();
 
         return $user instanceof User
-            && app(ActiveRole::class)->get($user) === Role::Admin
+            && app(ActiveRole::class)->get($user)?->usesOfertaPeriodo() === true
             && $user->establecimiento_id !== null;
     }
 

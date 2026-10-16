@@ -50,12 +50,35 @@ class Navigation
             ->all();
     }
 
+    public function linksWithoutParameters(?string $routeName): bool
+    {
+        if (! is_string($routeName) || ! Route::has($routeName)) {
+            return false;
+        }
+
+        $route = Route::getRoutes()->getByName($routeName);
+
+        if ($route === null) {
+            return false;
+        }
+
+        preg_match_all('/\{([^}]+)\}/', $route->uri(), $matches);
+
+        foreach ($matches[1] as $parameter) {
+            if (! str_ends_with($parameter, '?')) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     private function isReachable(NavigationItemModel $item): bool
     {
         if ($item->is_group) {
             return true;
         }
 
-        return is_string($item->route_name) && Route::has($item->route_name);
+        return $this->linksWithoutParameters($item->route_name);
     }
 }

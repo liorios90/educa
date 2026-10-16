@@ -2,7 +2,6 @@
 
 namespace App\Auth;
 
-use App\Enums\Role;
 use App\Models\EstablecimientoModalidad;
 use App\Models\EstablecimientoModalidadJornada;
 use App\Models\User;
@@ -18,7 +17,7 @@ class ActiveOferta
     {
         return $user instanceof User
             && $user->establecimiento_id !== null
-            && $this->activeRole->get($user) === Role::Admin;
+            && $this->activeRole->get($user)?->usesOfertaPeriodo() === true;
     }
 
     /**

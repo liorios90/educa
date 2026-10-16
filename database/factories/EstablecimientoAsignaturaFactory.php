@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\EscalaCalificacion;
 use App\Enums\TipoAsignatura;
 use App\Enums\TipoCalificacion;
 use App\Models\Establecimiento;
@@ -32,6 +33,8 @@ class EstablecimientoAsignaturaFactory extends Factory
             'horas_semanales' => 5,
             'tipo_calificacion' => TipoCalificacion::Cuantitativa,
             'tipo_asignatura' => TipoAsignatura::TroncoComun,
+            'es_flotante' => false,
+            'escala' => EscalaCalificacion::Nacional,
             'califica_por_destrezas' => false,
             'usa_tabla_equivalencias' => false,
         ];

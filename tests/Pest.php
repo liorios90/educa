@@ -3,11 +3,18 @@
 use App\Auth\ActiveOferta;
 use App\Auth\ActivePeriodo;
 use App\Enums\Role;
+use App\Enums\TipoAsignatura;
+use App\Models\Alumno;
 use App\Models\Establecimiento;
 use App\Models\EstablecimientoAsignatura;
+use App\Models\EstablecimientoAsignaturaPropia;
+use App\Models\EstablecimientoAula;
+use App\Models\EstablecimientoGrado;
 use App\Models\EstablecimientoModalidad;
 use App\Models\EstablecimientoModalidadJornada;
 use App\Models\EstablecimientoPeriodo;
+use App\Models\EstablecimientoPeriodoCiclo;
+use App\Models\Persona;
 use App\Models\Sys_Area;
 use App\Models\Sys_Asignatura;
 use App\Models\Sys_Grado;
@@ -75,6 +82,14 @@ function adminOf(Establecimiento $establecimiento): User
         'name' => 'Director Andino',
         'establecimiento_id' => $establecimiento->id,
     ]), Role::Admin);
+}
+
+function secretariaOf(Establecimiento $establecimiento): User
+{
+    return assignRole(User::factory()->create([
+        'name' => 'Secretaria Andina',
+        'establecimiento_id' => $establecimiento->id,
+    ]), Role::Secretaria);
 }
 
 /**
@@ -192,8 +207,104 @@ function activePeriodoSession(EstablecimientoPeriodo $periodo): array
 }
 
 /**
- * @return array<string, int>
+ * @return array<string, mixed>
  */
+function cursoDeOctavo(): array
+{
+    $establecimiento = Establecimiento::factory()->create();
+    $oferta = ofertaDe($establecimiento);
+    $periodo = periodoActivoDe($oferta, ['numero_parciales' => 2]);
+    ['grado' => $catalogo] = catalogoEstructura(['grado' => 'Octavo de básica']);
+    $grado = EstablecimientoGrado::factory()->create([
+        'establecimiento_id' => $establecimiento->id,
+        'establecimiento_modalidad_jornada_id' => $oferta->id,
+        'subnivel_id' => $catalogo->subnivel_id,
+        'grado_id' => $catalogo->id,
+        'nombre' => 'Octavo de básica',
+    ]);
+    $aulaA = EstablecimientoAula::factory()->create([
+        'establecimiento_id' => $establecimiento->id,
+        'establecimiento_modalidad_jornada_id' => $oferta->id,
+        'establecimiento_periodo_id' => $periodo->id,
+        'establecimiento_grado_id' => $grado->id,
+        'paralelo' => 'A',
+    ]);
+    $aulaB = EstablecimientoAula::factory()->create([
+        'establecimiento_id' => $establecimiento->id,
+        'establecimiento_modalidad_jornada_id' => $oferta->id,
+        'establecimiento_periodo_id' => $periodo->id,
+        'establecimiento_grado_id' => $grado->id,
+        'paralelo' => 'B',
+    ]);
+    $matematica = EstablecimientoAsignatura::factory()->create([
+        'establecimiento_id' => $establecimiento->id,
+        'establecimiento_modalidad_jornada_id' => $oferta->id,
+        'grado_id' => $catalogo->id,
+        'asignatura_id' => Sys_Asignatura::factory()->create(['nombre' => 'Matemática'])->id,
+        'tipo_asignatura' => TipoAsignatura::TroncoComun,
+        'aparece_en_libreta' => true,
+    ]);
+    $educacionFisica = EstablecimientoAsignatura::factory()->create([
+        'establecimiento_id' => $establecimiento->id,
+        'establecimiento_modalidad_jornada_id' => $oferta->id,
+        'grado_id' => $catalogo->id,
+        'asignatura_id' => Sys_Asignatura::factory()->create(['nombre' => 'Educación Física'])->id,
+        'tipo_asignatura' => TipoAsignatura::TroncoComun,
+        'aparece_en_libreta' => true,
+    ]);
+    $optativa = EstablecimientoAsignatura::factory()->create([
+        'establecimiento_id' => $establecimiento->id,
+        'establecimiento_modalidad_jornada_id' => $oferta->id,
+        'grado_id' => $catalogo->id,
+        'asignatura_id' => Sys_Asignatura::factory()->create(['nombre' => 'Emprendimiento y Gestión'])->id,
+        'tipo_asignatura' => TipoAsignatura::Optativa,
+        'aparece_en_libreta' => true,
+    ]);
+    $propia = EstablecimientoAsignaturaPropia::factory()->create([
+        'establecimiento_id' => $establecimiento->id,
+        'establecimiento_modalidad_jornada_id' => $oferta->id,
+        'nombre' => 'Matemáticas AA NS',
+    ]);
+    $bachillerato = EstablecimientoAsignatura::factory()->create([
+        'establecimiento_id' => $establecimiento->id,
+        'establecimiento_modalidad_jornada_id' => $oferta->id,
+        'grado_id' => $catalogo->id,
+        'asignatura_id' => null,
+        'asignatura_propia_id' => $propia->id,
+        'tipo_asignatura' => TipoAsignatura::Optativa,
+        'aparece_en_libreta' => true,
+    ]);
+    EstablecimientoPeriodoCiclo::factory()->create([
+        'establecimiento_periodo_id' => $periodo->id,
+        'orden' => 1,
+        'nombre' => 'Primer quimestre',
+    ]);
+
+    return compact(
+        'establecimiento',
+        'oferta',
+        'periodo',
+        'catalogo',
+        'aulaA',
+        'aulaB',
+        'matematica',
+        'educacionFisica',
+        'optativa',
+        'bachillerato',
+    );
+}
+
+function alumnoDelEstablecimiento(Establecimiento $establecimiento, string $apellidos): Alumno
+{
+    $persona = Persona::factory()->create([
+        'establecimiento_id' => $establecimiento->id,
+        'apellidos' => $apellidos,
+        'nombres' => 'Ana',
+    ]);
+
+    return Alumno::factory()->create(['persona_id' => $persona->id]);
+}
+
 function activeContextSession(EstablecimientoModalidadJornada $oferta, EstablecimientoPeriodo $periodo): array
 {
     return [

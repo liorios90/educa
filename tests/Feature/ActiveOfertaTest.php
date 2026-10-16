@@ -483,3 +483,42 @@ it('escapes the active period name on the dashboard', function () {
         ->assertSee("<script>alert('periodo')</script>")
         ->assertDontSee("<script>alert('periodo')</script>", false);
 });
+
+it('enters a secretary with the only modalidad and jornada after login', function () {
+    $establecimiento = Establecimiento::factory()->create();
+    $secretaria = secretariaOf($establecimiento);
+    $oferta = ofertaDe($establecimiento);
+    $periodo = periodoActivoDe($oferta, ['nombre' => '2026-2027']);
+
+    $this->post('/login', [
+        'email' => $secretaria->email,
+        'password' => 'password',
+    ])
+        ->assertRedirect(route('dashboard', absolute: false));
+
+    expect(session(ActiveOferta::SESSION_KEY))->toBe($oferta->id)
+        ->and(session(ActivePeriodo::SESSION_KEY))->toBe($periodo->id);
+});
+
+it('sends a secretary to choose modalidad and jornada after login', function () {
+    $establecimiento = Establecimiento::factory()->create();
+    $secretaria = secretariaOf($establecimiento);
+    $matutina = ofertaDe($establecimiento);
+    ofertaDe($establecimiento, ['jornada' => 'Vespertina']);
+    $periodo = periodoActivoDe($matutina);
+
+    $this->post('/login', [
+        'email' => $secretaria->email,
+        'password' => 'password',
+    ])
+        ->assertRedirect(route('oferta.select'));
+
+    $this->post(route('oferta.store'), [
+        'establecimiento_modalidad_id' => $matutina->establecimiento_modalidad_id,
+        'oferta' => $matutina->id,
+    ])
+        ->assertRedirect(route('dashboard', absolute: false));
+
+    expect(session(ActiveOferta::SESSION_KEY))->toBe($matutina->id)
+        ->and(session(ActivePeriodo::SESSION_KEY))->toBe($periodo->id);
+});

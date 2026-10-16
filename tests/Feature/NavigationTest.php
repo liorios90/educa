@@ -1,6 +1,8 @@
 <?php
 
 use App\Enums\Role;
+use App\Models\Establecimiento;
+use App\Models\NavigationItem;
 use App\Models\User;
 use App\Navigation\Navigation;
 use Database\Seeders\NavigationSeeder;
@@ -104,6 +106,23 @@ it('escapes the user name in the sidebar', function () {
         ->assertDontSee("<script>alert('xss')</script>", false);
 });
 
+it('opens the dashboard when a menu link needs a route parameter', function () {
+    NavigationItem::query()->create([
+        'label' => 'Respuestas de matrícula',
+        'route_name' => 'Admin.matriculas.submissions',
+        'icon' => 'clipboard-document-list',
+        'sort_order' => 5,
+        'is_active' => true,
+        'visible_to_all' => true,
+        'is_group' => false,
+    ]);
+
+    $this->actingAs(User::factory()->create())
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertDontSee('Respuestas de matrícula');
+});
+
 it('renders controls to open and close the sidebar', function () {
     $user = User::factory()->create();
 
@@ -121,6 +140,21 @@ it('returns only the links the user may see', function () {
     $items = collect((new Navigation)->itemsFor($admin));
     $configuracion = $items->firstWhere('label', 'Configuración');
 
-    expect($items->pluck('label')->all())->toBe(['Inicio', 'Padres', 'Alumnos', 'Empleados', 'Docentes', 'Estructura', 'Configuración', 'Proceso de Cierres', 'Asignaturas', 'Reportes', 'Aulas', 'Perfil'])
-        ->and(collect($configuracion?->children)->pluck('label')->all())->toBe(['Periodo', 'Por grados', 'Por asignaturas']);
+    expect($items->pluck('label')->all())->toBe(['Inicio', 'Padres', 'Matrículas', 'Alumnos', 'Empleados', 'Docentes', 'Estructura', 'Configuración', 'Proceso de Cierres', 'Asignaturas', 'Reportes', 'Aulas', 'Perfil', 'Grupos de clase', 'Programas'])
+        ->and(collect($configuracion?->children)->pluck('label')->all())->toBe(['Periodo', 'Por grados', 'Por asignaturas', 'Tipos de Insumo', 'Tablas de Equivalencias']);
+});
+
+it('shows class groups and programs to secretaries', function () {
+    $this->seed(NavigationSeeder::class);
+
+    $secretaria = secretariaOf(Establecimiento::factory()->create());
+
+    $this->actingAs($secretaria)
+        ->get(route('dashboard'))
+        ->assertSee(route('Admin.grupos-asignatura.index'), false)
+        ->assertSee(route('Admin.programas.index'), false)
+        ->assertDontSee(route('Admin.aulas'), false);
+
+    expect(collect((new Navigation)->itemsFor($secretaria))->pluck('label')->all())
+        ->toBe(['Inicio', 'Reportes', 'Perfil', 'Grupos de clase', 'Programas']);
 });

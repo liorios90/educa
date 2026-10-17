@@ -6,10 +6,12 @@ use App\Auth\ActiveOferta;
 use App\Auth\ActivePeriodo;
 use App\Enums\TipoPrograma;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\DestroyProgramaAcademicoRequest;
 use App\Http\Requests\StoreProgramaAcademicoRequest;
 use App\Http\Requests\UpdateProgramaAcademicoAlumnosRequest;
 use App\Http\Requests\UpdateProgramaAcademicoAsignaturasRequest;
 use App\Http\Requests\UpdateProgramaAcademicoInscripcionesRequest;
+use App\Http\Requests\UpdateProgramaAcademicoRequest;
 use App\Models\Establecimiento;
 use App\Models\EstablecimientoAlumnoAsignatura;
 use App\Models\EstablecimientoAsignatura;
@@ -45,12 +47,12 @@ class ProgramaAcademicoController extends Controller
         }
 
         $establecimiento = Establecimiento::query()->findOrFail($user->establecimiento_id);
-        $programa = EstablecimientoPrograma::query()
+        $programas = EstablecimientoPrograma::query()
             ->with(['membresias', 'asignaturas.asignaturaPropia', 'asignaturas.grado'])
             ->where('establecimiento_modalidad_jornada_id', $oferta->id)
             ->where('establecimiento_periodo_id', $periodo->id)
-            ->where('tipo', TipoPrograma::BachilleratoInternacional)
-            ->first();
+            ->orderBy('nombre')
+            ->get();
 
         $matriculas = EstablecimientoMatricula::query()
             ->with(['alumno.persona', 'aula.establecimientoGrado.grado'])
@@ -68,11 +70,13 @@ class ProgramaAcademicoController extends Controller
             ->sortBy(fn (EstablecimientoAsignatura $asignatura): string => ($asignatura->grado?->nombre ?? '').' '.$asignatura->nombre(), SORT_NATURAL | SORT_FLAG_CASE)
             ->values();
 
-        $inscripciones = $programa === null
+        $asignaturaIds = $programas->flatMap(fn (EstablecimientoPrograma $programa) => $programa->asignaturas->pluck('id'))->all();
+
+        $inscripciones = $asignaturaIds === []
             ? collect()
             : EstablecimientoAlumnoAsignatura::query()
                 ->where('establecimiento_periodo_id', $periodo->id)
-                ->whereIn('establecimiento_asignatura_id', $programa->asignaturas->pluck('id'))
+                ->whereIn('establecimiento_asignatura_id', $asignaturaIds)
                 ->get()
                 ->groupBy('establecimiento_asignatura_id');
 
@@ -80,8 +84,16 @@ class ProgramaAcademicoController extends Controller
             'establecimiento' => $establecimiento,
             'oferta' => $oferta,
             'periodo' => $periodo,
-            'programa' => $programa,
+            'programas' => $programas,
             'matriculas' => $matriculas,
+            'alumnosSelector' => $matriculas
+                ->map(fn (EstablecimientoMatricula $matricula): array => [
+                    'id' => (int) $matricula->alumno_id,
+                    'nombre' => trim(($matricula->alumno->persona->apellidos ?? '').' '.($matricula->alumno->persona->nombres ?? '')),
+                    'aula' => $matricula->aula->etiqueta(),
+                ])
+                ->values()
+                ->all(),
             'propias' => $propias,
             'inscripciones' => $inscripciones,
             'tipos' => TipoPrograma::cases(),
@@ -97,6 +109,30 @@ class ProgramaAcademicoController extends Controller
         return redirect()
             ->route('Admin.programas.index')
             ->with('status', 'programa-created');
+    }
+
+    public function update(UpdateProgramaAcademicoRequest $request, EstablecimientoPrograma $programa): RedirectResponse
+    {
+        $this->exigirDelPeriodo($request, $programa);
+        $this->organizacion->actualizarPrograma(
+            $programa,
+            TipoPrograma::from($request->string('tipo')->toString()),
+            $request->string('nombre')->toString(),
+        );
+
+        return redirect()
+            ->route('Admin.programas.index')
+            ->with('status', 'programa-updated');
+    }
+
+    public function destroy(DestroyProgramaAcademicoRequest $request, EstablecimientoPrograma $programa): RedirectResponse
+    {
+        $this->exigirDelPeriodo($request, $programa);
+        $this->organizacion->eliminarPrograma($programa);
+
+        return redirect()
+            ->route('Admin.programas.index')
+            ->with('status', 'programa-deleted');
     }
 
     public function updateAlumnos(UpdateProgramaAcademicoAlumnosRequest $request, EstablecimientoPrograma $programa): RedirectResponse

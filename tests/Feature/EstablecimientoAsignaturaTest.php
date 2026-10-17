@@ -604,6 +604,42 @@ describe('update', function () {
         expect(Sys_Asignatura::query()->where('nombre', 'Robótica')->exists())->toBeFalse();
     });
 
+    it('saves an institutional subject of an international program', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $oferta = ofertaDe($establecimiento);
+        $estructura = catalogoEstructura(['subnivel' => 'Básica Elemental']);
+        gradoEnOferta($establecimiento, $oferta, $estructura);
+        $asignatura = catalogoAsignatura($estructura);
+
+        $this->actingAs($admin)
+            ->put(route('Admin.asignaturas.update', $oferta), [
+                'propias' => [
+                    'new_1' => [
+                        'nombre' => 'Lengua y BIE',
+                        'area_id' => $asignatura->area_id,
+                        'tipo' => TipoAsignatura::ProgramaInternacional->value,
+                        'grados' => [$estructura['grado']->id],
+                        'tipo_calificacion' => [$estructura['grado']->id => TipoCalificacion::Cuantitativa->value],
+                        'libreta' => [$estructura['grado']->id => '1'],
+                    ],
+                ],
+            ])
+            ->assertRedirect(route('Admin.asignaturas.edit', $oferta));
+
+        $this->assertDatabaseHas('establecimiento_asignaturas_propias', [
+            'establecimiento_modalidad_jornada_id' => $oferta->id,
+            'nombre' => 'Lengua y BIE',
+            'tipo_asignatura' => TipoAsignatura::ProgramaInternacional->value,
+        ]);
+        $this->assertDatabaseHas('establecimiento_asignaturas', [
+            'establecimiento_modalidad_jornada_id' => $oferta->id,
+            'asignatura_id' => null,
+            'grado_id' => $estructura['grado']->id,
+            'tipo_asignatura' => TipoAsignatura::ProgramaInternacional->value,
+        ]);
+    });
+
     it('rejects an institutional subject without a name', function () {
         $establecimiento = Establecimiento::factory()->create();
         $admin = adminOf($establecimiento);

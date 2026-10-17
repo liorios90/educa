@@ -129,6 +129,8 @@ Route::middleware(['auth', 'verified', 'role:Admin|Secretaria'])
         Route::delete('grupos-asignatura/{grupo}', [GrupoAsignaturaController::class, 'destroy'])->name('grupos-asignatura.destroy')->whereNumber('grupo');
         Route::get('programas', [ProgramaAcademicoController::class, 'index'])->name('programas.index');
         Route::post('programas', [ProgramaAcademicoController::class, 'store'])->name('programas.store');
+        Route::put('programas/{programa}', [ProgramaAcademicoController::class, 'update'])->name('programas.update')->whereNumber('programa');
+        Route::delete('programas/{programa}', [ProgramaAcademicoController::class, 'destroy'])->name('programas.destroy')->whereNumber('programa');
         Route::put('programas/{programa}/alumnos', [ProgramaAcademicoController::class, 'updateAlumnos'])->name('programas.alumnos.update')->whereNumber('programa');
         Route::put('programas/{programa}/asignaturas', [ProgramaAcademicoController::class, 'updateAsignaturas'])->name('programas.asignaturas.update')->whereNumber('programa');
         Route::put('programas/{programa}/asignaturas/{asignatura}/inscripciones', [ProgramaAcademicoController::class, 'updateInscripciones'])->name('programas.inscripciones.update')->whereNumber('programa')->whereNumber('asignatura');

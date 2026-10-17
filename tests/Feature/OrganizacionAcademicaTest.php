@@ -9,6 +9,7 @@ use App\Models\EstablecimientoAula;
 use App\Models\EstablecimientoGrado;
 use App\Models\EstablecimientoGrupoAlumno;
 use App\Models\EstablecimientoMatricula;
+use App\Models\EstablecimientoProgramaAlumno;
 use App\Services\OrganizacionAcademica;
 use App\Services\SyncEstablecimientoAsignaturas;
 use Illuminate\Validation\ValidationException;
@@ -161,4 +162,48 @@ it('does not use a national curriculum subject as an international baccalaureate
 
     expect(fn () => $organizacion->sincronizarAsignaturasPrograma($programa, [$curso['matematica']->id]))
         ->toThrow(fn (ValidationException $exception) => expect($exception->errors()['asignaturas'][0])->toBe('El Bachillerato Internacional usa asignaturas propias, no las del currículo nacional.'));
+});
+
+it('keeps two programs of the same type in one period', function () {
+    $curso = cursoDeOctavo();
+    $organizacion = app(OrganizacionAcademica::class);
+    $primero = $organizacion->crearPrograma($curso['periodo'], TipoPrograma::BachilleratoInternacional, 'Bachillerato Internacional');
+    $segundo = $organizacion->crearPrograma($curso['periodo'], TipoPrograma::BachilleratoInternacional, 'Diploma IB');
+
+    expect($primero->tipo)->toBe(TipoPrograma::BachilleratoInternacional)
+        ->and($segundo->tipo)->toBe(TipoPrograma::BachilleratoInternacional)
+        ->and($segundo->nombre)->toBe('Diploma IB');
+});
+
+it('rejects a repeated program name in the same period', function () {
+    $curso = cursoDeOctavo();
+    $organizacion = app(OrganizacionAcademica::class);
+    $organizacion->crearPrograma($curso['periodo'], TipoPrograma::BachilleratoInternacional, 'Bachillerato Internacional');
+
+    expect(fn () => $organizacion->crearPrograma($curso['periodo'], TipoPrograma::BachilleratoInternacional, 'Bachillerato Internacional'))
+        ->toThrow(fn (ValidationException $exception) => expect($exception->errors()['nombre'][0])->toBe('Ya existe un programa con ese nombre en este periodo.'));
+});
+
+it('updates a program name', function () {
+    $curso = cursoDeOctavo();
+    $organizacion = app(OrganizacionAcademica::class);
+    $programa = $organizacion->crearPrograma($curso['periodo'], TipoPrograma::BachilleratoInternacional, 'Bachillerato Internacional');
+
+    $actualizado = $organizacion->actualizarPrograma($programa, TipoPrograma::BachilleratoInternacional, 'Diploma IB');
+
+    expect($actualizado->nombre)->toBe('Diploma IB');
+});
+
+it('deletes a program and its memberships', function () {
+    $curso = cursoDeOctavo();
+    $organizacion = app(OrganizacionAcademica::class);
+    $alumno = alumnoDelEstablecimiento($curso['establecimiento'], 'Flores');
+    $organizacion->matricular($curso['aulaA'], $alumno);
+    $programa = $organizacion->crearPrograma($curso['periodo'], TipoPrograma::BachilleratoInternacional, 'Bachillerato Internacional');
+    $organizacion->sincronizarAlumnosPrograma($programa, [$alumno->id]);
+
+    $organizacion->eliminarPrograma($programa);
+
+    expect($programa->fresh())->toBeNull()
+        ->and(EstablecimientoProgramaAlumno::query()->where('alumno_id', $alumno->id)->exists())->toBeFalse();
 });

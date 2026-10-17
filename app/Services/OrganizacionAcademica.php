@@ -184,17 +184,7 @@ class OrganizacionAcademica
             ]);
         }
 
-        $existente = EstablecimientoPrograma::query()
-            ->where('establecimiento_modalidad_jornada_id', $periodo->establecimiento_modalidad_jornada_id)
-            ->where('establecimiento_periodo_id', $periodo->id)
-            ->where('tipo', $tipo)
-            ->first();
-
-        if ($existente !== null) {
-            throw ValidationException::withMessages([
-                'tipo' => 'Este periodo ya tiene un programa de '.$tipo->label().'.',
-            ]);
-        }
+        $this->exigirNombreProgramaLibre($periodo, $nombre);
 
         return EstablecimientoPrograma::query()->create([
             'establecimiento_id' => $periodo->establecimiento_id,
@@ -203,6 +193,50 @@ class OrganizacionAcademica
             'tipo' => $tipo,
             'nombre' => $nombre,
         ]);
+    }
+
+    public function actualizarPrograma(EstablecimientoPrograma $programa, TipoPrograma $tipo, string $nombre): EstablecimientoPrograma
+    {
+        $programa->loadMissing('periodo');
+        $nombre = trim($nombre);
+
+        if ($nombre === '') {
+            throw ValidationException::withMessages([
+                'nombre' => 'Escribe el nombre del programa.',
+            ]);
+        }
+
+        $this->exigirNombreProgramaLibre($programa->periodo, $nombre, (int) $programa->id);
+
+        $programa->update([
+            'tipo' => $tipo,
+            'nombre' => $nombre,
+        ]);
+
+        return $programa->refresh();
+    }
+
+    public function eliminarPrograma(EstablecimientoPrograma $programa): void
+    {
+        $this->sincronizarAlumnosPrograma($programa, []);
+        $this->sincronizarAsignaturasPrograma($programa, []);
+        $programa->delete();
+    }
+
+    private function exigirNombreProgramaLibre(EstablecimientoPeriodo $periodo, string $nombre, ?int $exceptoId = null): void
+    {
+        $repetido = EstablecimientoPrograma::query()
+            ->where('establecimiento_modalidad_jornada_id', $periodo->establecimiento_modalidad_jornada_id)
+            ->where('establecimiento_periodo_id', $periodo->id)
+            ->where('nombre', $nombre)
+            ->when($exceptoId !== null, fn ($query) => $query->whereKeyNot($exceptoId))
+            ->exists();
+
+        if ($repetido) {
+            throw ValidationException::withMessages([
+                'nombre' => 'Ya existe un programa con ese nombre en este periodo.',
+            ]);
+        }
     }
 
     /**

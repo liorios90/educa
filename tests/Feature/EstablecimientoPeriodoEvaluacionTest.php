@@ -188,7 +188,7 @@ describe('edit', function () {
 
         $this->actingAs($admin)
             ->get(route('dashboard'))
-            ->assertSee('Periodo')
+            ->assertSee('Período')
             ->assertSee(route('Admin.periodo'), false);
     });
 });

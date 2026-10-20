@@ -18,6 +18,7 @@ use App\Models\EstablecimientoInsumoActividad;
 use App\Models\EstablecimientoInsumoActividadCalificacion;
 use App\Models\EstablecimientoMatricula;
 use App\Models\EstablecimientoPeriodoCiclo;
+use App\Models\NavigationItem;
 use App\Models\Persona;
 use App\Models\Sys_Asignatura;
 use App\Models\TipoInsumo;
@@ -263,10 +264,8 @@ describe('index', function () {
         $this->actingAs($escenario['docente'])
             ->withSession([ActiveRole::SESSION_KEY => Role::Docente->value])
             ->get(route('dashboard'))
-            ->assertSee('Calificar insumos')
-            ->assertSee(route('Docente.calificar.index'), false)
-            ->assertSee('Editar insumos')
-            ->assertSee(route('Docente.calificar.editar'), false);
+            ->assertSee('Insumos')
+            ->assertSee(route('navigation.hub', NavigationItem::query()->where('label', 'Insumos')->where('is_group', true)->firstOrFail()), false);
     });
 
     it('escapes a dangerous subject name in the selector', function () {

@@ -15,20 +15,25 @@ it('shows shared links and hides role links for users without a role', function 
     $this->actingAs($user)
         ->get(route('dashboard'))
         ->assertSee('Inicio')
-        ->assertSee('Perfil')
+        ->assertSee('Reportes')
         ->assertDontSee('Usuarios')
-        ->assertDontSee(route('admin.users'), false)
+        ->assertDontSee(route('Admin.padres'), false)
         ->assertDontSee(route('sistemas.home'), false);
+
+    expect(collect((new Navigation)->itemsFor($user))->pluck('label')->all())
+        ->toContain('Inicio', 'Reportes')
+        ->not->toContain('Perfil');
 });
 
-it('shows the users link only to administrators', function () {
+it('shows administrator menu links and hides systems links', function () {
     $this->seed(NavigationSeeder::class);
 
     $user = assignRole(User::factory()->create(), Role::Admin);
 
     $this->actingAs($user)
         ->get(route('dashboard'))
-        ->assertSee(route('admin.users'), false)
+        ->assertSee('Matenimiento')
+        ->assertSee(route('Admin.padres'), false)
         ->assertDontSee(route('sistemas.home'), false);
 });
 
@@ -40,7 +45,7 @@ it('shows the systems link only to systems users', function () {
     $this->actingAs($user)
         ->get(route('dashboard'))
         ->assertSee(route('sistemas.home'), false)
-        ->assertDontSee(route('admin.users'), false);
+        ->assertDontSee(route('Admin.padres'), false);
 });
 
 it('redirects a multi-role user to choose a role before the dashboard', function () {
@@ -55,19 +60,19 @@ it('redirects a multi-role user to choose a role before the dashboard', function
         ->assertRedirect(route('role.select'));
 });
 
-it('allows administrators to open the users page', function () {
-    $user = assignRole(User::factory()->create(), Role::Admin);
+it('allows administrators to open the parents page', function () {
+    $user = adminOf(Establecimiento::factory()->create());
 
     $this->actingAs($user)
-        ->get(route('admin.users'))
-        ->assertSee('Nuevo usuario');
+        ->get(route('Admin.padres'))
+        ->assertSee('Padres de familia');
 });
 
-it('forbids systems users from opening the users page', function () {
+it('forbids systems users from opening the parents page', function () {
     $user = assignRole(User::factory()->create(), Role::Sistemas);
 
     $this->actingAs($user)
-        ->get(route('admin.users'))
+        ->get(route('Admin.padres'))
         ->assertForbidden();
 });
 
@@ -91,7 +96,7 @@ it('redirects guests from role pages to login', function (string $routeName) {
     $this->get(route($routeName))
         ->assertRedirect(route('login'));
 })->with([
-    'users page' => 'admin.users',
+    'parents page' => 'Admin.padres',
     'systems page' => 'sistemas.home',
 ]);
 
@@ -140,9 +145,12 @@ it('returns only the links the user may see', function () {
     $items = collect((new Navigation)->itemsFor($admin));
     $configuracion = $items->firstWhere('label', 'Configuración');
 
-    expect($items->pluck('label')->all())->toContain('Matricular alumnos', 'Grupos flotantes', 'Programas')
-        ->not->toContain('Grupos de clase')
-        ->and(collect($configuracion?->children)->pluck('label')->all())->toBe(['Periodo', 'Por grados', 'Por asignaturas', 'Tipos de Insumo', 'Tablas de Equivalencias', 'Asistente']);
+    $matriculas = $items->firstWhere('label', 'Matriculas');
+
+    expect($items->pluck('label')->all())->toContain('Matenimiento', 'Estructura Institucional', 'Configuración', 'Matriculas', 'Grupos flotantes')
+        ->not->toContain('Grupos de clase', 'Usuarios')
+        ->and(collect($configuracion?->children)->pluck('label')->all())->toBe(['Período', 'Por grados', 'Por Asignaturas', 'Tipos de Insumos', 'Tablas de Equivalencias', 'Asistente'])
+        ->and(collect($matriculas?->children)->pluck('label')->all())->toBe(['Formularios', 'Matricular Alumno']);
 });
 
 it('shows class groups and programs to secretaries', function () {
@@ -154,10 +162,49 @@ it('shows class groups and programs to secretaries', function () {
         ->get(route('dashboard'))
         ->assertSee(route('Admin.grupos-asignatura.index'), false)
         ->assertSee(route('Admin.grupos-asignatura.flotantes'), false)
-        ->assertSee(route('Admin.programas.index'), false)
-        ->assertDontSee(route('Admin.aulas'), false);
+        ->assertSee(route('Admin.matriculas.index'), false)
+        ->assertSee(route('secretaria.asistente'), false)
+        ->assertDontSee(route('Admin.aulas'), false)
+        ->assertDontSee(route('Admin.programas.index'), false);
 
     expect(collect((new Navigation)->itemsFor($secretaria))->pluck('label')->all())
-        ->toContain('Matricular alumnos', 'Grupos flotantes', 'Programas')
-        ->not->toContain('Grupos de clase');
+        ->toContain('Matriculas', 'Grupos flotantes', 'Asistente')
+        ->not->toContain('Grupos de clase', 'Programas');
+});
+
+it('does not overwrite a menu item that was customized in sistemas', function () {
+    $this->seed(NavigationSeeder::class);
+
+    $horario = NavigationItem::query()->where('route_name', 'Docente.horarios')->firstOrFail();
+    $horario->update([
+        'label' => 'Mi horario',
+        'icon' => 'home',
+        'sort_order' => 99,
+    ]);
+    $horario->roles()->sync([]);
+
+    $this->seed(NavigationSeeder::class);
+
+    $horario->refresh();
+
+    expect($horario->label)->toBe('Mi horario')
+        ->and($horario->icon)->toBe('home')
+        ->and($horario->sort_order)->toBe(99)
+        ->and($horario->roles)->toHaveCount(0)
+        ->and(NavigationItem::query()->where('route_name', 'Docente.horarios')->count())->toBe(1);
+});
+
+it('creates only a missing menu item on a later seed', function () {
+    $this->seed(NavigationSeeder::class);
+
+    $count = NavigationItem::query()->count();
+    NavigationItem::query()->where('route_name', 'secretaria.asistente')->delete();
+
+    $this->seed(NavigationSeeder::class);
+
+    $this->assertDatabaseHas('navigation_items', [
+        'route_name' => 'secretaria.asistente',
+        'label' => 'Asistente',
+    ]);
+    expect(NavigationItem::query()->count())->toBe($count);
 });

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Auth\ActiveOferta;
 use App\Auth\ActivePeriodo;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\UpsertEquivalenciaDetalleRequest;
 use App\Models\Equivalencia;
 use App\Models\EquivalenciaDetalle;
 use App\Models\EstablecimientoAsignatura;
@@ -62,16 +63,16 @@ class EquivalenciaController extends Controller
         return view('admin.tablas-equivalencias.detalles', compact('equivalencia'));
     }
 
-    public function storeDetalle(Request $request, Equivalencia $equivalencia): RedirectResponse
+    public function storeDetalle(UpsertEquivalenciaDetalleRequest $request, Equivalencia $equivalencia): RedirectResponse
     {
-        $equivalencia->detalles()->create($this->validatedDetalleAttributes($request));
+        $equivalencia->detalles()->create($request->detalle());
 
         return redirect()->route('Admin.tablas-equivalencias.detalles.index', $equivalencia)->with('status', 'equivalencia-detalle-created');
     }
 
-    public function updateDetalle(Request $request, Equivalencia $equivalencia, EquivalenciaDetalle $detalle): RedirectResponse
+    public function updateDetalle(UpsertEquivalenciaDetalleRequest $request, Equivalencia $equivalencia, EquivalenciaDetalle $detalle): RedirectResponse
     {
-        $detalle->update($this->validatedDetalleAttributes($request));
+        $detalle->update($request->detalle());
 
         return redirect()->route('Admin.tablas-equivalencias.detalles.index', $equivalencia)->with('status', 'equivalencia-detalle-updated');
     }
@@ -174,16 +175,5 @@ class EquivalenciaController extends Controller
         $data = $request->validate(['nombre' => ['required', 'string', 'max:255'], 'descripcion' => ['nullable', 'string'], 'activo' => ['required', 'boolean']]);
 
         return ['nombre' => $data['nombre'], 'descripcion' => $data['descripcion'] ?? null, 'activo' => (bool) $data['activo']];
-    }
-
-    /** @return array{nombre: string, descripcion: ?string, valor: ?string, minimo: ?string, maximo: ?string, activo: bool} */
-    private function validatedDetalleAttributes(Request $request): array
-    {
-        $data = $request->validate(['nombre' => ['required', 'string', 'max:255'], 'descripcion' => ['nullable', 'string'], 'valor' => ['nullable', 'string', 'max:100'], 'minimo' => ['nullable', 'numeric', 'decimal:0,2'], 'maximo' => ['nullable', 'numeric', 'decimal:0,2'], 'activo' => ['required', 'boolean']]);
-        if (isset($data['minimo'], $data['maximo']) && (float) $data['minimo'] > (float) $data['maximo']) {
-            abort(422, 'El mínimo no puede ser mayor que el máximo.');
-        }
-
-        return ['nombre' => $data['nombre'], 'descripcion' => $data['descripcion'] ?? null, 'valor' => $data['valor'] ?? null, 'minimo' => $data['minimo'] ?? null, 'maximo' => $data['maximo'] ?? null, 'activo' => (bool) $data['activo']];
     }
 }

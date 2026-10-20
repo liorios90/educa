@@ -7,6 +7,7 @@ use App\Http\Controllers\HorarioDocenteController;
 use App\Http\Controllers\NavigationHubController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReportRunController;
+use App\Http\Controllers\SecretariaController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -28,6 +29,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/calificar/editar', [CalificarInsumosController::class, 'editar'])->name('calificar.editar');
             Route::post('/calificar/actividades', [CalificarInsumosController::class, 'storeActividad'])->name('calificar.actividades.store');
             Route::put('/calificar/actividades/{actividad}', [CalificarInsumosController::class, 'updateActividad'])->name('calificar.actividades.update');
+            Route::get('/asistente', [SecretariaController::class, 'asistente'])->name('asistente');
+            Route::post('/asistente', [SecretariaController::class, 'store'])->name('asistente.store');
         });
 
     Route::get('/menu/{navigationItem}', [NavigationHubController::class, 'show'])->name('navigation.hub');

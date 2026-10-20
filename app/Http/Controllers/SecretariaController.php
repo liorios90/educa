@@ -16,9 +16,13 @@ class SecretariaController extends Controller
         dd('hola');
     }
 
-    public function asistente(): View
+    public function asistente(Request $request): View
     {
-        return view('secretaria.asistente');
+        return view('secretaria.asistente', [
+            'storeRoute' => $request->routeIs('Docente.asistente')
+                ? route('Docente.asistente.store')
+                : route('secretaria.asistente.store'),
+        ]);
     }
 
     public function store(Request $request, GeminiService $gemini): RedirectResponse

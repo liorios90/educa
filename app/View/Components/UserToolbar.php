@@ -2,6 +2,7 @@
 
 namespace App\View\Components;
 
+use App\Auth\ActiveDocenteContexto;
 use App\Auth\ActiveOferta;
 use App\Auth\ActivePeriodo;
 use App\Auth\ActiveRole;
@@ -17,6 +18,7 @@ class UserToolbar extends Component
         private ActiveRole $activeRole,
         private ActiveOferta $activeOferta,
         private ActivePeriodo $activePeriodo,
+        private ActiveDocenteContexto $activeDocenteContexto,
     ) {}
 
     public function render(): View
@@ -35,14 +37,19 @@ class UserToolbar extends Component
 
         $oferta = $this->activeOferta->get($user);
         $periodo = $this->activePeriodo->get($user);
+        $docenteContexto = $this->activeDocenteContexto->appliesTo($user)
+            ? $this->activeDocenteContexto->get($user)
+            : null;
 
         return view('components.user-toolbar', [
             'user' => $user,
             'roleLabel' => $roleLabel,
             'ofertaLabel' => $oferta?->etiqueta(),
             'periodoLabel' => $periodo?->nombre,
+            'docenteContextoLabel' => $docenteContexto?->etiqueta(),
             'canSwitchRole' => $user->roles->count() > 1,
             'canSwitchOferta' => $this->activeOferta->canSwitch($user),
+            'canSwitchDocenteContexto' => $this->activeDocenteContexto->appliesTo($user),
         ]);
     }
 }

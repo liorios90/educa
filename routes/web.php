@@ -1,8 +1,9 @@
 <?php
 
+use App\Http\Controllers\CalificarInsumosController;
 use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\HorarioDocenteController;
 use App\Http\Controllers\EnrollmentSubmissionController;
+use App\Http\Controllers\HorarioDocenteController;
 use App\Http\Controllers\NavigationHubController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReportRunController;
@@ -22,6 +23,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('Docente.')
         ->group(function () {
             Route::get('/horarios', HorarioDocenteController::class)->name('horarios');
+            Route::get('/calificar', [CalificarInsumosController::class, 'index'])->name('calificar.index');
+            Route::post('/calificar', [CalificarInsumosController::class, 'store'])->name('calificar.store');
+            Route::get('/calificar/editar', [CalificarInsumosController::class, 'editar'])->name('calificar.editar');
+            Route::post('/calificar/actividades', [CalificarInsumosController::class, 'storeActividad'])->name('calificar.actividades.store');
+            Route::put('/calificar/actividades/{actividad}', [CalificarInsumosController::class, 'updateActividad'])->name('calificar.actividades.update');
         });
 
     Route::get('/menu/{navigationItem}', [NavigationHubController::class, 'show'])->name('navigation.hub');

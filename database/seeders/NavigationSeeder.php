@@ -28,6 +28,8 @@ class NavigationSeeder extends Seeder
 
         $this->upsertItem('Inicio', 'dashboard', 'home', 1, true, []);
         $this->upsertItem('Horarios', 'Docente.horarios', 'calendar-days', 2, false, [$docente->id]);
+        $this->upsertItem('Calificar insumos', 'Docente.calificar.index', 'clipboard-document-list', 3, false, [$docente->id]);
+        $this->upsertItem('Editar insumos', 'Docente.calificar.editar', 'pencil-square', 4, false, [$docente->id]);
         $this->upsertItem('Usuarios', 'admin.users', 'users', 2, false, [$admin->id]);
         $this->upsertItem('Padres', 'Admin.padres', 'users', 3, false, [$admin->id]);
         $this->upsertItem('Matrículas', 'Admin.matriculas.index', 'clipboard-document-list', 4, false, [$admin->id]);

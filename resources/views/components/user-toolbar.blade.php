@@ -8,6 +8,9 @@
         @if ($periodoLabel)
             <p class="truncate text-[11px] text-slate-500">{{ $periodoLabel }}</p>
         @endif
+        @if ($docenteContextoLabel)
+            <p class="truncate text-[11px] text-slate-500">{{ $docenteContextoLabel }}</p>
+        @endif
     </div>
 
     <div class="flex items-center gap-0.5">
@@ -42,6 +45,19 @@
                 title="Cambiar modalidad y jornada"
             >
                 <span class="sr-only">Cambiar modalidad y jornada</span>
+                <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                </svg>
+            </a>
+        @endif
+
+        @if ($canSwitchDocenteContexto)
+            <a
+                href="{{ route('Docente.calificar.index') }}"
+                class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-indigo-700"
+                title="Cambiar aula, materia y parcial"
+            >
+                <span class="sr-only">Cambiar aula, materia y parcial</span>
                 <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
                 </svg>

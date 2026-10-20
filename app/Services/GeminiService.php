@@ -2,18 +2,26 @@
 
 namespace App\Services;
 
+use App\Exceptions\GeminiCredentialsMissingException;
+use App\Models\Establecimiento;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
 
 class GeminiService
 {
-    public function generate(string $prompt): string
+    public function generate(string $prompt, Establecimiento $establecimiento): GeminiRespuesta
     {
-        $model = config('services.gemini.model');
+        $key = $establecimiento->gemini_api_key;
+
+        if (! is_string($key) || $key === '') {
+            throw new GeminiCredentialsMissingException;
+        }
+
+        $model = $establecimiento->modeloGemini();
 
         $response = Http::baseUrl(config('services.gemini.base_url'))
             ->withHeaders([
-                'x-goog-api-key' => config('services.gemini.key'),
+                'x-goog-api-key' => $key,
                 'Content-Type' => 'application/json',
             ])
             ->connectTimeout(5)
@@ -40,6 +48,11 @@ class GeminiService
             throw new RequestException($response);
         }
 
-        return $text;
+        $tokens = $response->json('usageMetadata.totalTokenCount');
+
+        return new GeminiRespuesta(
+            $text,
+            is_numeric($tokens) ? max(0, (int) $tokens) : 0,
+        );
     }
 }

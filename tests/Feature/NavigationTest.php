@@ -142,7 +142,7 @@ it('returns only the links the user may see', function () {
 
     expect($items->pluck('label')->all())->toContain('Matricular alumnos', 'Grupos flotantes', 'Programas')
         ->not->toContain('Grupos de clase')
-        ->and(collect($configuracion?->children)->pluck('label')->all())->toBe(['Periodo', 'Por grados', 'Por asignaturas', 'Tipos de Insumo', 'Tablas de Equivalencias']);
+        ->and(collect($configuracion?->children)->pluck('label')->all())->toBe(['Periodo', 'Por grados', 'Por asignaturas', 'Tipos de Insumo', 'Tablas de Equivalencias', 'Asistente']);
 });
 
 it('shows class groups and programs to secretaries', function () {

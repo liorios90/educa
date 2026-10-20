@@ -2,10 +2,10 @@
 
 use App\Auth\ActiveRole;
 use App\Enums\Role;
+use App\Models\Alumno;
 use App\Models\EnrollmentForm;
 use App\Models\EnrollmentSubmission;
 use App\Models\Establecimiento;
-use App\Models\Alumno;
 use App\Models\Padre;
 use App\Models\Persona;
 use App\Models\User;
@@ -262,4 +262,44 @@ it('prevents administrators from changing a different school form', function () 
         ->assertNotFound();
 
     $this->assertDatabaseHas('enrollment_sections', ['id' => $foreignSection->id]);
+});
+
+it('lets a secretary open and create enrollment forms', function () {
+    $school = Establecimiento::factory()->create();
+    $secretaria = secretariaOf($school);
+    $context = enrollmentAdminContext($school);
+    $context[ActiveRole::SESSION_KEY] = Role::Secretaria->value;
+
+    $this->actingAs($secretaria)
+        ->withSession($context)
+        ->get(route('Admin.matriculas.index'))
+        ->assertOk()
+        ->assertSee('Formularios de matrícula')
+        ->assertSee('Crear formulario');
+
+    $this->actingAs($secretaria)
+        ->withSession($context)
+        ->post(route('Admin.matriculas.forms.store'), [
+            'periodo_id' => $context['periodo']->id,
+            'title' => 'Matrícula secretaría',
+        ])
+        ->assertRedirect();
+
+    $form = EnrollmentForm::query()
+        ->where('establecimiento_id', $school->id)
+        ->where('title', 'Matrícula secretaría')
+        ->first();
+
+    expect($form)->not->toBeNull();
+});
+
+it('forbids a teacher from opening enrollment forms', function () {
+    $school = Establecimiento::factory()->create();
+    $docente = assignRole(User::factory()->create([
+        'establecimiento_id' => $school->id,
+    ]), Role::Docente);
+
+    $this->actingAs($docente)
+        ->get(route('Admin.matriculas.index'))
+        ->assertForbidden();
 });

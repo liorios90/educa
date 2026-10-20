@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\ConfiguracionAsignaturasController;
+use App\Http\Controllers\Admin\ConfiguracionAsistenteController;
 use App\Http\Controllers\Admin\EquivalenciaController;
 use App\Http\Controllers\Admin\EstablecimientoFiguraProfesionalController;
 use App\Http\Controllers\Admin\EstablecimientoPeriodoConfiguracionGradoController;
@@ -29,17 +30,6 @@ Route::middleware(['auth', 'verified', 'role:Admin'])
         // Route::view('/', 'Admin.home')->name('home');
         Route::get('prueba', [AdminController::class, 'lio'])->name('lio');
         Route::get('padres', [PadreController::class, 'index'])->name('padres');
-        Route::get('matriculas', [EnrollmentFormController::class, 'index'])->name('matriculas.index');
-        Route::post('matriculas/formularios', [EnrollmentFormController::class, 'storeForm'])->name('matriculas.forms.store');
-        Route::get('matriculas/formularios/{enrollmentForm}/editar', [EnrollmentFormController::class, 'edit'])->name('matriculas.forms.edit');
-        Route::patch('matriculas/formularios/{enrollmentForm}', [EnrollmentFormController::class, 'update'])->name('matriculas.forms.update');
-        Route::patch('matriculas/formularios/{enrollmentForm}/activar', [EnrollmentFormController::class, 'activate'])->name('matriculas.forms.activate');
-        Route::delete('matriculas/formularios/{enrollmentForm}', [EnrollmentFormController::class, 'destroyForm'])->name('matriculas.forms.destroy');
-        Route::post('matriculas/formularios/{enrollmentForm}/secciones', [EnrollmentFormController::class, 'storeSection'])->name('matriculas.sections.store');
-        Route::delete('matriculas/secciones/{section}', [EnrollmentFormController::class, 'destroySection'])->name('matriculas.sections.destroy');
-        Route::post('matriculas/formularios/{enrollmentForm}/secciones/{section}/campos', [EnrollmentFormController::class, 'storeField'])->name('matriculas.fields.store');
-        Route::delete('matriculas/campos/{field}', [EnrollmentFormController::class, 'destroyField'])->name('matriculas.fields.destroy');
-        Route::get('matriculas/formularios/{enrollmentForm}/respuestas', [EnrollmentFormController::class, 'submissions'])->name('matriculas.submissions');
         Route::get('padres/crear', [PadreController::class, 'create'])->name('padres.create');
         Route::post('padres', [PadreController::class, 'store'])->name('padres.store');
         Route::get('padres/importar', [ImportRepresentantesController::class, 'create'])->name('padres.import');
@@ -59,6 +49,8 @@ Route::middleware(['auth', 'verified', 'role:Admin'])
         Route::put('estructura/{oferta}', [EstablecimientoEstructuraController::class, 'update'])->name('estructura.update');
         Route::get('periodo', [EstablecimientoPeriodoEvaluacionController::class, 'edit'])->name('periodo');
         Route::put('periodo', [EstablecimientoPeriodoEvaluacionController::class, 'update'])->name('periodo.update');
+        Route::get('asistente', [ConfiguracionAsistenteController::class, 'edit'])->name('asistente');
+        Route::put('asistente', [ConfiguracionAsistenteController::class, 'update'])->name('asistente.update');
         Route::post('periodo/aperturar', [EstablecimientoPeriodoEvaluacionController::class, 'aperturar'])->name('periodo.aperturar');
         Route::get('configuracion-grados', [EstablecimientoPeriodoConfiguracionGradoController::class, 'index'])->name('configuracion-grados.index');
         Route::get('configuracion-grados/crear', [EstablecimientoPeriodoConfiguracionGradoController::class, 'create'])->name('configuracion-grados.create');
@@ -125,6 +117,17 @@ Route::middleware(['auth', 'verified', 'role:Admin|Secretaria'])
     ->prefix('Admin')
     ->name('Admin.')
     ->group(function () {
+        Route::get('matriculas', [EnrollmentFormController::class, 'index'])->name('matriculas.index');
+        Route::post('matriculas/formularios', [EnrollmentFormController::class, 'storeForm'])->name('matriculas.forms.store');
+        Route::get('matriculas/formularios/{enrollmentForm}/editar', [EnrollmentFormController::class, 'edit'])->name('matriculas.forms.edit');
+        Route::patch('matriculas/formularios/{enrollmentForm}', [EnrollmentFormController::class, 'update'])->name('matriculas.forms.update');
+        Route::patch('matriculas/formularios/{enrollmentForm}/activar', [EnrollmentFormController::class, 'activate'])->name('matriculas.forms.activate');
+        Route::delete('matriculas/formularios/{enrollmentForm}', [EnrollmentFormController::class, 'destroyForm'])->name('matriculas.forms.destroy');
+        Route::post('matriculas/formularios/{enrollmentForm}/secciones', [EnrollmentFormController::class, 'storeSection'])->name('matriculas.sections.store');
+        Route::delete('matriculas/secciones/{section}', [EnrollmentFormController::class, 'destroySection'])->name('matriculas.sections.destroy');
+        Route::post('matriculas/formularios/{enrollmentForm}/secciones/{section}/campos', [EnrollmentFormController::class, 'storeField'])->name('matriculas.fields.store');
+        Route::delete('matriculas/campos/{field}', [EnrollmentFormController::class, 'destroyField'])->name('matriculas.fields.destroy');
+        Route::get('matriculas/formularios/{enrollmentForm}/respuestas', [EnrollmentFormController::class, 'submissions'])->name('matriculas.submissions');
         Route::get('grupos-asignatura', [GrupoAsignaturaController::class, 'index'])->name('grupos-asignatura.index');
         Route::get('grupos-asignatura/flotantes', [GrupoAsignaturaController::class, 'gruposFlotantes'])->name('grupos-asignatura.flotantes');
         Route::post('grupos-asignatura/matriculas', [GrupoAsignaturaController::class, 'storeMatricula'])->name('grupos-asignatura.matriculas.store');

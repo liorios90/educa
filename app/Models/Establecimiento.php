@@ -41,6 +41,20 @@ class Establecimiento extends Model
         'zona_id',
         'distrito_id',
         'circuito_id',
+        'gemini_api_key',
+        'gemini_model',
+        'gemini_preguntas_limite',
+        'gemini_tokens_limite',
+        'gemini_preguntas_usadas',
+        'gemini_tokens_usados',
+        'gemini_uso_mes',
+    ];
+
+    /**
+     * @var list<string>
+     */
+    protected $hidden = [
+        'gemini_api_key',
     ];
 
     protected static function newFactory(): EstablecimientoFactory
@@ -55,7 +69,26 @@ class Establecimiento extends Model
             'activo' => 'boolean',
             'bachillerato_tecnico' => 'boolean',
             'bachillerato_internacional' => 'boolean',
+            'gemini_api_key' => 'encrypted',
+            'gemini_preguntas_limite' => 'integer',
+            'gemini_tokens_limite' => 'integer',
+            'gemini_preguntas_usadas' => 'integer',
+            'gemini_tokens_usados' => 'integer',
         ];
+    }
+
+    public function tieneCredencialesGemini(): bool
+    {
+        return is_string($this->gemini_api_key) && $this->gemini_api_key !== '';
+    }
+
+    public function modeloGemini(): string
+    {
+        if (is_string($this->gemini_model) && $this->gemini_model !== '') {
+            return $this->gemini_model;
+        }
+
+        return (string) config('services.gemini.model');
     }
 
     public function zona(): BelongsTo

@@ -40,6 +40,8 @@ class UpsertEstablecimientoRequest extends FormRequest
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', Rule::unique('establecimientos', 'email')->ignore($ignoreId)],
             'usuario' => ['required', 'string', 'max:255'],
             'activo' => ['required', 'boolean'],
+            'bachillerato_tecnico' => ['required', 'boolean'],
+            'bachillerato_internacional' => ['required', 'boolean'],
             'logo' => [
                 Rule::requiredIf($this->isMethod('POST')),
                 'nullable',
@@ -78,6 +80,8 @@ class UpsertEstablecimientoRequest extends FormRequest
     {
         $this->merge([
             'activo' => $this->boolean('activo'),
+            'bachillerato_tecnico' => $this->boolean('bachillerato_tecnico'),
+            'bachillerato_internacional' => $this->boolean('bachillerato_internacional'),
             'grupo_amie' => $this->filled('grupo_amie') ? $this->integer('grupo_amie') : null,
         ]);
     }
@@ -125,6 +129,21 @@ class UpsertEstablecimientoRequest extends FormRequest
                     }
                 }
             },
+            function (Validator $validator): void {
+                $establecimiento = $this->route('establecimiento');
+
+                if (! $establecimiento instanceof Establecimiento
+                    || $this->boolean('bachillerato_tecnico')
+                    || ! $establecimiento->bachillerato_tecnico
+                    || ! $establecimiento->figurasProfesionales()->exists()) {
+                    return;
+                }
+
+                $validator->errors()->add(
+                    'bachillerato_tecnico',
+                    'No puedes desactivar el Bachillerato Técnico mientras existan figuras profesionales. Elimínalas primero desde Asignaturas.',
+                );
+            },
         ];
     }
 
@@ -138,6 +157,8 @@ class UpsertEstablecimientoRequest extends FormRequest
             'admin_email.required' => 'Indica el correo del administrador del establecimiento.',
             'admin_password.required' => 'Indica la contraseña del administrador del establecimiento.',
             'modalidades.required' => 'Selecciona al menos una modalidad.',
+            'bachillerato_tecnico.required' => 'Indica si el establecimiento ofrece Bachillerato Técnico.',
+            'bachillerato_internacional.required' => 'Indica si el establecimiento ofrece Bachillerato Internacional.',
             'modalidades.min' => 'Selecciona al menos una modalidad.',
             'modalidades.*.exists' => 'La modalidad seleccionada no existe en el catálogo de sistemas.',
             'jornadas.required' => 'Selecciona las jornadas de cada modalidad.',

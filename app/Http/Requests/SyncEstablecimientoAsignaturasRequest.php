@@ -7,10 +7,12 @@ use App\Enums\Role;
 use App\Enums\TipoAsignatura;
 use App\Enums\TipoCalificacion;
 use App\Models\EstablecimientoAsignaturaPropia;
+use App\Models\EstablecimientoFiguraProfesional;
 use App\Models\EstablecimientoModalidadJornada;
 use App\Models\Sys_Area;
 use App\Models\Sys_Asignatura;
 use App\Models\Sys_Grado;
+use App\Models\Sys_Subnivel;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
@@ -25,7 +27,8 @@ class SyncEstablecimientoAsignaturasRequest extends FormRequest
 
         return $user !== null
             && $user->hasRole(Role::Admin)
-            && $user->establecimiento_id !== null;
+            && $user->establecimiento_id !== null
+            && ($user->establecimiento?->bachillerato_tecnico || ! $this->contieneConfiguracionTecnica());
     }
 
     /**
@@ -38,6 +41,8 @@ class SyncEstablecimientoAsignaturasRequest extends FormRequest
             'asignaturas.*' => ['array'],
             'asignaturas.*.grados' => ['nullable', 'array'],
             'asignaturas.*.grados.*' => ['integer', Rule::exists('sys_grados', 'id')],
+            'asignaturas.*.figura_profesional_id' => ['nullable', 'array'],
+            'asignaturas.*.figura_profesional_id.*' => ['nullable', 'integer'],
             'asignaturas.*.libreta' => ['nullable', 'array'],
             'asignaturas.*.libreta.*' => ['nullable', 'boolean'],
             'asignaturas.*.tipo_calificacion' => ['nullable', 'array'],
@@ -59,6 +64,7 @@ class SyncEstablecimientoAsignaturasRequest extends FormRequest
             'propias.*.nombre' => ['required', 'string', 'max:150'],
             'propias.*.area_id' => ['required', 'integer', Rule::exists('sys_areas', 'id')],
             'propias.*.tipo' => ['required', Rule::enum(TipoAsignatura::class)],
+            'propias.*.figura_profesional_id' => ['nullable', 'integer', Rule::exists('establecimiento_figuras_profesionales', 'id')],
             'propias.*.eliminar' => ['nullable', 'boolean'],
             'propias.*.grados' => ['nullable', 'array'],
             'propias.*.grados.*' => ['integer', Rule::exists('sys_grados', 'id')],
@@ -116,6 +122,21 @@ class SyncEstablecimientoAsignaturasRequest extends FormRequest
                         $validator->errors()->add(
                             'asignaturas',
                             'Cada asignatura debe pertenecer al mismo subnivel del grado seleccionado.',
+                        );
+
+                        return;
+                    }
+
+                    if ($asignatura->area?->es_tecnica) {
+                        $this->validarAsignaturaTecnica($validator, $fila, $asignatura, $grado);
+
+                        if ($validator->errors()->isNotEmpty()) {
+                            return;
+                        }
+                    } elseif ($fila['figura_profesional_id'] !== null) {
+                        $validator->errors()->add(
+                            'asignaturas.'.$fila['asignatura_id'].'.figura_profesional_id.'.$fila['grado_id'],
+                            'Solo puedes vincular asignaturas de áreas técnicas a una figura profesional.',
                         );
 
                         return;
@@ -198,6 +219,7 @@ class SyncEstablecimientoAsignaturasRequest extends FormRequest
      *     nombre: string,
      *     area_id: int,
      *     tipo_asignatura: TipoAsignatura,
+     *     figura_profesional_id: int|null,
      *     eliminar: bool
      * }>
      */
@@ -210,6 +232,7 @@ class SyncEstablecimientoAsignaturasRequest extends FormRequest
                 'nombre' => $definicion['nombre'],
                 'area_id' => $definicion['area_id'],
                 'tipo_asignatura' => TipoAsignatura::tryFrom((string) $definicion['tipo']) ?? TipoAsignatura::Optativa,
+                'figura_profesional_id' => $definicion['figura_profesional_id'],
                 'eliminar' => $definicion['eliminar'],
             ];
         }, array_values(array_filter(
@@ -222,6 +245,7 @@ class SyncEstablecimientoAsignaturasRequest extends FormRequest
      * @return list<array{
      *     asignatura_id: int|null,
      *     asignatura_propia_clave: string|null,
+     *     figura_profesional_id: int|null,
      *     area_id: int,
      *     grado_id: int,
      *     tipo_asignatura: TipoAsignatura,
@@ -249,6 +273,7 @@ class SyncEstablecimientoAsignaturasRequest extends FormRequest
             $filas[] = [
                 'asignatura_id' => $fila['asignatura_id'],
                 'asignatura_propia_clave' => $fila['asignatura_propia_clave'],
+                'figura_profesional_id' => $fila['figura_profesional_id'],
                 'area_id' => $fila['area_id'],
                 'grado_id' => $fila['grado_id'],
                 'tipo_asignatura' => $fila['tipo_asignatura'],
@@ -373,6 +398,7 @@ class SyncEstablecimientoAsignaturasRequest extends FormRequest
             $filas[] = [
                 'asignatura_id' => $fila['asignatura_id'],
                 'asignatura_propia_clave' => null,
+                'figura_profesional_id' => $fila['figura_profesional_id'],
                 'area_id' => (int) $asignatura->area_id,
                 'grado_id' => $fila['grado_id'],
                 'tipo_asignatura' => $tipoAsignatura,
@@ -427,6 +453,7 @@ class SyncEstablecimientoAsignaturasRequest extends FormRequest
             $filas[] = [
                 'asignatura_id' => null,
                 'asignatura_propia_clave' => $fila['clave'],
+                'figura_profesional_id' => $fila['figura_profesional_id'],
                 'area_id' => $fila['area_id'],
                 'grado_id' => $fila['grado_id'],
                 'tipo_asignatura' => $tipo,
@@ -449,7 +476,16 @@ class SyncEstablecimientoAsignaturasRequest extends FormRequest
      */
     private function validarPropias(Validator $validator, array $gradoIdsOferta, $subnivelPorGrado): void
     {
+        if (! ($this->user()?->establecimiento?->bachillerato_tecnico ?? false)
+            && collect($this->definicionesCandidatas())->contains(fn (array $definicion): bool => $definicion['figura_profesional_id'] !== null)) {
+            $validator->errors()->add('propias', 'Activa Bachillerato Técnico en la ficha del establecimiento para vincular asignaturas con figuras profesionales.');
+
+            return;
+        }
+
         $nombres = [];
+        $figurasPorClave = collect($this->definicionesCandidatas())
+            ->mapWithKeys(fn (array $definicion): array => [$definicion['clave'] => $definicion['figura_profesional_id']]);
 
         foreach ($this->definicionesCandidatas() as $definicion) {
             if ($definicion['eliminar']) {
@@ -457,6 +493,22 @@ class SyncEstablecimientoAsignaturasRequest extends FormRequest
             }
 
             $area = Sys_Area::query()->find($definicion['area_id']);
+
+            if ($definicion['figura_profesional_id'] !== null) {
+                $figuraValida = EstablecimientoFiguraProfesional::query()
+                    ->whereKey($definicion['figura_profesional_id'])
+                    ->where('establecimiento_modalidad_jornada_id', $this->oferta()->id)
+                    ->exists();
+
+                if (! $figuraValida) {
+                    $validator->errors()->add(
+                        'propias.'.$definicion['clave'].'.figura_profesional_id',
+                        'Selecciona una figura profesional de la jornada y periodo activos.',
+                    );
+
+                    return;
+                }
+            }
 
             if ($area === null) {
                 $validator->errors()->add(
@@ -511,6 +563,20 @@ class SyncEstablecimientoAsignaturasRequest extends FormRequest
             $area = Sys_Area::query()->find($fila['area_id']);
             $subnivelDelGrado = $subnivelPorGrado->get($fila['grado_id']);
 
+            if ($figurasPorClave->get($fila['clave']) !== null
+                && ! Sys_Subnivel::query()
+                    ->whereKey($subnivelDelGrado)
+                    ->where('nombre', 'Bachillerato General Unificado')
+                    ->whereHas('nivel', fn ($query) => $query->where('nombre', 'Bachillerato'))
+                    ->exists()) {
+                $validator->errors()->add(
+                    'propias.'.$fila['clave'].'.grados',
+                    'Los módulos de una figura profesional se asignan a los cursos de Bachillerato General Unificado.',
+                );
+
+                return;
+            }
+
             if ($area === null || (int) $area->subnivel_id !== (int) $subnivelDelGrado) {
                 $validator->errors()->add(
                     'propias.'.$fila['clave'].'.grados',
@@ -523,7 +589,7 @@ class SyncEstablecimientoAsignaturasRequest extends FormRequest
     }
 
     /**
-     * @return list<array{clave: string, id: int|null, nombre: string, area_id: int, tipo: string|null, eliminar: bool}>
+     * @return list<array{clave: string, id: int|null, nombre: string, area_id: int, tipo: string|null, figura_profesional_id: int|null, eliminar: bool}>
      */
     private function definicionesCandidatas(): array
     {
@@ -546,6 +612,9 @@ class SyncEstablecimientoAsignaturasRequest extends FormRequest
                 'nombre' => trim((string) ($payload['nombre'] ?? '')),
                 'area_id' => $areaId,
                 'tipo' => is_string($tipo) && $tipo !== '' ? $tipo : null,
+                'figura_profesional_id' => is_numeric($payload['figura_profesional_id'] ?? null) && (int) $payload['figura_profesional_id'] > 0
+                    ? (int) $payload['figura_profesional_id']
+                    : null,
                 'eliminar' => filter_var($payload['eliminar'] ?? false, FILTER_VALIDATE_BOOLEAN),
             ];
         }
@@ -582,6 +651,7 @@ class SyncEstablecimientoAsignaturasRequest extends FormRequest
 
                 $filas[] = [
                     'clave' => $definicion['clave'],
+                    'figura_profesional_id' => $definicion['figura_profesional_id'],
                     'area_id' => $definicion['area_id'],
                     'grado_id' => $gradoId,
                     'tipo' => $definicion['tipo'],
@@ -624,9 +694,11 @@ class SyncEstablecimientoAsignaturasRequest extends FormRequest
                 $destrezas = $payload['califica_por_destrezas'][$gradoId] ?? $payload['califica_por_destrezas'][(string) $gradoId] ?? false;
                 $equivalencias = $payload['usa_tabla_equivalencias'][$gradoId] ?? $payload['usa_tabla_equivalencias'][(string) $gradoId] ?? false;
                 $porcentaje = $payload['porcentaje'][$gradoId] ?? $payload['porcentaje'][(string) $gradoId] ?? null;
+                $figuraProfesionalId = $payload['figura_profesional_id'][$gradoId] ?? $payload['figura_profesional_id'][(string) $gradoId] ?? null;
 
                 $filas[] = [
                     'asignatura_id' => (int) $asignaturaId,
+                    'figura_profesional_id' => is_numeric($figuraProfesionalId) && (int) $figuraProfesionalId > 0 ? (int) $figuraProfesionalId : null,
                     'grado_id' => $gradoId,
                     'aparece_en_libreta' => filter_var($libreta, FILTER_VALIDATE_BOOLEAN),
                     'horas_semanales' => is_numeric($horas) ? (int) $horas : null,
@@ -794,6 +866,62 @@ class SyncEstablecimientoAsignaturasRequest extends FormRequest
                 );
             }
         }
+    }
+
+    /** @param array{asignatura_id: int, figura_profesional_id: int|null, grado_id: int} $fila */
+    private function validarAsignaturaTecnica(Validator $validator, array $fila, Sys_Asignatura $asignatura, Sys_Grado $grado): void
+    {
+        $campo = 'asignaturas.'.$fila['asignatura_id'].'.figura_profesional_id.'.$fila['grado_id'];
+        $esBachillerato = $grado->subnivel?->nombre === 'Bachillerato General Unificado'
+            && $grado->subnivel?->nivel?->nombre === 'Bachillerato';
+        $areaActiva = $this->oferta()->areasTecnicas()->whereKey($asignatura->area_id)->exists();
+
+        if (! ($this->user()?->establecimiento?->bachillerato_tecnico ?? false)) {
+            $validator->errors()->add($campo, 'Activa Bachillerato Técnico en la ficha del establecimiento para configurar módulos técnicos.');
+
+            return;
+        }
+
+        if (! $esBachillerato || ! $areaActiva) {
+            $validator->errors()->add($campo, 'Las áreas técnicas deben estar activadas en esta jornada y pertenecen a los cursos de BGU.');
+
+            return;
+        }
+
+        $figuraId = $fila['figura_profesional_id'];
+        if ($figuraId === null) {
+            $validator->errors()->add($campo, 'Selecciona la figura profesional a la que pertenece este módulo técnico.');
+
+            return;
+        }
+
+        $figuraValida = EstablecimientoFiguraProfesional::query()
+            ->whereKey($figuraId)
+            ->where('establecimiento_modalidad_jornada_id', $this->oferta()->id)
+            ->exists();
+
+        if (! $figuraValida) {
+            $validator->errors()->add($campo, 'Selecciona una figura profesional de esta jornada.');
+        }
+    }
+
+    private function contieneConfiguracionTecnica(): bool
+    {
+        foreach ($this->input('propias', []) as $propia) {
+            if (is_array($propia) && ! empty($propia['figura_profesional_id'])) {
+                return true;
+            }
+        }
+
+        foreach ($this->input('asignaturas', []) as $asignatura) {
+            foreach (($asignatura['figura_profesional_id'] ?? []) as $figuraId) {
+                if (is_numeric($figuraId) && (int) $figuraId > 0) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     private function validarPorcentajes(Validator $validator): void

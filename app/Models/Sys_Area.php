@@ -24,6 +24,7 @@ class Sys_Area extends Model
         'descripcion',
         'orden',
         'aparece_en_libreta',
+        'es_tecnica',
         'subnivel_id',
     ];
 
@@ -43,6 +44,7 @@ class Sys_Area extends Model
         return [
             'orden' => 'integer',
             'aparece_en_libreta' => 'boolean',
+            'es_tecnica' => 'boolean',
         ];
     }
 

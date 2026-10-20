@@ -12,6 +12,7 @@ use App\Models\EstablecimientoAlumnoAsignatura;
 use App\Models\EstablecimientoAsignatura;
 use App\Models\EstablecimientoAula;
 use App\Models\EstablecimientoCalificacion;
+use App\Models\EstablecimientoFiguraProfesional;
 use App\Models\EstablecimientoGrupo;
 use App\Models\EstablecimientoGrupoAlumno;
 use App\Models\EstablecimientoMatricula;
@@ -25,10 +26,48 @@ use Illuminate\Validation\ValidationException;
 
 class OrganizacionAcademica
 {
-    public function matricular(EstablecimientoAula $aula, Alumno $alumno, ?string $fecha = null): EstablecimientoMatricula
-    {
-        return DB::transaction(function () use ($aula, $alumno, $fecha): EstablecimientoMatricula {
+    public function matricular(
+        EstablecimientoAula $aula,
+        Alumno $alumno,
+        ?string $fecha = null,
+        ?int $figuraProfesionalId = null,
+    ): EstablecimientoMatricula {
+        return DB::transaction(function () use ($aula, $alumno, $fecha, $figuraProfesionalId): EstablecimientoMatricula {
             $this->exigirMismoEstablecimiento($aula, $alumno);
+            $aula->loadMissing('establecimientoGrado');
+
+            $asignaturasTecnicas = EstablecimientoAsignatura::query()
+                ->where('establecimiento_modalidad_jornada_id', $aula->establecimiento_modalidad_jornada_id)
+                ->where('grado_id', $aula->establecimientoGrado?->grado_id)
+                ->where(function ($query): void {
+                    $query->whereNotNull('figura_profesional_id')
+                        ->orWhereHas('asignaturaPropia', fn ($query) => $query->whereNotNull('figura_profesional_id'));
+                });
+            $asignaturasEspecialidad = clone $asignaturasTecnicas;
+
+            if ($figuraProfesionalId === null && $asignaturasTecnicas->exists()) {
+                throw ValidationException::withMessages([
+                    'figura_profesional_id' => 'Selecciona la especialidad técnica para este paralelo.',
+                ]);
+            }
+
+            if ($figuraProfesionalId !== null) {
+                $figura = EstablecimientoFiguraProfesional::query()
+                    ->whereKey($figuraProfesionalId)
+                    ->where('establecimiento_id', $aula->establecimiento_id)
+                    ->where('establecimiento_modalidad_jornada_id', $aula->establecimiento_modalidad_jornada_id)
+                    ->first();
+                $asignaturasEspecialidad->where(function ($query) use ($figuraProfesionalId): void {
+                    $query->where('figura_profesional_id', $figuraProfesionalId)
+                        ->orWhereHas('asignaturaPropia', fn ($query) => $query->where('figura_profesional_id', $figuraProfesionalId));
+                });
+
+                if ($figura === null || ! $asignaturasEspecialidad->exists()) {
+                    throw ValidationException::withMessages([
+                        'figura_profesional_id' => 'La especialidad seleccionada no tiene módulos configurados para el curso de este paralelo.',
+                    ]);
+                }
+            }
 
             $existente = EstablecimientoMatricula::query()
                 ->where('alumno_id', $alumno->id)
@@ -37,6 +76,12 @@ class OrganizacionAcademica
 
             if ($existente !== null) {
                 if ((int) $existente->establecimiento_aula_id === (int) $aula->id) {
+                    if ((int) ($existente->figura_profesional_id ?? 0) !== (int) ($figuraProfesionalId ?? 0)) {
+                        throw ValidationException::withMessages([
+                            'alumno_id' => 'El alumno ya está matriculado en este paralelo con otra especialidad.',
+                        ]);
+                    }
+
                     return $existente;
                 }
 
@@ -50,7 +95,7 @@ class OrganizacionAcademica
                 (int) $aula->establecimiento_periodo_id,
             );
 
-            return EstablecimientoMatricula::query()->create([
+            $matricula = EstablecimientoMatricula::query()->create([
                 'establecimiento_id' => $aula->establecimiento_id,
                 'establecimiento_periodo_id' => $aula->establecimiento_periodo_id,
                 'establecimiento_aula_id' => $aula->id,
@@ -62,16 +107,33 @@ class OrganizacionAcademica
                     $secuencia,
                 ),
                 'fecha' => $fecha ?? now()->toDateString(),
+                'figura_profesional_id' => $figuraProfesionalId,
             ]);
+
+            if ($figuraProfesionalId !== null) {
+                foreach ($asignaturasEspecialidad->get(['id']) as $asignatura) {
+                    EstablecimientoAlumnoAsignatura::query()->firstOrCreate([
+                        'establecimiento_periodo_id' => $aula->establecimiento_periodo_id,
+                        'establecimiento_asignatura_id' => $asignatura->id,
+                        'alumno_id' => $alumno->id,
+                    ]);
+                }
+            }
+
+            return $matricula;
         });
     }
 
     /**
      * @param  list<Alumno>  $alumnos
      */
-    public function matricularVarios(EstablecimientoAula $aula, array $alumnos, ?string $fecha = null): int
-    {
-        return (int) DB::transaction(function () use ($aula, $alumnos, $fecha): int {
+    public function matricularVarios(
+        EstablecimientoAula $aula,
+        array $alumnos,
+        ?string $fecha = null,
+        ?int $figuraProfesionalId = null,
+    ): int {
+        return (int) DB::transaction(function () use ($aula, $alumnos, $fecha, $figuraProfesionalId): int {
             $creadas = 0;
 
             foreach ($alumnos as $alumno) {
@@ -80,7 +142,7 @@ class OrganizacionAcademica
                     ->where('establecimiento_periodo_id', $aula->establecimiento_periodo_id)
                     ->exists();
 
-                $this->matricular($aula, $alumno, $fecha);
+                $this->matricular($aula, $alumno, $fecha, $figuraProfesionalId);
 
                 if (! $existente) {
                     $creadas++;

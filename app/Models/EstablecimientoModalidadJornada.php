@@ -86,6 +86,19 @@ class EstablecimientoModalidadJornada extends Model
     }
 
     /**
+     * @return BelongsToMany<Sys_Area, $this>
+     */
+    public function areasTecnicas(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Sys_Area::class,
+            'establecimiento_oferta_areas_tecnicas',
+            'establecimiento_modalidad_jornada_id',
+            'area_id',
+        )->withTimestamps();
+    }
+
+    /**
      * @return BelongsToMany<Sys_Nivel, $this>
      */
     public function niveles(): BelongsToMany

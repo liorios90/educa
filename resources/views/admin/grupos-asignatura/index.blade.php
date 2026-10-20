@@ -2,7 +2,7 @@
     <x-slot name="header">
         <div>
             <h2 class="text-xl font-semibold leading-tight text-slate-800">
-                Grupos de asignatura
+                {{ $mostrarGruposFlotantes ? 'Grupos flotantes' : 'Matricular alumnos' }}
             </h2>
             <p class="mt-1 text-sm text-slate-500">
                 {{ $establecimiento->nombre }}
@@ -12,6 +12,12 @@
 
     <div class="py-8">
         <div class="mx-auto flex max-w-7xl flex-col gap-6 px-4 sm:px-6 lg:px-8">
+            <nav class="flex flex-wrap gap-3" aria-label="Opciones de grupos de clase">
+                @if (! $mostrarGruposFlotantes)
+                <a href="{{ route('Admin.grupos-asignatura.index') }}" @class(['rounded-lg px-4 py-2 text-sm font-medium', 'bg-slate-900 text-white' => ! $mostrarGruposFlotantes, 'border border-slate-200 bg-white text-slate-700' => $mostrarGruposFlotantes])>Matricular alumnos</a>
+                @endif
+                <a href="{{ route('Admin.grupos-asignatura.flotantes') }}" @class(['rounded-lg px-4 py-2 text-sm font-medium', 'bg-slate-900 text-white' => $mostrarGruposFlotantes, 'border border-slate-200 bg-white text-slate-700' => ! $mostrarGruposFlotantes])>Grupos flotantes</a>
+            </nav>
             @if (session('status') === 'matricula-created')
                 <p class="text-sm font-medium text-green-700">
                     @if ((int) session('matriculas_creadas', 1) === 1)
@@ -40,6 +46,7 @@
                 </div>
             @endif
 
+            @if (! $mostrarGruposFlotantes)
             <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm" x-data>
                 <div class="flex flex-wrap items-start justify-between gap-3">
                     <div>
@@ -78,7 +85,7 @@
 
                 @include('admin.grupos-asignatura._aula-alumnos-modal')
             </section>
-
+            @else
             <section class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm" x-data>
                 <div class="flex flex-wrap items-start justify-between gap-3">
                     <div>
@@ -168,6 +175,7 @@
 
             @include('admin.grupos-asignatura._grupo-create-modal')
             @include('admin.grupos-asignatura._grupo-alumnos-modal')
+            @endif
         </div>
     </div>
 </x-app-layout>

@@ -27,6 +27,7 @@ class EstablecimientoAsignatura extends Model
         'grado_id',
         'asignatura_id',
         'asignatura_propia_id',
+        'figura_profesional_id',
         'aparece_en_libreta',
         'horas_semanales',
         'tipo_calificacion',
@@ -112,6 +113,14 @@ class EstablecimientoAsignatura extends Model
     public function asignaturaPropia(): BelongsTo
     {
         return $this->belongsTo(EstablecimientoAsignaturaPropia::class, 'asignatura_propia_id');
+    }
+
+    /**
+     * @return BelongsTo<EstablecimientoFiguraProfesional, $this>
+     */
+    public function figuraProfesional(): BelongsTo
+    {
+        return $this->belongsTo(EstablecimientoFiguraProfesional::class, 'figura_profesional_id');
     }
 
     /**

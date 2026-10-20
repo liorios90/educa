@@ -22,6 +22,7 @@ class EstablecimientoMatricula extends Model
         'establecimiento_periodo_id',
         'establecimiento_aula_id',
         'alumno_id',
+        'figura_profesional_id',
         'numero',
         'secuencia',
         'fecha',
@@ -73,5 +74,13 @@ class EstablecimientoMatricula extends Model
     public function alumno(): BelongsTo
     {
         return $this->belongsTo(Alumno::class);
+    }
+
+    /**
+     * @return BelongsTo<EstablecimientoFiguraProfesional, $this>
+     */
+    public function figuraProfesional(): BelongsTo
+    {
+        return $this->belongsTo(EstablecimientoFiguraProfesional::class, 'figura_profesional_id');
     }
 }

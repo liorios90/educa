@@ -2,11 +2,15 @@
 
 use App\Enums\Role;
 use App\Models\Establecimiento;
+use App\Models\EstablecimientoAsignatura;
+use App\Models\EstablecimientoAsignaturaPropia;
 use App\Models\EstablecimientoAula;
+use App\Models\EstablecimientoFiguraProfesional;
 use App\Models\EstablecimientoGrado;
 use App\Models\EstablecimientoGrupo;
 use App\Models\EstablecimientoGrupoAlumno;
 use App\Models\EstablecimientoMatricula;
+use App\Models\Sys_Area;
 use App\Models\User;
 use App\Services\OrganizacionAcademica;
 
@@ -36,7 +40,8 @@ it('allows a secretary to enroll a student in a classroom', function () {
         ->withSession($sesion)
         ->get(route('Admin.grupos-asignatura.index'))
         ->assertOk()
-        ->assertSee('Grupos de asignatura');
+        ->assertSee('Matricular alumnos')
+        ->assertDontSee('Nuevo grupo flotante');
 
     $this->actingAs($secretaria)
         ->withSession($sesion)
@@ -49,6 +54,85 @@ it('allows a secretary to enroll a student in a classroom', function () {
 
     expect(EstablecimientoMatricula::query()->where('alumno_id', $alumno->id)->value('establecimiento_aula_id'))
         ->toBe($curso['aulaA']->id);
+});
+
+it('requires a technical figure and enrolls the student in its modules', function () {
+    $establecimiento = Establecimiento::factory()->create();
+    $oferta = ofertaDe($establecimiento);
+    $periodo = periodoActivoDe($oferta, ['numero_parciales' => 2]);
+    $estructura = catalogoEstructura([
+        'nivel' => 'Bachillerato',
+        'subnivel' => 'Bachillerato General Unificado',
+        'grado' => 'Primero de Bachillerato',
+    ]);
+    $grado = EstablecimientoGrado::factory()->create([
+        'establecimiento_id' => $establecimiento->id,
+        'establecimiento_modalidad_jornada_id' => $oferta->id,
+        'subnivel_id' => $estructura['subnivel']->id,
+        'grado_id' => $estructura['grado']->id,
+        'nombre' => $estructura['grado']->nombre,
+    ]);
+    $aula = EstablecimientoAula::factory()->create([
+        'establecimiento_id' => $establecimiento->id,
+        'establecimiento_modalidad_jornada_id' => $oferta->id,
+        'establecimiento_periodo_id' => $periodo->id,
+        'establecimiento_grado_id' => $grado->id,
+    ]);
+    $curso = compact('establecimiento', 'oferta', 'periodo', 'aula') + ['aulaA' => $aula];
+    $admin = adminOf($curso['establecimiento']);
+    $alumno = alumnoDelEstablecimiento($curso['establecimiento'], 'Vera');
+    $figura = EstablecimientoFiguraProfesional::query()->create([
+        'establecimiento_id' => $curso['establecimiento']->id,
+        'establecimiento_modalidad_jornada_id' => $curso['oferta']->id,
+        'nombre' => 'Informática',
+    ]);
+    $area = Sys_Area::factory()->create([
+        'subnivel_id' => $estructura['subnivel']->id,
+        'nombre' => 'Módulos técnicos',
+    ]);
+    $propia = EstablecimientoAsignaturaPropia::factory()->create([
+        'establecimiento_id' => $curso['establecimiento']->id,
+        'establecimiento_modalidad_jornada_id' => $curso['oferta']->id,
+        'area_id' => $area->id,
+        'figura_profesional_id' => $figura->id,
+        'nombre' => 'Programación',
+    ]);
+    $modulo = EstablecimientoAsignatura::factory()->create([
+        'establecimiento_id' => $curso['establecimiento']->id,
+        'establecimiento_modalidad_jornada_id' => $curso['oferta']->id,
+        'grado_id' => $estructura['grado']->id,
+        'asignatura_id' => null,
+        'asignatura_propia_id' => $propia->id,
+    ]);
+    $sesion = activeContextSession($curso['oferta'], $curso['periodo']);
+
+    $this->actingAs($admin)
+        ->withSession($sesion)
+        ->post(route('Admin.grupos-asignatura.matriculas.store'), [
+            'alumnos' => [$alumno->id],
+            'establecimiento_aula_id' => $curso['aulaA']->id,
+        ])
+        ->assertSessionHasErrors('figura_profesional_id');
+
+    $this->actingAs($admin)
+        ->withSession($sesion)
+        ->post(route('Admin.grupos-asignatura.matriculas.store'), [
+            'alumnos' => [$alumno->id],
+            'establecimiento_aula_id' => $curso['aulaA']->id,
+            'figura_profesional_id' => $figura->id,
+        ])
+        ->assertRedirect(route('Admin.grupos-asignatura.index'));
+
+    $this->assertDatabaseHas('establecimiento_matriculas', [
+        'alumno_id' => $alumno->id,
+        'establecimiento_aula_id' => $curso['aulaA']->id,
+        'figura_profesional_id' => $figura->id,
+    ]);
+    $this->assertDatabaseHas('establecimiento_alumno_asignaturas', [
+        'alumno_id' => $alumno->id,
+        'establecimiento_asignatura_id' => $modulo->id,
+        'establecimiento_periodo_id' => $curso['periodo']->id,
+    ]);
 });
 
 it('forbids a secretary from opening classrooms', function () {
@@ -70,20 +154,27 @@ it('enrolls students from two classrooms into one floating group', function () {
 
     $this->actingAs($admin)
         ->withSession($sesion)
-        ->get(route('Admin.grupos-asignatura.index'))
+        ->get(route('Admin.grupos-asignatura.flotantes'))
         ->assertOk()
-        ->assertSee('Grupos de asignatura')
+        ->assertDontSee('Matricular alumnos')
         ->assertSee('Grupos flotantes')
         ->assertSee('Nuevo grupo flotante')
-        ->assertSee('Nueva matrícula')
+        ->assertDontSee('Nueva matrícula')
         ->assertSee('Educación Física')
-        ->assertSee('Alumnos del grupo')
+        ->assertSee('Alumnos del grupo');
+
+    $this->actingAs($admin)
+        ->withSession($sesion)
+        ->get(route('Admin.grupos-asignatura.index'))
+        ->assertOk()
+        ->assertSee('Nueva matrícula')
         ->assertSee('Buscar y seleccionar varios')
         ->assertSee('Número de matrícula')
         ->assertSee(sprintf('E%d-%d-0001', $curso['establecimiento']->id, $curso['periodo']->id))
         ->assertSee('Fecha de matrícula')
         ->assertSee('Aldaz Ana')
-        ->assertSee('Benítez Ana');
+        ->assertSee('Benítez Ana')
+        ->assertDontSee('Nuevo grupo flotante');
 
     $this->actingAs($admin)
         ->withSession($sesion)
@@ -107,7 +198,7 @@ it('enrolls students from two classrooms into one floating group', function () {
             'establecimiento_asignatura_id' => $curso['educacionFisica']->id,
             'nombre' => 'Grupo 2',
         ])
-        ->assertRedirect(route('Admin.grupos-asignatura.index'))
+        ->assertRedirect(route('Admin.grupos-asignatura.flotantes'))
         ->assertSessionHas('status', 'grupo-created');
 
     $grupo = EstablecimientoGrupo::query()->where('nombre', 'Grupo 2')->first();
@@ -117,7 +208,7 @@ it('enrolls students from two classrooms into one floating group', function () {
         ->put(route('Admin.grupos-asignatura.alumnos.update', $grupo), [
             'alumnos' => [$delParaleloA->id, $delParaleloB->id],
         ])
-        ->assertRedirect(route('Admin.grupos-asignatura.index'));
+        ->assertRedirect(route('Admin.grupos-asignatura.flotantes'));
 
     expect(EstablecimientoMatricula::query()->where('alumno_id', $delParaleloB->id)->value('establecimiento_aula_id'))->toBe($curso['aulaB']->id)
         ->and(EstablecimientoGrupoAlumno::query()->where('establecimiento_grupo_id', $grupo->id)->count())->toBe(2)
@@ -377,7 +468,7 @@ it('creates a floating group with the selected students', function () {
 
     $this->actingAs($admin)
         ->withSession($sesion)
-        ->get(route('Admin.grupos-asignatura.index'))
+        ->get(route('Admin.grupos-asignatura.flotantes'))
         ->assertSee('Alumnos del grupo')
         ->assertSee('Buscar y seleccionar varios')
         ->assertSee('Solo aparecen alumnos ya matriculados en un paralelo de este grado.')
@@ -391,7 +482,7 @@ it('creates a floating group with the selected students', function () {
             'nombre' => 'Grupo 2',
             'alumnos' => [$primero->id, $segundo->id],
         ])
-        ->assertRedirect(route('Admin.grupos-asignatura.index'))
+        ->assertRedirect(route('Admin.grupos-asignatura.flotantes'))
         ->assertSessionHas('status', 'grupo-created');
 
     $grupo = EstablecimientoGrupo::query()->where('nombre', 'Grupo 2')->first();
@@ -407,7 +498,7 @@ it('creates a floating group with the selected students', function () {
 
     $this->actingAs($admin)
         ->withSession($sesion)
-        ->get(route('Admin.grupos-asignatura.index'))
+        ->get(route('Admin.grupos-asignatura.flotantes'))
         ->assertSee('Grupo 2')
         ->assertSee('Eliminar grupo')
         ->assertSee('Octavo de básica A · 1 alumno')

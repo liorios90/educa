@@ -8,6 +8,7 @@ use App\Models\Establecimiento;
 use App\Models\EstablecimientoAreaLibreta;
 use App\Models\EstablecimientoAsignatura;
 use App\Models\EstablecimientoAsignaturaPropia;
+use App\Models\EstablecimientoFiguraProfesional;
 use App\Models\EstablecimientoGrado;
 use App\Models\Sys_Area;
 use App\Models\Sys_Asignatura;
@@ -18,6 +19,7 @@ function catalogoAsignatura(array $estructura, array $nombres = []): Sys_Asignat
 {
     $area = Sys_Area::factory()->for($estructura['subnivel'], 'subnivel')->create([
         'nombre' => $nombres['area'] ?? 'Matemática',
+        'es_tecnica' => $nombres['tecnica'] ?? false,
     ]);
 
     return Sys_Asignatura::factory()->for($area, 'area')->create([
@@ -140,6 +142,48 @@ describe('index', function () {
 });
 
 describe('edit', function () {
+    it('hides technical configuration for establishments that do not offer technical bachillerato', function () {
+        $establecimiento = Establecimiento::factory()->create(['bachillerato_tecnico' => false]);
+        $admin = adminOf($establecimiento);
+        $oferta = ofertaDe($establecimiento);
+        $periodo = periodoActivoDe($oferta);
+
+        $this->actingAs($admin)
+            ->withSession(activeContextSession($oferta, $periodo))
+            ->get(route('Admin.asignaturas.edit', $oferta))
+            ->assertOk()
+            ->assertDontSee('Figuras profesionales del Bachillerato Técnico')
+            ->assertDontSee('Áreas técnicas ofrecidas por este establecimiento');
+    });
+
+    it('shows technical configuration when the establishment offers technical bachillerato', function () {
+        $establecimiento = Establecimiento::factory()->create(['bachillerato_tecnico' => true]);
+        $admin = adminOf($establecimiento);
+        $oferta = ofertaDe($establecimiento);
+        $periodo = periodoActivoDe($oferta);
+        $estructuraInicial = catalogoEstructura();
+        $estructuraBachillerato = catalogoEstructura([
+            'nivel' => 'Bachillerato',
+            'subnivel' => 'Bachillerato General Unificado',
+            'grado' => 'Primero de Bachillerato',
+        ]);
+        gradoEnOferta($establecimiento, $oferta, $estructuraInicial);
+        gradoEnOferta($establecimiento, $oferta, $estructuraBachillerato);
+        Sys_Area::factory()->for($estructuraBachillerato['subnivel'], 'subnivel')->create([
+            'nombre' => 'Área técnica',
+            'es_tecnica' => true,
+        ]);
+
+        $this->actingAs($admin)
+            ->withSession(activeContextSession($oferta, $periodo))
+            ->get(route('Admin.asignaturas.edit', $oferta))
+            ->assertOk()
+            ->assertSee('Figuras profesionales del Bachillerato Técnico')
+            ->assertSee('Áreas técnicas ofrecidas por este establecimiento')
+            ->assertSee('nivelBachilleratoId: '.$estructuraBachillerato['nivel']->id, false)
+            ->assertSee('x-show="nivelEsBachillerato" x-cloak', false);
+    });
+
     it('shows catalog areas and asignaturas of the grados offered by the jornada', function () {
         $establecimiento = Establecimiento::factory()->create(['nombre' => 'Unidad Educativa Andina']);
         $admin = adminOf($establecimiento);
@@ -152,7 +196,7 @@ describe('edit', function () {
         gradoEnOferta($establecimiento, $oferta, $estructura);
         $asignatura = catalogoAsignatura($estructura);
 
-        $this->actingAs($admin)
+        $response = $this->actingAs($admin)
             ->get(route('Admin.asignaturas.edit', $oferta))
             ->assertOk()
             ->assertSee('Unidad Educativa Andina')
@@ -160,7 +204,7 @@ describe('edit', function () {
             ->assertSee('Matutina')
             ->assertSee('Subnivel: Básica Elemental')
             ->assertSee('Área: Matemática')
-            ->assertSee('Asignatura: Matemática')
+            ->assertSee('Asignaturas · Matemática')
             ->assertSee('Segundo de EGB')
             ->assertSee('Aparece en libreta')
             ->assertSee('Escala de calificación')
@@ -168,13 +212,15 @@ describe('edit', function () {
             ->assertSee('Cuantitativa')
             ->assertSee('Califica por destrezas')
             ->assertSee('Tabla de equivalencias')
-            ->assertSee('Porcentaje del área')
+            ->assertSee('Porcentaje opcional')
             ->assertDontSee('Forma de calificar')
             ->assertDontSee('Horas semanales')
             ->assertSee('Tronco común')
-            ->assertSee('Agregar asignatura')
-            ->assertSee('Guardar malla')
+            ->assertSee('Crear nueva asignatura')
             ->assertSee(route('Admin.asignaturas.update', $oferta), false);
+
+        expect(substr_count($response->getContent(), 'Guardar malla'))->toBe(2)
+            ->and(substr_count($response->getContent(), 'sticky bottom-0'))->toBe(2);
     });
 
     it('does not show asignaturas of a subnivel the jornada does not offer', function () {
@@ -264,6 +310,155 @@ describe('edit', function () {
 });
 
 describe('update', function () {
+    it('assigns a technical figure to its own subject and course', function () {
+        $establecimiento = Establecimiento::factory()->create(['bachillerato_tecnico' => true]);
+        $admin = adminOf($establecimiento);
+        $oferta = ofertaDe($establecimiento);
+        $periodo = periodoActivoDe($oferta);
+        $estructura = catalogoEstructura([
+            'nivel' => 'Bachillerato',
+            'subnivel' => 'Bachillerato General Unificado',
+            'grado' => 'Primero de Bachillerato',
+        ]);
+        gradoEnOferta($establecimiento, $oferta, $estructura);
+        $area = Sys_Area::factory()->for($estructura['subnivel'], 'subnivel')->create([
+            'nombre' => 'Módulos técnicos',
+        ]);
+        $sesion = activeContextSession($oferta, $periodo);
+
+        $this->actingAs($admin)
+            ->withSession($sesion)
+            ->post(route('Admin.asignaturas.figuras-profesionales.store', $oferta), [
+                'nombre' => 'Informática',
+            ])
+            ->assertRedirect(route('Admin.asignaturas.edit', $oferta))
+            ->assertSessionHas('status', 'figura-profesional-created');
+
+        $figura = EstablecimientoFiguraProfesional::query()->where('nombre', 'Informática')->firstOrFail();
+
+        $this->actingAs($admin)
+            ->withSession($sesion)
+            ->put(route('Admin.asignaturas.update', $oferta), [
+                'propias' => [
+                    'modulo_programacion' => [
+                        'nombre' => 'Programación',
+                        'area_id' => $area->id,
+                        'tipo' => TipoAsignatura::Optativa->value,
+                        'figura_profesional_id' => $figura->id,
+                        'grados' => [$estructura['grado']->id],
+                    ],
+                ],
+            ])
+            ->assertRedirect(route('Admin.asignaturas.edit', $oferta))
+            ->assertSessionHas('status', 'asignaturas-updated');
+
+        $propia = EstablecimientoAsignaturaPropia::query()->where('nombre', 'Programación')->firstOrFail();
+
+        $this->assertDatabaseHas('establecimiento_asignaturas_propias', [
+            'id' => $propia->id,
+            'figura_profesional_id' => $figura->id,
+        ]);
+        $this->assertDatabaseHas('establecimiento_asignaturas', [
+            'asignatura_propia_id' => $propia->id,
+            'grado_id' => $estructura['grado']->id,
+        ]);
+    });
+
+    it('forbids creating technical figures when the establishment has not enabled technical bachillerato', function () {
+        $establecimiento = Establecimiento::factory()->create(['bachillerato_tecnico' => false]);
+        $admin = adminOf($establecimiento);
+        $oferta = ofertaDe($establecimiento);
+        $periodo = periodoActivoDe($oferta);
+
+        $this->actingAs($admin)
+            ->withSession(activeContextSession($oferta, $periodo))
+            ->post(route('Admin.asignaturas.figuras-profesionales.store', $oferta), ['nombre' => 'Electrónica'])
+            ->assertForbidden();
+
+        $this->assertDatabaseMissing('establecimiento_figuras_profesionales', [
+            'establecimiento_id' => $establecimiento->id,
+            'nombre' => 'Electrónica',
+        ]);
+    });
+
+    it('assigns a technical figure to a subject from the systems catalog', function () {
+        $establecimiento = Establecimiento::factory()->create(['bachillerato_tecnico' => true]);
+        $admin = adminOf($establecimiento);
+        $oferta = ofertaDe($establecimiento);
+        $periodo = periodoActivoDe($oferta);
+        $estructura = catalogoEstructura([
+            'nivel' => 'Bachillerato',
+            'subnivel' => 'Bachillerato General Unificado',
+            'grado' => 'Primero de Bachillerato',
+        ]);
+        gradoEnOferta($establecimiento, $oferta, $estructura);
+        $asignatura = catalogoAsignatura($estructura, [
+            'area' => 'Electrónica',
+            'asignatura' => 'Metales 1',
+            'tecnica' => true,
+        ]);
+        $oferta->areasTecnicas()->attach($asignatura->area_id);
+        $figura = EstablecimientoFiguraProfesional::query()->create([
+            'establecimiento_id' => $establecimiento->id,
+            'establecimiento_modalidad_jornada_id' => $oferta->id,
+            'nombre' => 'Electrónica',
+        ]);
+
+        $this->actingAs($admin)
+            ->withSession(activeContextSession($oferta, $periodo))
+            ->put(route('Admin.asignaturas.update', $oferta), [
+                'asignaturas' => [
+                    $asignatura->id => [
+                        'grados' => [$estructura['grado']->id],
+                        'figura_profesional_id' => [$estructura['grado']->id => $figura->id],
+                    ],
+                ],
+            ])
+            ->assertRedirect(route('Admin.asignaturas.edit', $oferta))
+            ->assertSessionHas('status', 'asignaturas-updated');
+
+        $this->assertDatabaseHas('establecimiento_asignaturas', [
+            'establecimiento_modalidad_jornada_id' => $oferta->id,
+            'asignatura_id' => $asignatura->id,
+            'grado_id' => $estructura['grado']->id,
+            'figura_profesional_id' => $figura->id,
+        ]);
+    });
+
+    it('only allows technical modules in BGU courses', function () {
+        $establecimiento = Establecimiento::factory()->create(['bachillerato_tecnico' => true]);
+        $admin = adminOf($establecimiento);
+        $oferta = ofertaDe($establecimiento);
+        $periodo = periodoActivoDe($oferta);
+        $estructura = catalogoEstructura([
+            'nivel' => 'Educación General Básica',
+            'subnivel' => 'Básica Superior',
+            'grado' => 'Octavo de EGB',
+        ]);
+        gradoEnOferta($establecimiento, $oferta, $estructura);
+        $area = Sys_Area::factory()->for($estructura['subnivel'], 'subnivel')->create();
+        $figura = EstablecimientoFiguraProfesional::query()->create([
+            'establecimiento_id' => $establecimiento->id,
+            'establecimiento_modalidad_jornada_id' => $oferta->id,
+            'nombre' => 'Informática',
+        ]);
+
+        $this->actingAs($admin)
+            ->withSession(activeContextSession($oferta, $periodo))
+            ->put(route('Admin.asignaturas.update', $oferta), [
+                'propias' => [
+                    'modulo_informatica' => [
+                        'nombre' => 'Programación',
+                        'area_id' => $area->id,
+                        'tipo' => TipoAsignatura::Optativa->value,
+                        'figura_profesional_id' => $figura->id,
+                        'grados' => [$estructura['grado']->id],
+                    ],
+                ],
+            ])
+            ->assertSessionHasErrors('propias.modulo_informatica.grados');
+    });
+
     it('saves the asignatura for the selected grados of that jornada', function () {
         $establecimiento = Establecimiento::factory()->create();
         $admin = adminOf($establecimiento);

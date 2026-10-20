@@ -85,6 +85,20 @@
                 </select>
             </div>
 
+            @if ($figurasProfesionales->isNotEmpty())
+                <div class="flex flex-col gap-1">
+                    <x-input-label for="figura-profesional-id" value="Figura profesional de Bachillerato Técnico (si corresponde)" />
+                    <select id="figura-profesional-id" name="figura_profesional_id" class="rounded-lg border-slate-300 text-sm shadow-sm">
+                        <option value="">Sin especialidad técnica</option>
+                        @foreach ($figurasProfesionales as $figura)
+                            <option value="{{ $figura->id }}" @selected((string) old('figura_profesional_id') === (string) $figura->id)>{{ $figura->nombre }}</option>
+                        @endforeach
+                    </select>
+                    <x-input-error class="mt-1" :messages="$errors->get('figura_profesional_id')" />
+                    <p class="text-xs text-slate-500">Educa conserva las materias comunes del curso e inscribe los módulos configurados para la figura profesional seleccionada.</p>
+                </div>
+            @endif
+
             <div class="flex flex-col gap-1">
                 <x-input-label for="busqueda-alumnos-matricula" value="Alumnos" />
                 <div class="rounded-lg border border-slate-300 bg-white px-2 py-1 shadow-sm" x-on:click.outside="abierto = false">

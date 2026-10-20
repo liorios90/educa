@@ -7,6 +7,9 @@
     $areaLibreta = $areaBag->isNotEmpty()
         ? (bool) old('aparece_en_libreta', $area->aparece_en_libreta)
         : $area->aparece_en_libreta;
+    $areaTecnica = $areaBag->isNotEmpty()
+        ? (bool) old('es_tecnica', $area->es_tecnica)
+        : $area->es_tecnica;
 @endphp
 
 <article class="overflow-hidden rounded-lg border border-slate-200 bg-white">
@@ -35,6 +38,7 @@
                 <span class="mt-1 block text-xs text-slate-400">
                     Orden {{ $area->orden }}
                     · {{ $area->aparece_en_libreta ? 'En libreta' : 'No en libreta' }}
+                    · {{ $area->es_tecnica ? 'Catálogo técnico' : 'Área curricular' }}
                     · {{ $area->asignaturas->count() }} asignaturas
                 </span>
             </span>
@@ -99,6 +103,11 @@
                     @checked($areaLibreta)
                 >
                 En libreta
+            </label>
+            <input type="hidden" name="es_tecnica" value="0">
+            <label class="flex items-center gap-2 text-sm text-slate-700 md:mb-1">
+                <input type="checkbox" name="es_tecnica" value="1" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" @checked($areaTecnica)>
+                Área técnica
             </label>
             <div class="flex gap-2">
                 <x-primary-button>Guardar</x-primary-button>

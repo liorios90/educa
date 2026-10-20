@@ -23,6 +23,7 @@ class EstablecimientoAsignaturaPropia extends Model
         'establecimiento_id',
         'establecimiento_modalidad_jornada_id',
         'area_id',
+        'figura_profesional_id',
         'nombre',
         'tipo_asignatura',
     ];
@@ -64,6 +65,14 @@ class EstablecimientoAsignaturaPropia extends Model
     public function area(): BelongsTo
     {
         return $this->belongsTo(Sys_Area::class, 'area_id');
+    }
+
+    /**
+     * @return BelongsTo<EstablecimientoFiguraProfesional, $this>
+     */
+    public function figuraProfesional(): BelongsTo
+    {
+        return $this->belongsTo(EstablecimientoFiguraProfesional::class, 'figura_profesional_id');
     }
 
     /**

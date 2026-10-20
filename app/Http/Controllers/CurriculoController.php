@@ -37,6 +37,7 @@ class CurriculoController extends Controller
             'descripcion',
             'orden',
             'aparece_en_libreta',
+            'es_tecnica',
         ]));
 
         return $this->redirectToIndex(
@@ -59,6 +60,7 @@ class CurriculoController extends Controller
             'descripcion',
             'orden',
             'aparece_en_libreta',
+            'es_tecnica',
         ]));
 
         return $this->redirectToIndex(

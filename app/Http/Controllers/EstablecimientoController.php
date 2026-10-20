@@ -309,6 +309,8 @@ class EstablecimientoController extends Controller
             'email',
             'usuario',
             'activo',
+            'bachillerato_tecnico',
+            'bachillerato_internacional',
             'grupo_amie',
             'zona_id',
             'distrito_id',

@@ -22,6 +22,7 @@ class SyncEstablecimientoAsignaturas
      * @param  list<array{
      *     asignatura_id: int|null,
      *     asignatura_propia_clave: string|null,
+     *     figura_profesional_id: int|null,
      *     area_id: int,
      *     grado_id: int,
      *     tipo_asignatura: TipoAsignatura,
@@ -45,6 +46,7 @@ class SyncEstablecimientoAsignaturas
      *     nombre: string,
      *     area_id: int,
      *     tipo_asignatura: TipoAsignatura,
+     *     figura_profesional_id: int|null,
      *     eliminar: bool
      * }>  $definiciones
      */
@@ -113,6 +115,7 @@ class SyncEstablecimientoAsignaturas
                     'establecimiento_modalidad_jornada_id' => $oferta->id,
                     'asignatura_id' => $fila['asignatura_id'],
                     'asignatura_propia_id' => $propiaId,
+                    'figura_profesional_id' => $fila['figura_profesional_id'],
                     'grado_id' => $fila['grado_id'],
                     'aparece_en_libreta' => $fila['aparece_en_libreta'],
                     'horas_semanales' => $horas,
@@ -219,6 +222,7 @@ class SyncEstablecimientoAsignaturas
                 'establecimiento_id' => $establecimiento->id,
                 'establecimiento_modalidad_jornada_id' => $oferta->id,
                 'area_id' => $definicion['area_id'],
+                'figura_profesional_id' => $definicion['figura_profesional_id'],
                 'nombre' => $definicion['nombre'],
                 'tipo_asignatura' => $definicion['tipo_asignatura'],
             ];

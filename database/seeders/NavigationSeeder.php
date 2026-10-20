@@ -21,6 +21,11 @@ class NavigationSeeder extends Seeder
         $padre = Role::findOrCreate(RoleName::Padre->value, 'web');
         $docente = Role::findOrCreate(RoleName::Docente->value, 'web');
 
+        NavigationItem::query()
+            ->where('route_name', 'Admin.grupos-asignatura.index')
+            ->where('label', 'Grupos de clase')
+            ->update(['label' => 'Matricular alumnos']);
+
         $this->upsertItem('Inicio', 'dashboard', 'home', 1, true, []);
         $this->upsertItem('Horarios', 'Docente.horarios', 'calendar-days', 2, false, [$docente->id]);
         $this->upsertItem('Usuarios', 'admin.users', 'users', 2, false, [$admin->id]);
@@ -40,11 +45,15 @@ class NavigationSeeder extends Seeder
         $this->upsertItem('Asignaturas', 'Admin.asignaturas', 'book-open', 8, false, [$admin->id]);
         $this->upsertItem('Aulas', 'Admin.aulas', 'academic-cap', 9, false, [$admin->id]);
         $this->grantRoles(
-            $this->upsertItem('Grupos de clase', 'Admin.grupos-asignatura.index', 'academic-cap', 10, false, [$admin->id, $secretaria->id]),
+            $this->upsertItem('Matricular alumnos', 'Admin.grupos-asignatura.index', 'clipboard-document-list', 10, false, [$admin->id, $secretaria->id]),
             [$admin->id, $secretaria->id],
         );
         $this->grantRoles(
-            $this->upsertItem('Programas', 'Admin.programas.index', 'book-open', 11, false, [$admin->id, $secretaria->id]),
+            $this->upsertItem('Grupos flotantes', 'Admin.grupos-asignatura.flotantes', 'academic-cap', 11, false, [$admin->id, $secretaria->id]),
+            [$admin->id, $secretaria->id],
+        );
+        $this->grantRoles(
+            $this->upsertItem('Programas', 'Admin.programas.index', 'book-open', 12, false, [$admin->id, $secretaria->id]),
             [$admin->id, $secretaria->id],
         );
         $this->upsertItem('Sistemas', 'sistemas.home', 'cog', 3, false, [$sistemas->id]);

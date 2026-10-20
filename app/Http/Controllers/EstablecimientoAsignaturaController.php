@@ -6,15 +6,19 @@ use App\Auth\ActiveOferta;
 use App\Auth\ActivePeriodo;
 use App\Enums\TipoAsignatura;
 use App\Http\Requests\SyncEstablecimientoAsignaturasRequest;
+use App\Http\Requests\SyncOfertaAreasTecnicasRequest;
 use App\Models\Establecimiento;
 use App\Models\EstablecimientoAreaLibreta;
 use App\Models\EstablecimientoAsignatura;
+use App\Models\EstablecimientoFiguraProfesional;
 use App\Models\EstablecimientoModalidadJornada;
+use App\Models\Sys_Area;
 use App\Models\Sys_Subnivel;
 use App\Services\SyncEstablecimientoAsignaturas;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class EstablecimientoAsignaturaController extends Controller
@@ -60,6 +64,14 @@ class EstablecimientoAsignaturaController extends Controller
         ]);
 
         $gradosOferta = $oferta->grados;
+        $periodo = $this->activePeriodo->get($request->user());
+        $figurasProfesionales = $periodo === null || ! $establecimiento->bachillerato_tecnico
+            ? collect()
+            : EstablecimientoFiguraProfesional::query()
+                ->where('establecimiento_id', $establecimiento->id)
+                ->where('establecimiento_modalidad_jornada_id', $oferta->id)
+                ->orderBy('nombre')
+                ->get();
         $subnivelIds = $gradosOferta->pluck('subnivel_id')->filter()->unique()->values();
 
         $subniveles = Sys_Subnivel::query()
@@ -68,11 +80,28 @@ class EstablecimientoAsignaturaController extends Controller
             ->orderBy('id')
             ->get();
 
+        $areasTecnicasDisponibles = ! $establecimiento->bachillerato_tecnico
+            ? collect()
+            : Sys_Area::query()
+                ->where('es_tecnica', true)
+                ->whereIn('subnivel_id', $subnivelIds)
+                ->orderBy('orden')->orderBy('nombre')->get();
+        $areasTecnicasSeleccionadas = $establecimiento->bachillerato_tecnico
+            ? $oferta->areasTecnicas()->pluck('sys_areas.id')->all()
+            : [];
+        $subniveles->each(function (Sys_Subnivel $subnivel) use ($areasTecnicasSeleccionadas): void {
+            $subnivel->setRelation('areas', $subnivel->areas
+                ->filter(fn (Sys_Area $area): bool => ! $area->es_tecnica || in_array($area->id, $areasTecnicasSeleccionadas, true))
+                ->values());
+        });
+
         $libretaPorArea = $this->libretaPorArea($oferta->areaLibretas);
 
         return view('admin.asignaturas.edit', [
             'establecimiento' => $establecimiento,
             'oferta' => $oferta,
+            'periodo' => $periodo,
+            'figurasProfesionales' => $figurasProfesionales,
             'subniveles' => $subniveles,
             'gradosPorSubnivel' => $gradosOferta->groupBy('subnivel_id'),
             'selectedGradosPorAsignatura' => $this->selectedGradosPorAsignatura(
@@ -84,7 +113,31 @@ class EstablecimientoAsignaturaController extends Controller
             'propiasPorArea' => $this->propiasPorArea($oferta),
             'modosPorArea' => $libretaPorArea['modos'],
             'promedioPorcentualPorArea' => $libretaPorArea['porcentual'],
+            'areasTecnicasDisponibles' => $areasTecnicasDisponibles,
+            'areasTecnicasSeleccionadas' => $areasTecnicasSeleccionadas,
         ]);
+    }
+
+    public function updateAreasTecnicas(SyncOfertaAreasTecnicasRequest $request, EstablecimientoModalidadJornada $oferta): RedirectResponse
+    {
+        $establecimiento = $this->establecimiento($request);
+        $this->ofertaDelEstablecimiento($establecimiento, $oferta);
+        $ids = $request->validated('areas_tecnicas') ?? [];
+        $permitidas = Sys_Area::query()
+            ->where('es_tecnica', true)
+            ->whereIn('subnivel_id', $oferta->grados()->pluck('establecimiento_grados.subnivel_id')->unique())
+            ->whereIn('id', $ids)->pluck('id')->all();
+        abort_unless(count($permitidas) === count($ids), 422, 'Solo puedes activar áreas técnicas del currículo de los niveles ofertados.');
+        $areasQueSeDesactivan = $oferta->areasTecnicas()
+            ->whereNotIn('sys_areas.id', $permitidas)->pluck('sys_areas.id');
+        if ($areasQueSeDesactivan->isNotEmpty() && $oferta->asignaturasPropias()->whereIn('area_id', $areasQueSeDesactivan)->exists()) {
+            throw ValidationException::withMessages([
+                'areas_tecnicas' => 'No puedes desactivar un área técnica que ya tiene módulos configurados en esta jornada.',
+            ]);
+        }
+        $oferta->areasTecnicas()->sync($permitidas);
+
+        return redirect()->route('Admin.asignaturas.edit', $oferta)->with('status', 'areas-tecnicas-updated');
     }
 
     public function update(
@@ -193,7 +246,7 @@ class EstablecimientoAsignaturaController extends Controller
 
     /**
      * @param  Collection<int, EstablecimientoAsignatura>  $malla
-     * @return array<string, array<string, array{horas: string, libreta: bool, tipo: string, destrezas: bool, equivalencias: bool, porcentaje: string}>>
+     * @return array<string, array<string, array{horas: string, libreta: bool, tipo: string, destrezas: bool, equivalencias: bool, porcentaje: string, figura_profesional_id: string}>>
      */
     private function configPorAsignatura(Collection $malla): array
     {
@@ -214,6 +267,7 @@ class EstablecimientoAsignaturaController extends Controller
                         'destrezas' => filter_var($payload['califica_por_destrezas'][$gradoId] ?? $payload['califica_por_destrezas'][(string) $gradoId] ?? false, FILTER_VALIDATE_BOOLEAN),
                         'equivalencias' => filter_var($payload['usa_tabla_equivalencias'][$gradoId] ?? $payload['usa_tabla_equivalencias'][(string) $gradoId] ?? false, FILTER_VALIDATE_BOOLEAN),
                         'porcentaje' => (string) ($payload['porcentaje'][$gradoId] ?? $payload['porcentaje'][(string) $gradoId] ?? ''),
+                        'figura_profesional_id' => (string) ($payload['figura_profesional_id'][$gradoId] ?? $payload['figura_profesional_id'][(string) $gradoId] ?? ''),
                     ];
                 }
             }
@@ -232,7 +286,7 @@ class EstablecimientoAsignaturaController extends Controller
     }
 
     /**
-     * @return array{horas: string, libreta: bool, tipo: string, destrezas: bool, equivalencias: bool, porcentaje: string}
+     * @return array{horas: string, libreta: bool, tipo: string, destrezas: bool, equivalencias: bool, porcentaje: string, figura_profesional_id: string}
      */
     private function configDeFila(EstablecimientoAsignatura $fila): array
     {
@@ -243,6 +297,7 @@ class EstablecimientoAsignaturaController extends Controller
             'destrezas' => (bool) $fila->califica_por_destrezas,
             'equivalencias' => (bool) $fila->usa_tabla_equivalencias,
             'porcentaje' => $fila->porcentaje === null ? '' : (string) $fila->porcentaje,
+            'figura_profesional_id' => $fila->figura_profesional_id === null ? '' : (string) $fila->figura_profesional_id,
         ];
     }
 
@@ -353,6 +408,7 @@ class EstablecimientoAsignaturaController extends Controller
                     'alpine' => ctype_digit((string) $clave) ? 'p'.$clave : (string) $clave,
                     'nombre' => (string) ($payload['nombre'] ?? ''),
                     'tipo' => (string) ($payload['tipo'] ?? TipoAsignatura::Optativa->value),
+                    'figura_profesional_id' => (string) ($payload['figura_profesional_id'] ?? ''),
                     'eliminar' => filter_var($payload['eliminar'] ?? false, FILTER_VALIDATE_BOOLEAN),
                     'nueva' => ! ctype_digit((string) $clave),
                 ];
@@ -367,6 +423,7 @@ class EstablecimientoAsignaturaController extends Controller
                 'alpine' => 'p'.$propia->id,
                 'nombre' => $propia->nombre,
                 'tipo' => $propia->tipo_asignatura?->value ?? TipoAsignatura::Optativa->value,
+                'figura_profesional_id' => $propia->figura_profesional_id === null ? '' : (string) $propia->figura_profesional_id,
                 'eliminar' => false,
                 'nueva' => false,
             ];

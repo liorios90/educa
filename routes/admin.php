@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\ConfiguracionAsignaturasController;
 use App\Http\Controllers\Admin\EquivalenciaController;
+use App\Http\Controllers\Admin\EstablecimientoFiguraProfesionalController;
 use App\Http\Controllers\Admin\EstablecimientoPeriodoConfiguracionGradoController;
 use App\Http\Controllers\Admin\GrupoAsignaturaController;
 use App\Http\Controllers\Admin\HorarioClaseController;
@@ -96,6 +97,9 @@ Route::middleware(['auth', 'verified', 'role:Admin'])
         Route::get('asignaturas', [EstablecimientoAsignaturaController::class, 'index'])->name('asignaturas');
         Route::get('asignaturas/{oferta}', [EstablecimientoAsignaturaController::class, 'edit'])->name('asignaturas.edit');
         Route::put('asignaturas/{oferta}', [EstablecimientoAsignaturaController::class, 'update'])->name('asignaturas.update');
+        Route::put('asignaturas/{oferta}/areas-tecnicas', [EstablecimientoAsignaturaController::class, 'updateAreasTecnicas'])->name('asignaturas.areas-tecnicas.update');
+        Route::post('asignaturas/{oferta}/figuras-profesionales', [EstablecimientoFiguraProfesionalController::class, 'store'])->name('asignaturas.figuras-profesionales.store');
+        Route::delete('asignaturas/{oferta}/figuras-profesionales/{figuraProfesional}', [EstablecimientoFiguraProfesionalController::class, 'destroy'])->name('asignaturas.figuras-profesionales.destroy')->whereNumber('figuraProfesional');
         Route::get('aulas', [EstablecimientoAulaController::class, 'index'])->name('aulas');
         Route::post('aulas', [EstablecimientoAulaController::class, 'store'])->name('aulas.store');
         Route::patch('aulas/{aula}', [EstablecimientoAulaController::class, 'update'])->name('aulas.update')->whereNumber('aula');
@@ -122,6 +126,7 @@ Route::middleware(['auth', 'verified', 'role:Admin|Secretaria'])
     ->name('Admin.')
     ->group(function () {
         Route::get('grupos-asignatura', [GrupoAsignaturaController::class, 'index'])->name('grupos-asignatura.index');
+        Route::get('grupos-asignatura/flotantes', [GrupoAsignaturaController::class, 'gruposFlotantes'])->name('grupos-asignatura.flotantes');
         Route::post('grupos-asignatura/matriculas', [GrupoAsignaturaController::class, 'storeMatricula'])->name('grupos-asignatura.matriculas.store');
         Route::delete('grupos-asignatura/matriculas/{matricula}', [GrupoAsignaturaController::class, 'destroyMatricula'])->name('grupos-asignatura.matriculas.destroy')->whereNumber('matricula');
         Route::post('grupos-asignatura', [GrupoAsignaturaController::class, 'store'])->name('grupos-asignatura.store');

@@ -133,6 +133,7 @@
                 <p class="text-sm text-slate-600">
                     Configura las áreas (ámbitos en Inicial) y las asignaturas de cada subnivel. En las libretas del Ministerio de Educación se agrupan por área y luego por asignatura. Más adelante estas asignaturas se podrán asignar a los grados del mismo subnivel.
                 </p>
+                <p class="mt-2 text-sm text-slate-600">Marca <strong>Área técnica</strong> en las áreas del subnivel Bachillerato General Unificado para publicarlas en el catálogo. Cada establecimiento activará únicamente las áreas técnicas que ofrezca.</p>
                 <p class="mt-2 text-sm text-slate-500">
                     Los niveles, subniveles y grados se administran en
                     <a href="{{ route('sistemas.estructura') }}" class="font-medium text-indigo-600 hover:text-indigo-500">Nivel - Subnivel - Grado</a>.

@@ -90,6 +90,11 @@
                 >
                 En libreta
             </label>
+            <input type="hidden" name="es_tecnica" value="0">
+            <label class="flex items-center gap-2 text-sm text-slate-700 md:mb-1">
+                <input type="checkbox" name="es_tecnica" value="1" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500">
+                Área técnica
+            </label>
             <x-primary-button>Crear área</x-primary-button>
         </form>
         </div>

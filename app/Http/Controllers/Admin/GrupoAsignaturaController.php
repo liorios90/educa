@@ -15,6 +15,7 @@ use App\Models\Empleado;
 use App\Models\Establecimiento;
 use App\Models\EstablecimientoAsignatura;
 use App\Models\EstablecimientoAula;
+use App\Models\EstablecimientoFiguraProfesional;
 use App\Models\EstablecimientoGrupo;
 use App\Models\EstablecimientoMatricula;
 use App\Models\EstablecimientoModalidadJornada;
@@ -36,6 +37,16 @@ class GrupoAsignaturaController extends Controller
 
     public function index(Request $request): View|RedirectResponse
     {
+        return $this->mostrarPagina($request, false);
+    }
+
+    public function gruposFlotantes(Request $request): View|RedirectResponse
+    {
+        return $this->mostrarPagina($request, true);
+    }
+
+    private function mostrarPagina(Request $request, bool $mostrarGruposFlotantes): View|RedirectResponse
+    {
         $contexto = $this->contexto($request);
 
         if ($contexto instanceof RedirectResponse) {
@@ -52,7 +63,7 @@ class GrupoAsignaturaController extends Controller
             ->get());
 
         $matriculas = EstablecimientoMatricula::query()
-            ->with(['alumno.persona', 'aula.establecimientoGrado.grado'])
+            ->with(['alumno.persona', 'aula.establecimientoGrado.grado', 'figuraProfesional'])
             ->where('establecimiento_periodo_id', $periodo->id)
             ->whereIn('establecimiento_aula_id', $aulas->pluck('id'))
             ->get();
@@ -91,10 +102,16 @@ class GrupoAsignaturaController extends Controller
             ->values();
 
         return view('admin.grupos-asignatura.index', [
+            'mostrarGruposFlotantes' => $mostrarGruposFlotantes,
             'establecimiento' => $establecimiento,
             'oferta' => $oferta,
             'periodo' => $periodo,
             'aulas' => $aulas,
+            'figurasProfesionales' => EstablecimientoFiguraProfesional::query()
+                ->where('establecimiento_id', $establecimiento->id)
+                ->where('establecimiento_modalidad_jornada_id', $oferta->id)
+                ->orderBy('nombre')
+                ->get(),
             'aulasMatricula' => $this->aulasConMatriculas($aulas, $matriculas),
             'matriculas' => $matriculas,
             'alumnos' => $alumnos,
@@ -135,7 +152,12 @@ class GrupoAsignaturaController extends Controller
 
         abort_unless($alumnos->count() === count($alumnoIds), 404);
 
-        $creadas = $this->organizacion->matricularVarios($aula, $alumnos->all(), $request->date('fecha')->toDateString());
+        $creadas = $this->organizacion->matricularVarios(
+            $aula,
+            $alumnos->all(),
+            $request->date('fecha')->toDateString(),
+            $request->integer('figura_profesional_id') ?: null,
+        );
 
         return redirect()
             ->route('Admin.grupos-asignatura.index')
@@ -182,7 +204,7 @@ class GrupoAsignaturaController extends Controller
         }
 
         return redirect()
-            ->route('Admin.grupos-asignatura.index')
+            ->route('Admin.grupos-asignatura.flotantes')
             ->with('status', 'grupo-created');
     }
 
@@ -192,7 +214,7 @@ class GrupoAsignaturaController extends Controller
         $this->organizacion->sincronizarAlumnosGrupo($grupo, $request->ids('alumnos'));
 
         return redirect()
-            ->route('Admin.grupos-asignatura.index')
+            ->route('Admin.grupos-asignatura.flotantes')
             ->with('status', 'grupo-updated');
     }
 
@@ -207,7 +229,7 @@ class GrupoAsignaturaController extends Controller
         $grupo->delete();
 
         return redirect()
-            ->route('Admin.grupos-asignatura.index')
+            ->route('Admin.grupos-asignatura.flotantes')
             ->with('status', 'grupo-deleted');
     }
 
@@ -290,7 +312,7 @@ class GrupoAsignaturaController extends Controller
     /**
      * @param  Collection<int, EstablecimientoAula>  $aulas
      * @param  Collection<int, EstablecimientoMatricula>  $matriculas
-     * @return list<array{id: int, etiqueta: string, gradoId: int, alumnos: list<array{id: int, matriculaId: int, nombre: string, apellidos: string, numero: string, quitar: string}>}>
+     * @return list<array{id: int, etiqueta: string, gradoId: int, alumnos: list<array{id: int, matriculaId: int, nombre: string, apellidos: string, numero: string, figuraProfesional: string|null, quitar: string}>}>
      */
     private function aulasConMatriculas(Collection $aulas, Collection $matriculas): array
     {
@@ -305,6 +327,7 @@ class GrupoAsignaturaController extends Controller
                     'nombre' => $this->nombrePersona($matricula->alumno->persona),
                     'apellidos' => (string) ($matricula->alumno->persona->apellidos ?? ''),
                     'numero' => (string) $matricula->numero,
+                    'figuraProfesional' => $matricula->figuraProfesional?->nombre,
                     'quitar' => route('Admin.grupos-asignatura.matriculas.destroy', $matricula),
                 ])
                 ->values()

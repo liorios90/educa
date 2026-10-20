@@ -39,6 +39,7 @@ class UpsertCurriculoAreaRequest extends FormRequest
             'descripcion' => ['nullable', 'string', 'max:255'],
             'orden' => ['required', 'integer', 'min:0', 'max:999'],
             'aparece_en_libreta' => ['required', 'boolean'],
+            'es_tecnica' => ['sometimes', 'boolean'],
         ];
     }
 
@@ -49,6 +50,7 @@ class UpsertCurriculoAreaRequest extends FormRequest
 
         $this->merge([
             'aparece_en_libreta' => $this->boolean('aparece_en_libreta'),
+            'es_tecnica' => $this->boolean('es_tecnica'),
             'orden' => $this->filled('orden') ? $this->integer('orden') : 0,
         ]);
 

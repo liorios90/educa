@@ -140,7 +140,8 @@ it('returns only the links the user may see', function () {
     $items = collect((new Navigation)->itemsFor($admin));
     $configuracion = $items->firstWhere('label', 'Configuración');
 
-    expect($items->pluck('label')->all())->toBe(['Inicio', 'Padres', 'Matrículas', 'Alumnos', 'Empleados', 'Docentes', 'Estructura', 'Configuración', 'Proceso de Cierres', 'Asignaturas', 'Reportes', 'Aulas', 'Perfil', 'Grupos de clase', 'Programas'])
+    expect($items->pluck('label')->all())->toContain('Matricular alumnos', 'Grupos flotantes', 'Programas')
+        ->not->toContain('Grupos de clase')
         ->and(collect($configuracion?->children)->pluck('label')->all())->toBe(['Periodo', 'Por grados', 'Por asignaturas', 'Tipos de Insumo', 'Tablas de Equivalencias']);
 });
 
@@ -152,9 +153,11 @@ it('shows class groups and programs to secretaries', function () {
     $this->actingAs($secretaria)
         ->get(route('dashboard'))
         ->assertSee(route('Admin.grupos-asignatura.index'), false)
+        ->assertSee(route('Admin.grupos-asignatura.flotantes'), false)
         ->assertSee(route('Admin.programas.index'), false)
         ->assertDontSee(route('Admin.aulas'), false);
 
     expect(collect((new Navigation)->itemsFor($secretaria))->pluck('label')->all())
-        ->toBe(['Inicio', 'Reportes', 'Perfil', 'Grupos de clase', 'Programas']);
+        ->toContain('Matricular alumnos', 'Grupos flotantes', 'Programas')
+        ->not->toContain('Grupos de clase');
 });

@@ -30,6 +30,8 @@ class Establecimiento extends Model
         'email',
         'usuario',
         'activo',
+        'bachillerato_tecnico',
+        'bachillerato_internacional',
         'logo',
         'only_visible',
         'mision',
@@ -44,6 +46,16 @@ class Establecimiento extends Model
     protected static function newFactory(): EstablecimientoFactory
     {
         return EstablecimientoFactory::new();
+    }
+
+    /** @return array<string, string> */
+    protected function casts(): array
+    {
+        return [
+            'activo' => 'boolean',
+            'bachillerato_tecnico' => 'boolean',
+            'bachillerato_internacional' => 'boolean',
+        ];
     }
 
     public function zona(): BelongsTo
@@ -124,6 +136,12 @@ class Establecimiento extends Model
     public function aulas(): HasMany
     {
         return $this->hasMany(EstablecimientoAula::class);
+    }
+
+    /** @return HasMany<EstablecimientoFiguraProfesional, $this> */
+    public function figurasProfesionales(): HasMany
+    {
+        return $this->hasMany(EstablecimientoFiguraProfesional::class);
     }
 
     /**

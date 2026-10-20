@@ -5,6 +5,7 @@
 
     $niveles = $subniveles->pluck('nivel')->filter()->unique('id')->values();
     $activeNivelId = $niveles->first()?->id;
+    $nivelBachilleratoId = $niveles->firstWhere('nombre', 'Bachillerato')?->id;
     $activeSubnivelId = $subniveles->first(fn ($subnivel) => (int) $subnivel->nivel_id === (int) $activeNivelId)?->id;
     $tiposCalificacion = TipoCalificacion::cases();
     $tiposAsignatura = TipoAsignatura::cases();
@@ -27,11 +28,13 @@
         class="py-8"
         x-data="{
             activeNivelId: @js($activeNivelId),
+            nivelBachilleratoId: @js($nivelBachilleratoId),
             activeSubnivelId: @js($activeSubnivelId),
             pantallaAsignaturasArea: null,
             configuracionArea: null,
             asignaturas: @js($selectedGradosPorAsignatura),
             nuevas: {},
+            figurasProfesionales: @js($figurasProfesionales->map(fn ($figura) => ['id' => $figura->id, 'nombre' => $figura->nombre])->values()),
             modosArea: @js($modosPorArea),
             promedioPorcentual: @js($promedioPorcentualPorArea),
             toggleAsignatura(id, gradoIds) {
@@ -58,7 +61,7 @@
             agregarAsignatura(areaId, gradoIds) {
                 this.nuevas[areaId] = this.nuevas[areaId] || []
                 const clave = 'new_' + areaId + '_' + Date.now()
-                this.nuevas[areaId].push({ clave, nombre: '', tipo: 'optativa' })
+                this.nuevas[areaId].push({ clave, nombre: '', tipo: 'optativa', figura_profesional_id: '' })
                 this.asignaturas[clave] = gradoIds.map(String)
             },
             quitarNueva(areaId, clave) {
@@ -84,9 +87,49 @@
                 this.activeNivelId = nivelId
                 this.activeSubnivelId = subnivelId
             },
+            get nivelEsBachillerato() {
+                return this.nivelBachilleratoId !== null && Number(this.activeNivelId) === Number(this.nivelBachilleratoId)
+            },
         }"
     >
         <div class="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+            @if ($periodo !== null && $establecimiento->bachillerato_tecnico)
+                <section x-show="nivelEsBachillerato" x-cloak class="mb-5 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <h3 class="font-semibold text-slate-800">Figuras profesionales del Bachillerato Técnico</h3>
+                    <p class="mt-1 text-sm text-slate-500">El Bachillerato Técnico es una opción dentro del BGU: conserva los tres cursos y el tronco común, y añade los módulos de la figura profesional elegida.</p>
+                    @if (session('status') === 'figura-profesional-created')
+                        <p class="mt-3 text-sm font-medium text-green-700">Especialidad creada.</p>
+                    @endif
+                    @if (session('status') === 'figura-profesional-deleted')
+                        <p class="mt-3 text-sm font-medium text-green-700">Especialidad eliminada.</p>
+                    @endif
+                    @if ($errors->has('figura_profesional'))
+                        <p class="mt-3 text-sm font-medium text-red-700">{{ $errors->first('figura_profesional') }}</p>
+                    @endif
+                    <form method="POST" action="{{ route('Admin.asignaturas.figuras-profesionales.store', $oferta) }}" class="mt-4 flex flex-wrap items-end gap-3">
+                        @csrf
+                        <div class="flex min-w-64 flex-1 flex-col gap-1">
+                            <x-input-label for="figura-profesional-nombre" value="Nueva especialidad" />
+                            <x-text-input id="figura-profesional-nombre" name="nombre" maxlength="150" placeholder="Ej.: Electrónica, Informática, Electromecánica Automotriz" required />
+                        </div>
+                        <x-primary-button>Agregar especialidad</x-primary-button>
+                    </form>
+                    @if ($figurasProfesionales->isNotEmpty())
+                        <ul class="mt-4 flex flex-wrap gap-2">
+                            @foreach ($figurasProfesionales as $figura)
+                                <li class="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-700">
+                                    {{ $figura->nombre }}
+                                    <form method="POST" action="{{ route('Admin.asignaturas.figuras-profesionales.destroy', [$oferta, $figura]) }}">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button class="font-semibold text-red-600" aria-label="Quitar {{ $figura->nombre }}">&times;</button>
+                                    </form>
+                                </li>
+                            @endforeach
+                        </ul>
+                    @endif
+                </section>
+            @endif
             @if (session('status') === 'asignaturas-updated')
                 <p class="mb-4 text-sm font-medium text-green-700">Malla de la jornada guardada correctamente.</p>
             @endif
@@ -98,6 +141,33 @@
                 </p>
             </section>
 
+            @if ($establecimiento->bachillerato_tecnico && $areasTecnicasDisponibles->isNotEmpty())
+                <section x-show="nivelEsBachillerato" x-cloak class="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-6 shadow-sm">
+                    <h3 class="font-semibold text-slate-800">Áreas técnicas ofrecidas por este establecimiento</h3>
+                    <p class="mt-1 text-sm text-slate-600">Activa las áreas técnicas que ofrece esta jornada. Se administran por separado del tronco común y solo aparecerán aquí después de guardarlas.</p>
+                    <x-input-error class="mt-3" :messages="$errors->get('areas_tecnicas')" />
+                    @if (session('status') === 'areas-tecnicas-updated')
+                        <p class="mt-3 text-sm font-medium text-green-700">Oferta de áreas técnicas actualizada.</p>
+                    @endif
+                    <form method="POST" action="{{ route('Admin.asignaturas.areas-tecnicas.update', $oferta) }}" class="mt-4 flex flex-col gap-3">
+                        @csrf
+                        @method('PUT')
+                        @foreach ($areasTecnicasDisponibles as $areaTecnica)
+                            <label class="flex items-start gap-3 rounded-lg border border-amber-100 bg-white p-3 text-sm text-slate-700">
+                                <input type="checkbox" name="areas_tecnicas[]" value="{{ $areaTecnica->id }}" class="mt-0.5 rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" @checked(in_array($areaTecnica->id, $areasTecnicasSeleccionadas, true))>
+                                <span><span class="font-medium">{{ $areaTecnica->nombre }}</span>@if ($areaTecnica->descripcion)<span class="block text-slate-500">{{ $areaTecnica->descripcion }}</span>@endif</span>
+                            </label>
+                        @endforeach
+                        <div><x-primary-button>Guardar áreas técnicas</x-primary-button></div>
+                    </form>
+                </section>
+            @elseif ($establecimiento->bachillerato_tecnico)
+                <section x-show="nivelEsBachillerato" x-cloak class="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-6 shadow-sm">
+                    <h3 class="font-semibold text-slate-800">Áreas técnicas</h3>
+                    <p class="mt-1 text-sm text-slate-600">Sistemas todavía no ha creado áreas técnicas para los niveles de esta oferta. El catálogo se configura en Sistemas → Currículo, en el subnivel Bachillerato General Unificado, marcando “Área técnica”.</p>
+                </section>
+            @endif
+
             <x-input-error class="mb-4" :messages="$errors->get('asignaturas')" />
             <x-input-error class="mb-4" :messages="$errors->get('areas')" />
 
@@ -107,7 +177,7 @@
 
                 @if ($subniveles->isEmpty())
                     <p class="rounded-2xl border border-slate-200 bg-white px-6 py-8 text-center text-slate-500">
-                        Esta jornada aún no tiene grados en la estructura.
+                        Sin grados en la estructura para esta jornada.
                         <a href="{{ route('Admin.estructura.edit', $oferta) }}" class="font-medium text-indigo-600 hover:text-indigo-500">
                             Definir estructura
                         </a>
@@ -155,6 +225,7 @@
                         @endphp
 
                         <div x-show="activeSubnivelId === {{ $subnivel->id }}" class="space-y-4">
+                            <h3 class="text-sm font-semibold text-slate-700">Subnivel: {{ $subnivel->nombre }}</h3>
                             @forelse ($subnivel->areas as $area)
                                 @php
                                     $propiasDelArea = $propiasPorArea[(string) $area->id] ?? [];
@@ -226,6 +297,9 @@
                                                 </div>
                                             @endforeach
                                         </div>
+                                        <div class="sticky bottom-0 -mx-5 mt-5 flex justify-end border-t border-slate-200 bg-white/95 px-5 py-4 backdrop-blur-sm sm:-mx-6 sm:px-6">
+                                            <x-primary-button type="submit">Guardar malla</x-primary-button>
+                                        </div>
                                       </div>
                                     </div>
 
@@ -260,9 +334,21 @@
                                                             $destrezas = array_key_exists('destrezas', $config) ? (bool) $config['destrezas'] : ($tipo === TipoCalificacion::Cualitativa->value && (bool) $subnivel->califica_por_destrezas);
                                                             $equivalencias = (bool) ($config['equivalencias'] ?? false);
                                                             $porcentaje = $config['porcentaje'] ?? '';
+                                                            $figuraProfesionalId = (string) ($config['figura_profesional_id'] ?? '');
                                                         @endphp
                                                         <tr x-data="{ escala: @js($tipo) }" class="align-top">
-                                                            <td class="px-4 py-3 font-medium text-slate-800">{{ $asignatura->nombre }} <span class="block text-xs font-normal text-slate-500">Catálogo de Sistemas</span></td>
+                                                            <td class="px-4 py-3 font-medium text-slate-800">{{ $asignatura->nombre }} <span class="block text-xs font-normal text-slate-500">Catálogo de Sistemas</span>
+                                                                @if ($area->es_tecnica && $establecimiento->bachillerato_tecnico)
+                                                                    <label class="mt-2 block text-xs font-normal text-slate-500" for="asignatura-figura-{{ $asignatura->id }}-{{ $grado->id }}">Figura profesional</label>
+                                                                    <select id="asignatura-figura-{{ $asignatura->id }}-{{ $grado->id }}" name="asignaturas[{{ $asignatura->id }}][figura_profesional_id][{{ $grado->id }}]" class="mt-1 block w-52 rounded-md border-slate-300 text-xs">
+                                                                        <option value="">Sin figura profesional</option>
+                                                                        @foreach ($figurasProfesionales as $figura)
+                                                                            <option value="{{ $figura->id }}" @selected($figuraProfesionalId === (string) $figura->id)>{{ $figura->nombre }}</option>
+                                                                        @endforeach
+                                                                    </select>
+                                                                    <x-input-error class="mt-1" :messages="$errors->get('asignaturas.'.$asignatura->id.'.figura_profesional_id.'.$grado->id)" />
+                                                                @endif
+                                                            </td>
                                                             <td class="px-4 py-3 text-slate-700">{{ $grado->pivot->nombre ?? $grado->nombre }} @if ($esObligatoria)<span class="block text-xs text-indigo-700">Tronco común</span>@endif</td>
                                                             <td class="px-4 py-3">
                                                                 <input type="checkbox" class="rounded border-slate-300" name="asignaturas[{{ $asignatura->id }}][grados][]" value="{{ $grado->id }}" @checked($esObligatoria) @disabled($esObligatoria) x-model="asignaturas['{{ $asignaturaKey }}']" aria-label="Seleccionar {{ $asignatura->nombre }} para {{ $grado->nombre }}">
@@ -298,7 +384,7 @@
                                                 <h6 class="text-sm font-semibold text-slate-800">Asignaturas creadas por el establecimiento</h6>
                                         @foreach ($propiasDelArea as $propia)
                                             <div class="rounded-xl border border-slate-200 p-4" x-init="asignaturas['{{ $propia['alpine'] }}'] = asignaturas['{{ $propia['alpine'] }}'] || []">
-                                                <div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_12rem]">
+                                                <div class="grid gap-3 sm:grid-cols-3">
                                                     <div>
                                                         <label class="block text-xs text-slate-500" for="propia-nombre-{{ $propia['clave'] }}">Nombre</label>
                                                         <input
@@ -326,6 +412,17 @@
                                                         </select>
                                                         <x-input-error class="mt-1" :messages="$errors->get('propias.'.$propia['clave'].'.tipo')" />
                                                     </div>
+                                                    @if ($establecimiento->bachillerato_tecnico)
+                                                    <div>
+                                                        <label class="block text-xs text-slate-500" for="propia-figura-{{ $propia['clave'] }}">Figura profesional (solo módulos técnicos)</label>
+                                                        <select id="propia-figura-{{ $propia['clave'] }}" name="propias[{{ $propia['clave'] }}][figura_profesional_id]" class="mt-1 block w-full rounded-md border-slate-300 text-sm">
+                                                            <option value="">Asignatura común / sin especialidad</option>
+                                                            @foreach ($figurasProfesionales as $figura)
+                                                                <option value="{{ $figura->id }}" @selected((string) $propia['figura_profesional_id'] === (string) $figura->id)>{{ $figura->nombre }}</option>
+                                                            @endforeach
+                                                        </select>
+                                                    </div>
+                                                    @endif
                                                 </div>
                                                 <input type="hidden" name="propias[{{ $propia['clave'] }}][area_id]" value="{{ $area->id }}">
                                                 <label class="mt-3 flex items-center gap-2 text-sm text-slate-600">
@@ -407,7 +504,7 @@
 
                                         <template x-for="item in (nuevas['{{ $area->id }}'] || [])" :key="item.clave">
                                             <div class="rounded-xl border border-dashed border-slate-300 p-4">
-                                                <div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_12rem]">
+                                                <div class="grid gap-3 sm:grid-cols-3">
                                                     <div>
                                                         <label class="block text-xs text-slate-500">Nombre</label>
                                                         <input type="text" maxlength="150" class="mt-1 block w-full rounded-md border-slate-300 text-sm" x-model="item.nombre" :name="`propias[${item.clave}][nombre]`">
@@ -420,6 +517,17 @@
                                                             @endforeach
                                                         </select>
                                                     </div>
+                                                    @if ($establecimiento->bachillerato_tecnico)
+                                                    <div>
+                                                        <label class="block text-xs text-slate-500">Figura profesional (solo módulos técnicos)</label>
+                                                        <select class="mt-1 block w-full rounded-md border-slate-300 text-sm" x-model="item.figura_profesional_id" :name="`propias[${item.clave}][figura_profesional_id]`">
+                                                            <option value="">Asignatura común / sin especialidad</option>
+                                                            <template x-for="figura in figurasProfesionales" :key="figura.id">
+                                                                <option :value="figura.id" x-text="figura.nombre"></option>
+                                                            </template>
+                                                        </select>
+                                                    </div>
+                                                    @endif
                                                 </div>
                                                 <input type="hidden" :name="`propias[${item.clave}][area_id]`" value="{{ $area->id }}">
                                                 <button type="button" class="mt-3 text-sm font-medium text-slate-500 hover:text-slate-800" @click="quitarNueva('{{ $area->id }}', item.clave)">Quitar</button>
@@ -476,6 +584,9 @@
                                         >
                                             Crear nueva asignatura
                                         </button>
+                                        <div class="sticky bottom-0 -mx-5 mt-5 flex justify-end border-t border-slate-200 bg-white/95 px-5 py-4 backdrop-blur-sm sm:-mx-6 sm:px-6">
+                                            <x-primary-button type="submit">Guardar malla</x-primary-button>
+                                        </div>
                                         </div>
                                     </div>
                                 </section>
@@ -487,9 +598,6 @@
                         </div>
                     @endforeach
 
-                    <div class="mt-6 flex justify-end">
-                        <x-primary-button>Guardar malla</x-primary-button>
-                    </div>
                 @endif
             </form>
         </div>

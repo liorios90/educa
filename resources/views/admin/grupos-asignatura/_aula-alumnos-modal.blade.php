@@ -28,6 +28,7 @@
                         <div>
                             <p class="text-sm text-slate-800" x-text="alumno.nombre"></p>
                             <p class="text-xs text-slate-500" x-text="alumno.numero" x-show="alumno.numero"></p>
+                            <p class="text-xs font-medium text-indigo-700" x-text="alumno.figuraProfesional" x-show="alumno.figuraProfesional"></p>
                         </div>
                         <form method="POST" x-bind:action="alumno.quitar">
                             @csrf

@@ -2,6 +2,7 @@
 
 use App\Enums\Role;
 use App\Models\Establecimiento;
+use App\Models\EstablecimientoFiguraProfesional;
 use App\Models\EstablecimientoModalidad;
 use App\Models\Sys_Circuito;
 use App\Models\Sys_Distrito;
@@ -123,6 +124,8 @@ describe('create', function () {
             ->assertOk()
             ->assertSee('Costa')
             ->assertSee('Sierra')
+            ->assertSee('Bachillerato Técnico')
+            ->assertSee('Bachillerato Internacional')
             ->assertSee('type="file"', false)
             ->assertDontSee('Solo visible')
             ->assertDontSee('Misión')
@@ -369,6 +372,54 @@ describe('update', function () {
             ->assertSessionHas('status', 'establecimiento-updated');
 
         expect($establecimiento->fresh()->nombre)->toBe('UE Nueva');
+    });
+
+    it('stores the technical and international bachillerato options', function () {
+        Storage::fake('public');
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+        $zona = Sys_Zona::factory()->create();
+        $distrito = Sys_Distrito::factory()->create(['zona_id' => $zona->id]);
+        $circuito = Sys_Circuito::factory()->create(['distrito_id' => $distrito->id]);
+
+        $this->actingAs($actor)
+            ->post(route('sistemas.establecimientos.store'), establecimientoPayload($zona, $distrito, $circuito, [
+                'bachillerato_tecnico' => '1',
+                'bachillerato_internacional' => '1',
+            ]))
+            ->assertRedirect(route('sistemas.establecimientos'));
+
+        $this->assertDatabaseHas('establecimientos', [
+            'email' => 'andes@example.com',
+            'bachillerato_tecnico' => true,
+            'bachillerato_internacional' => true,
+        ]);
+    });
+
+    it('blocks deactivating technical bachillerato while professional figures exist', function () {
+        Storage::fake('public');
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+        $establecimiento = Establecimiento::factory()->create(['bachillerato_tecnico' => true]);
+        $oferta = ofertaDe($establecimiento);
+        EstablecimientoFiguraProfesional::query()->create([
+            'establecimiento_id' => $establecimiento->id,
+            'establecimiento_modalidad_jornada_id' => $oferta->id,
+            'nombre' => 'Electrónica',
+        ]);
+
+        $this->actingAs($actor)
+            ->from(route('sistemas.establecimientos.edit', $establecimiento))
+            ->patch(route('sistemas.establecimientos.update', $establecimiento), establecimientoPayload(
+                $establecimiento->zona,
+                $establecimiento->distrito,
+                $establecimiento->circuito,
+                [
+                    'codigo_amie' => $establecimiento->codigo_amie,
+                    'email' => $establecimiento->email,
+                    'bachillerato_tecnico' => '0',
+                ],
+            ))
+            ->assertRedirect(route('sistemas.establecimientos.edit', $establecimiento))
+            ->assertSessionHasErrors('bachillerato_tecnico');
     });
 
     it('prefills selected modalidades and jornadas on the edit form', function () {

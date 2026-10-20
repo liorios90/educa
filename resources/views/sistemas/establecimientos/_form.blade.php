@@ -108,6 +108,25 @@
         <x-input-error class="mt-2" :messages="$errors->get('regimen')" />
     </div>
 
+    <section class="space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <div>
+            <p class="text-sm font-medium text-slate-800">Programas de bachillerato</p>
+            <p class="mt-1 text-xs text-slate-500">Activa solo las opciones que ofrece este establecimiento. Bachillerato Técnico habilita la configuración de figuras profesionales y módulos técnicos.</p>
+        </div>
+        <label class="flex items-start gap-2 text-sm text-slate-700">
+            <input type="hidden" name="bachillerato_tecnico" value="0">
+            <input id="bachillerato_tecnico" type="checkbox" name="bachillerato_tecnico" value="1" class="mt-0.5 rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" @checked(old('bachillerato_tecnico', $establecimiento?->bachillerato_tecnico ?? false))>
+            <span><span class="font-medium">Bachillerato Técnico</span><span class="block text-xs text-slate-500">Muestra la gestión de figuras profesionales y su asociación con asignaturas.</span></span>
+        </label>
+        <x-input-error :messages="$errors->get('bachillerato_tecnico')" />
+        <label class="flex items-start gap-2 text-sm text-slate-700">
+            <input type="hidden" name="bachillerato_internacional" value="0">
+            <input id="bachillerato_internacional" type="checkbox" name="bachillerato_internacional" value="1" class="mt-0.5 rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" @checked(old('bachillerato_internacional', $establecimiento?->bachillerato_internacional ?? false))>
+            <span><span class="font-medium">Bachillerato Internacional</span><span class="block text-xs text-slate-500">Identifica al establecimiento que ofrece este programa.</span></span>
+        </label>
+        <x-input-error :messages="$errors->get('bachillerato_internacional')" />
+    </section>
+
     <div class="space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
         <div>
             <p class="text-sm font-medium text-slate-800">Modalidades y jornadas</p>

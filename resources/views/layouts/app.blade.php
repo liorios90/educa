@@ -33,13 +33,13 @@
             }"
             @keydown.escape.window="sidebarOpen = false"
         >
-            <x-sidebar />
+            <x-sidebar class="print:hidden" />
 
             <div
-                class="transition-[padding] duration-200 ease-out lg:pl-72"
+                class="transition-[padding] duration-200 ease-out lg:pl-72 print:pl-0"
                 :style="sidebarOpen ? {} : { paddingLeft: '0px' }"
             >
-                <header class="sticky top-0 z-20 border-b border-slate-200/80 bg-white/80 backdrop-blur">
+                <header class="sticky top-0 z-20 border-b border-slate-200/80 bg-white/80 backdrop-blur print:hidden">
                     <div class="flex h-16 items-center gap-4 px-4 sm:px-6 lg:px-8">
                         <button
                             type="button"

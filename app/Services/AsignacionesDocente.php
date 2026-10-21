@@ -234,6 +234,12 @@ class AsignacionesDocente
     }
 
     /**
+     * Roster for the teacher's selected classroom.
+     *
+     * Optional and international-programme subjects use individual inscriptions.
+     * A common subject may be marked floating because a group exists; classroom
+     * enrollment still defines who appears when the teacher grades that aula.
+     *
      * @return Collection<int, Alumno>
      */
     public function alumnos(DocenteContexto $contexto): Collection
@@ -241,7 +247,7 @@ class AsignacionesDocente
         $idsDelAula = $this->alumnoIdsMatriculadosEnAula((int) $contexto->aula->id);
         $asignatura = $contexto->asignatura;
 
-        if ($asignatura->es_flotante || $asignatura->tipo_asignatura->exigeInscripcionIndividual()) {
+        if ($asignatura->tipo_asignatura->exigeInscripcionIndividual()) {
             $inscritos = $this->alumnoIdsDeAsignatura(
                 (int) $contexto->aula->establecimiento_periodo_id,
                 (int) $asignatura->id,
@@ -249,6 +255,13 @@ class AsignacionesDocente
             $enAula = $idsDelAula->intersect($inscritos)->values();
 
             return $this->alumnosPorIds($enAula->isNotEmpty() ? $enAula : $inscritos);
+        }
+
+        if ($asignatura->es_flotante && $idsDelAula->isEmpty()) {
+            return $this->alumnosPorIds($this->alumnoIdsDeAsignatura(
+                (int) $contexto->aula->establecimiento_periodo_id,
+                (int) $asignatura->id,
+            ));
         }
 
         return $this->alumnosPorIds($idsDelAula);

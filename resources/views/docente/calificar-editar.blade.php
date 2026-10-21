@@ -168,6 +168,7 @@
 
                                 <div class="md:col-span-2">
                                     @if ($contexto)
+                                        <p class="mb-3 text-sm text-slate-600">También aparecen los alumnos nuevos y los que aún no tienen nota, para que puedas asignarles un valor.</p>
                                         @include('docente.calificar._alumnos')
                                     @endif
                                 </div>

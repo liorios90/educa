@@ -24,7 +24,14 @@
                     @endphp
                     <tr>
                         <td class="px-4 py-2 text-slate-500">{{ $indice + 1 }}</td>
-                        <td class="px-4 py-2 text-slate-800">{{ $nombre }}</td>
+                        <td class="px-4 py-2 text-slate-800">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span>{{ $nombre }}</span>
+                                @if (isset($actividadEditando) && $actividadEditando && $notaActual === '')
+                                    <span class="inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800 ring-1 ring-amber-200">Sin calificar</span>
+                                @endif
+                            </div>
+                        </td>
                         <td class="px-4 py-2">
                             @if ($esCualitativa)
                                 <select

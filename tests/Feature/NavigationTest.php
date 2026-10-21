@@ -34,7 +34,8 @@ it('shows administrator menu links and hides systems links', function () {
         ->get(route('dashboard'))
         ->assertSee('Matenimiento')
         ->assertSee(route('Admin.padres'), false)
-        ->assertDontSee(route('sistemas.home'), false);
+        ->assertDontSee(route('sistemas.home'), false)
+        ->assertDontSee(route('sistemas.asistente-consultas.index'), false);
 });
 
 it('shows the systems link only to systems users', function () {
@@ -45,6 +46,7 @@ it('shows the systems link only to systems users', function () {
     $this->actingAs($user)
         ->get(route('dashboard'))
         ->assertSee(route('sistemas.home'), false)
+        ->assertSee(route('sistemas.asistente-consultas.index'), false)
         ->assertDontSee(route('Admin.padres'), false);
 });
 
@@ -164,12 +166,20 @@ it('shows class groups and programs to secretaries', function () {
         ->assertSee(route('Admin.grupos-asignatura.flotantes'), false)
         ->assertSee(route('Admin.matriculas.index'), false)
         ->assertSee(route('secretaria.asistente'), false)
+        ->assertSee(route('Admin.padres'), false)
+        ->assertSee(route('Admin.alumnos'), false)
         ->assertDontSee(route('Admin.aulas'), false)
-        ->assertDontSee(route('Admin.programas.index'), false);
+        ->assertDontSee(route('Admin.programas.index'), false)
+        ->assertDontSee(route('Admin.empleados'), false)
+        ->assertDontSee(route('sistemas.asistente-consultas.index'), false);
 
-    expect(collect((new Navigation)->itemsFor($secretaria))->pluck('label')->all())
-        ->toContain('Matriculas', 'Grupos flotantes', 'Asistente')
-        ->not->toContain('Grupos de clase', 'Programas');
+    $items = collect((new Navigation)->itemsFor($secretaria));
+    $mantenimiento = $items->firstWhere('label', 'Matenimiento');
+
+    expect($items->pluck('label')->all())
+        ->toContain('Matriculas', 'Grupos flotantes', 'Asistente', 'Matenimiento')
+        ->not->toContain('Grupos de clase', 'Programas')
+        ->and(collect($mantenimiento?->children)->pluck('label')->all())->toBe(['Padres', 'Alumnos']);
 });
 
 it('does not overwrite a menu item that was customized in sistemas', function () {

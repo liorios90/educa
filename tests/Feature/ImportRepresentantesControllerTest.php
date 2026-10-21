@@ -241,6 +241,15 @@ describe('create', function () {
             ->assertForbidden();
     });
 
+    it('allows secretaries to open the import form', function () {
+        $secretaria = secretariaOf(Establecimiento::factory()->create());
+
+        $this->actingAs($secretaria)
+            ->get(route('Admin.padres.import'))
+            ->assertOk()
+            ->assertSee('Importar padres, alumnos o docentes');
+    });
+
     it('redirects guests from the import form to login', function () {
         $this->get(route('Admin.padres.import'))
             ->assertRedirect(route('login'));

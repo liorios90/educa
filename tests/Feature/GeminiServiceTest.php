@@ -1,7 +1,9 @@
 <?php
 
 use App\Exceptions\GeminiCredentialsMissingException;
+use App\Models\AsistenteConsulta;
 use App\Models\Establecimiento;
+use App\Models\User;
 use App\Services\GeminiService;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
@@ -27,10 +29,20 @@ it('returns the generated text from Gemini using the school credentials', functi
         'gemini_model' => 'gemini-andina',
     ]);
 
+    $usuario = User::factory()->create(['name' => 'Ana Perez']);
+    $this->actingAs($usuario);
+
     $respuesta = app(GeminiService::class)->generate('Resume este tema', $establecimiento);
 
     expect($respuesta->texto)->toBe('Hola desde el fake')
         ->and($respuesta->tokens)->toBe(0);
+
+    $this->assertDatabaseHas('asistente_consultas', [
+        'establecimiento_id' => $establecimiento->id,
+        'user_id' => $usuario->id,
+        'usuario' => 'Ana Perez',
+        'pregunta' => 'Resume este tema',
+    ]);
 
     Http::assertSent(function (Request $request) {
         return $request->hasHeader('x-goog-api-key', 'clave-andina')
@@ -110,6 +122,7 @@ it('rejects a prompt when the school has no Gemini key', function () {
         ->toThrow(GeminiCredentialsMissingException::class);
 
     Http::assertNothingSent();
+    expect(AsistenteConsulta::query()->count())->toBe(0);
 });
 
 it('reads the token count returned by Gemini', function () {

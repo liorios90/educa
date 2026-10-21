@@ -555,6 +555,25 @@ describe('store', function () {
             ->assertDontSee('Flores Ana');
     });
 
+    it('lists every classroom student when a common subject was marked floating', function () {
+        $escenario = escenarioCalificarInsumos(['es_flotante' => true]);
+        $delGrupo = alumnoDelEstablecimiento($escenario['establecimiento'], 'Espinoza');
+        $nuevo = alumnoDelEstablecimiento($escenario['establecimiento'], 'Heredia');
+        matricularAlumnoCalificar($escenario['aula'], $delGrupo);
+        matricularAlumnoCalificar($escenario['aula'], $nuevo);
+        EstablecimientoAlumnoAsignatura::factory()->create([
+            'establecimiento_periodo_id' => $escenario['aula']->establecimiento_periodo_id,
+            'establecimiento_asignatura_id' => $escenario['malla']->id,
+            'alumno_id' => $delGrupo->id,
+        ]);
+        guardarContextoCalificar($escenario);
+
+        $this->actingAs($escenario['docente'])
+            ->get(route('Docente.calificar.index'))
+            ->assertSee('Espinoza Ana')
+            ->assertSee('Heredia Ana');
+    });
+
     it('tells the teacher when the classroom has no enrolled students', function () {
         $escenario = escenarioCalificarInsumos();
         guardarContextoCalificar($escenario);
@@ -957,6 +976,67 @@ describe('editar', function () {
             ->assertDontSee('Elegir un tipo de insumo:');
     });
 
+    it('lists new and ungraded students so the teacher can assign a grade', function () {
+        $escenario = escenarioCalificarInsumos();
+        $insumo = asignarTipoInsumoCalificar($escenario, 'cuantitativa', [
+            ['nombre' => 'Arte', 'porcentaje' => '50.00'],
+        ]);
+        $calificado = alumnoDelEstablecimiento($escenario['establecimiento'], 'Naranjo');
+        $sinNota = alumnoDelEstablecimiento($escenario['establecimiento'], 'Benítez');
+        $nuevo = alumnoDelEstablecimiento($escenario['establecimiento'], 'Zambrano');
+        matricularAlumnoCalificar($escenario['aula'], $calificado);
+        matricularAlumnoCalificar($escenario['aula'], $sinNota);
+        $actividad = actividadDeCalificar($escenario, $insumo['detalles'][0], 'Arte 1er trime');
+        EstablecimientoInsumoActividadCalificacion::factory()->create([
+            'establecimiento_insumo_actividad_id' => $actividad->id,
+            'alumno_id' => $calificado->id,
+            'nota' => '8.50',
+        ]);
+        matricularAlumnoCalificar($escenario['aula'], $nuevo);
+        guardarContextoCalificar($escenario);
+
+        $this->actingAs($escenario['docente'])
+            ->get(route('Docente.calificar.editar', ['actividad' => $actividad->id]))
+            ->assertSee('Naranjo')
+            ->assertSee('Benítez')
+            ->assertSee('Zambrano')
+            ->assertSee('Sin calificar')
+            ->assertSee('También aparecen los alumnos nuevos')
+            ->assertSee('value="8.50"', false)
+            ->assertSee('name="notas['.$sinNota->id.']"', false)
+            ->assertSee('name="notas['.$nuevo->id.']"', false);
+    });
+
+    it('lists a newly enrolled classroom student when editing a floating common subject', function () {
+        $escenario = escenarioCalificarInsumos(['es_flotante' => true]);
+        $insumo = asignarTipoInsumoCalificar($escenario, 'cuantitativa', [
+            ['nombre' => 'Arte', 'porcentaje' => '50.00'],
+        ]);
+        $delGrupo = alumnoDelEstablecimiento($escenario['establecimiento'], 'Espinoza');
+        $nuevo = alumnoDelEstablecimiento($escenario['establecimiento'], 'Heredia');
+        matricularAlumnoCalificar($escenario['aula'], $delGrupo);
+        EstablecimientoAlumnoAsignatura::factory()->create([
+            'establecimiento_periodo_id' => $escenario['aula']->establecimiento_periodo_id,
+            'establecimiento_asignatura_id' => $escenario['malla']->id,
+            'alumno_id' => $delGrupo->id,
+        ]);
+        $actividad = actividadDeCalificar($escenario, $insumo['detalles'][0], 'Arte 1er trime');
+        EstablecimientoInsumoActividadCalificacion::factory()->create([
+            'establecimiento_insumo_actividad_id' => $actividad->id,
+            'alumno_id' => $delGrupo->id,
+            'nota' => '8.50',
+        ]);
+        matricularAlumnoCalificar($escenario['aula'], $nuevo);
+        guardarContextoCalificar($escenario);
+
+        $this->actingAs($escenario['docente'])
+            ->get(route('Docente.calificar.editar', ['actividad' => $actividad->id]))
+            ->assertSee('Espinoza')
+            ->assertSee('Heredia')
+            ->assertSee('Sin calificar')
+            ->assertSee('name="notas['.$nuevo->id.']"', false);
+    });
+
     it('returns 404 when the selected activity belongs to another teacher', function () {
         $escenario = escenarioCalificarInsumos();
         $ajeno = escenarioCalificarInsumos(['grado' => '9no Básica']);
@@ -1014,6 +1094,49 @@ describe('updateActividad', function () {
             'establecimiento_insumo_actividad_id' => $actividad->id,
             'alumno_id' => $alumno->id,
             'nota' => '9.25',
+        ]);
+    });
+
+    it('saves a grade for a student who was not graded before', function () {
+        $escenario = escenarioCalificarInsumos();
+        $insumo = asignarTipoInsumoCalificar($escenario, 'cuantitativa', [
+            ['nombre' => 'Arte', 'porcentaje' => '50.00'],
+        ]);
+        $calificado = alumnoDelEstablecimiento($escenario['establecimiento'], 'Ordoñez');
+        $nuevo = alumnoDelEstablecimiento($escenario['establecimiento'], 'Zambrano');
+        matricularAlumnoCalificar($escenario['aula'], $calificado);
+        matricularAlumnoCalificar($escenario['aula'], $nuevo);
+        $actividad = actividadDeCalificar($escenario, $insumo['detalles'][0], 'Arte 1er trime');
+        EstablecimientoInsumoActividadCalificacion::factory()->create([
+            'establecimiento_insumo_actividad_id' => $actividad->id,
+            'alumno_id' => $calificado->id,
+            'nota' => '7.00',
+        ]);
+
+        $this->actingAs($escenario['docente'])
+            ->put(route('Docente.calificar.actividades.update', $actividad), [
+                'establecimiento_aula_id' => $escenario['aula']->id,
+                'establecimiento_asignatura_id' => $escenario['malla']->id,
+                'establecimiento_periodo_ciclo_id' => $escenario['ciclo']->id,
+                'parcial_numero' => 1,
+                'nombre' => 'Arte 1er trime',
+                'notas' => [
+                    $calificado->id => '7.00',
+                    $nuevo->id => '8.00',
+                ],
+            ])
+            ->assertRedirect(route('Docente.calificar.editar', ['actividad' => $actividad->id]))
+            ->assertSessionHas('status', 'calificaciones-grabadas');
+
+        $this->assertDatabaseHas('establecimiento_insumo_actividad_calificaciones', [
+            'establecimiento_insumo_actividad_id' => $actividad->id,
+            'alumno_id' => $calificado->id,
+            'nota' => '7.00',
+        ]);
+        $this->assertDatabaseHas('establecimiento_insumo_actividad_calificaciones', [
+            'establecimiento_insumo_actividad_id' => $actividad->id,
+            'alumno_id' => $nuevo->id,
+            'nota' => '8.00',
         ]);
     });
 

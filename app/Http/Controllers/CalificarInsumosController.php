@@ -17,6 +17,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class CalificarInsumosController extends Controller
@@ -47,17 +48,23 @@ class CalificarInsumosController extends Controller
             }
         }
 
+        $datos = $this->datosVista($request, $actual);
+        $notasGuardadas = $actividad === null
+            ? []
+            : $actividad->calificaciones
+                ->mapWithKeys(fn (EstablecimientoInsumoActividadCalificacion $calificacion): array => [
+                    (int) $calificacion->alumno_id => (string) $calificacion->nota,
+                ])
+                ->all();
+
         return view('docente.calificar-editar', [
-            ...$this->datosVista($request, $actual),
+            ...$datos,
             'insumosIngresados' => $actual === null ? [] : $this->asignaciones->actividadesAgrupadas($actual),
             'actividadEditando' => $actividad,
-            'notasGuardadas' => $actividad === null
-                ? []
-                : $actividad->calificaciones
-                    ->mapWithKeys(fn (EstablecimientoInsumoActividadCalificacion $calificacion): array => [
-                        (int) $calificacion->alumno_id => (string) $calificacion->nota,
-                    ])
-                    ->all(),
+            'notasGuardadas' => $notasGuardadas,
+            'alumnos' => $actividad === null
+                ? $datos['alumnos']
+                : $this->alumnosParaEditar($datos['alumnos'], $notasGuardadas),
         ]);
     }
 
@@ -172,5 +179,22 @@ class CalificarInsumosController extends Controller
                 'parcial' => old('parcial_numero', $actual?->parcialNumero),
             ],
         ];
+    }
+
+    /**
+     * @param  Collection<int, Alumno>  $alumnos
+     * @param  array<int, string>  $notasGuardadas
+     * @return Collection<int, Alumno>
+     */
+    private function alumnosParaEditar(Collection $alumnos, array $notasGuardadas): Collection
+    {
+        return $alumnos
+            ->sortBy(function (Alumno $alumno) use ($notasGuardadas): string {
+                $nombre = Str::lower(trim(($alumno->persona->apellidos ?? '').' '.($alumno->persona->nombres ?? '')));
+                $pendiente = isset($notasGuardadas[(int) $alumno->id]) ? '1' : '0';
+
+                return $pendiente.'-'.$nombre;
+            })
+            ->values();
     }
 }

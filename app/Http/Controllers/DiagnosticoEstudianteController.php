@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Auth\ActiveDocenteContexto;
+use App\Enums\EscalaCalificacion;
 use App\Exceptions\GeminiCredentialsMissingException;
 use App\Exceptions\GeminiQuotaExceededException;
 use App\Http\Requests\SelectDocenteContextoRequest;
@@ -12,6 +13,7 @@ use App\Models\Establecimiento;
 use App\Services\AsignacionesDocente;
 use App\Services\AsistenteCupo;
 use App\Services\DiagnosticoEstudianteService;
+use App\Services\GraficoNotasBarras;
 use App\Services\HistorialAcademico;
 use App\Services\HistorialAcademicoEstudiante;
 use Illuminate\Http\Client\ConnectionException;
@@ -28,6 +30,7 @@ class DiagnosticoEstudianteController extends Controller
         private HistorialAcademicoEstudiante $historiales,
         private DiagnosticoEstudianteService $diagnosticos,
         private AsistenteCupo $cupo,
+        private GraficoNotasBarras $graficoBarras,
     ) {}
 
     public function index(Request $request): View
@@ -80,6 +83,34 @@ class DiagnosticoEstudianteController extends Controller
         }
 
         return back()->with('diagnostico', $diagnostico->toArray());
+    }
+
+    public function grafico(Request $request): View|RedirectResponse
+    {
+        $user = $request->user();
+        $actual = $this->contexto->get($user);
+
+        if ($actual === null) {
+            return redirect()->route('Docente.diagnostico.index');
+        }
+
+        $establecimiento = $this->establecimiento($request);
+        $escala = $actual->asignatura->escala ?? EscalaCalificacion::Nacional;
+        $notaMaxima = $escala->maximo();
+        $notaMinima = $escala === EscalaCalificacion::BachilleratoInternacional ? 4.0 : 7.0;
+        $puntos = $this->historiales
+            ->deVarios($this->asignaciones->alumnos($actual), $actual, $establecimiento)
+            ->map(fn (HistorialAcademico $historial): array => $historial->toPuntoGrafico($notaMaxima))
+            ->values();
+
+        return view('docente.diagnostico-grafico', [
+            'contexto' => $actual,
+            'puntos' => $puntos,
+            'grafico' => $this->graficoBarras->dibujar($puntos, $notaMaxima, $notaMinima),
+            'escala' => $escala,
+            'notaMaxima' => $notaMaxima,
+            'notaMinima' => $notaMinima,
+        ]);
     }
 
     public function grupo(StoreDiagnosticoGrupoRequest $request): RedirectResponse

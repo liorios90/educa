@@ -48,12 +48,22 @@
                         @if ($contexto && $alumnos->isNotEmpty())
                             <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
                                 <p class="text-sm text-slate-600">{{ $contexto->etiqueta() }}</p>
-                                <form method="POST" action="{{ route('Docente.diagnostico.grupo') }}">
-                                    @csrf
-                                    <x-primary-button :disabled="$uso->agotado() || ! $asistenteListo">
-                                        Analizar alumnos con problemas
-                                    </x-primary-button>
-                                </form>
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <a
+                                        href="{{ route('Docente.diagnostico.grafico') }}"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        class="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-widest text-gray-700 shadow-sm hover:bg-gray-50"
+                                    >
+                                        Gráfico de notas
+                                    </a>
+                                    <form method="POST" action="{{ route('Docente.diagnostico.grupo') }}">
+                                        @csrf
+                                        <x-primary-button :disabled="$uso->agotado() || ! $asistenteListo">
+                                            Analizar alumnos con problemas
+                                        </x-primary-button>
+                                    </form>
+                                </div>
                             </div>
                             <div class="overflow-x-auto rounded-lg border border-slate-200">
                                 <table class="min-w-full divide-y divide-slate-200 text-sm">

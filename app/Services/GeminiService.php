@@ -9,6 +9,10 @@ use Illuminate\Support\Facades\Http;
 
 class GeminiService
 {
+    public function __construct(
+        private AsistenteConsultaLog $consultas,
+    ) {}
+
     public function generate(string $prompt, Establecimiento $establecimiento, ?string $instruccionSistema = null): GeminiRespuesta
     {
         $key = $establecimiento->gemini_api_key;
@@ -49,6 +53,8 @@ class GeminiService
         }
 
         $tokens = $response->json('usageMetadata.totalTokenCount');
+
+        $this->consultas->registrar($establecimiento, $prompt);
 
         return new GeminiRespuesta(
             $text,

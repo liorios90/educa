@@ -24,9 +24,9 @@ class NavigationSeeder extends Seeder
         $this->ensureItem('Inicio', 'dashboard', 'home', 1, true, []);
         $this->ensureItem('Matrícula', 'matriculas.index', 'clipboard-document-list', 1, false, [$padre->id]);
 
-        $mantenimiento = $this->ensureItem('Matenimiento', 'navigation.hub', 'wrench-screwdriver', 2, false, [$admin->id], isGroup: true, groupDisplay: NavigationGroupDisplay::Sidebar);
-        $this->ensureItem('Padres', 'Admin.padres', 'users', 1, false, [$admin->id], parentId: $mantenimiento->id);
-        $this->ensureItem('Alumnos', 'Admin.alumnos', 'academic-cap', 2, false, [$admin->id], parentId: $mantenimiento->id);
+        $mantenimiento = $this->ensureItem('Matenimiento', 'navigation.hub', 'wrench-screwdriver', 2, false, [$admin->id, $secretaria->id], isGroup: true, groupDisplay: NavigationGroupDisplay::Sidebar);
+        $this->ensureItem('Padres', 'Admin.padres', 'users', 1, false, [$admin->id, $secretaria->id], parentId: $mantenimiento->id);
+        $this->ensureItem('Alumnos', 'Admin.alumnos', 'academic-cap', 2, false, [$admin->id, $secretaria->id], parentId: $mantenimiento->id);
         $this->ensureItem('Empleados', 'Admin.empleados', 'clipboard-document-list', 3, false, [$admin->id], parentId: $mantenimiento->id);
 
         $this->ensureItem('Horario', 'Docente.horarios', 'table-cells', 2, false, [$docente->id]);
@@ -60,6 +60,7 @@ class NavigationSeeder extends Seeder
 
         $this->ensureItem('Asistente', 'secretaria.asistente', 'wrench-screwdriver', 5, false, [$secretaria->id]);
         $this->ensureItem('Diseñar reportes', 'sistemas.reports.index', 'cog', 6, false, [$sistemas->id]);
+        $this->ensureItem('Consultas IA', 'sistemas.asistente-consultas.index', 'clipboard-document-list', 7, false, [$sistemas->id]);
         $this->ensureItem('Asistente', 'Docente.asistente', 'globe-alt', 6, false, [$docente->id]);
         $this->ensureItem('Diagnóstico', 'Docente.diagnostico.index', 'chart-bar', 7, false, [$docente->id]);
 

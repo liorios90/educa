@@ -83,6 +83,32 @@ describe('index', function () {
             ->assertForbidden();
     });
 
+    it('allows secretaries to open alumnos of their establishment', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $secretaria = secretariaOf($establecimiento);
+        $persona = Persona::factory()->create([
+            'nombres' => 'Ana',
+            'apellidos' => 'Pérez',
+            'establecimiento_id' => $establecimiento->id,
+        ]);
+        Alumno::factory()->for($persona)->create();
+
+        $this->actingAs($secretaria)
+            ->get(route('Admin.alumnos'))
+            ->assertOk()
+            ->assertSee('Alumnos')
+            ->assertSee('Ana')
+            ->assertSee('Nuevo alumno');
+    });
+
+    it('forbids teachers from opening alumnos', function () {
+        $user = assignRole(User::factory()->create(), Role::Docente);
+
+        $this->actingAs($user)
+            ->get(route('Admin.alumnos'))
+            ->assertForbidden();
+    });
+
     it('redirects guests from alumnos to login', function () {
         $this->get(route('Admin.alumnos'))
             ->assertRedirect(route('login'));
@@ -161,6 +187,26 @@ describe('store', function () {
         $this->actingAs($user)
             ->post(route('Admin.alumnos.store'), [])
             ->assertForbidden();
+    });
+
+    it('lets a secretary create an alumno', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $secretaria = secretariaOf($establecimiento);
+        $pais = Sys_Pais::factory()->create();
+        $provincia = Sys_Provincia::factory()->create(['pais_id' => $pais->id]);
+
+        $this->actingAs($secretaria)
+            ->post(route('Admin.alumnos.store'), alumnoPayload($pais, $provincia))
+            ->assertRedirect(route('Admin.alumnos'))
+            ->assertSessionHas('status', 'alumno-created');
+
+        $user = User::query()->where('email', 'ana.perez@example.com')->firstOrFail();
+        $persona = Persona::query()->where('identificacion', '0912345680')->firstOrFail();
+
+        expect($user->hasRole(Role::Alumno))->toBeTrue()
+            ->and($user->establecimiento_id)->toBe($establecimiento->id)
+            ->and($persona->establecimiento_id)->toBe($establecimiento->id)
+            ->and($persona->usuario)->toBe('Secretaria Andina');
     });
 
     it('creates an alumno, persona and user with password', function () {

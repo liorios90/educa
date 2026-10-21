@@ -13,6 +13,9 @@
                     <a href="{{ route('sistemas.navigation-items.index') }}" class="text-sm font-medium text-indigo-600 hover:text-indigo-500">
                         Administrar menú
                     </a>
+                    <a href="{{ route('sistemas.asistente-consultas.index') }}" class="text-sm font-medium text-indigo-600 hover:text-indigo-500">
+                        Consultas de la IA
+                    </a>
                 </div>
             </div>
         </div>

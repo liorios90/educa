@@ -113,6 +113,36 @@ readonly class HistorialAcademico
         ];
     }
 
+    public function promedioNotas(): ?float
+    {
+        $delContexto = $this->notasNumericas(true);
+
+        $notas = $delContexto !== [] ? $delContexto : $this->notasNumericas(false);
+
+        if ($notas === []) {
+            return $this->notaPeriodoDelContexto();
+        }
+
+        return round(array_sum($notas) / count($notas), 2);
+    }
+
+    /**
+     * @return array{estudiante: string, nota: float|null, etiqueta: string, porcentaje: float, bajoMinimo: bool}
+     */
+    public function toPuntoGrafico(float $notaMaxima): array
+    {
+        $nota = $this->promedioNotas();
+        $maxima = $notaMaxima > 0 ? $notaMaxima : 10.0;
+
+        return [
+            'estudiante' => $this->estudiante,
+            'nota' => $nota,
+            'etiqueta' => $nota === null ? 'Sin nota' : number_format($nota, 2, '.', ''),
+            'porcentaje' => $nota === null ? 0.0 : round(min(100, max(0, ($nota / $maxima) * 100)), 2),
+            'bajoMinimo' => $nota !== null && $nota < $this->notaMinimaAprobacion,
+        ];
+    }
+
     private function tieneNotasBajoElMinimo(): bool
     {
         foreach ([...$this->notasInsumo, ...$this->calificacionesPeriodo] as $fila) {
@@ -154,5 +184,58 @@ readonly class HistorialAcademico
         }
 
         return $resumen['total'] >= 5 && ($resumen['faltas'] / $resumen['total']) >= 0.2;
+    }
+
+    /**
+     * @return list<float>
+     */
+    private function notasNumericas(bool $soloContexto): array
+    {
+        $notas = [];
+
+        foreach ($this->notasInsumo as $fila) {
+            if (! is_numeric($fila['nota'] ?? null)) {
+                continue;
+            }
+
+            if ($soloContexto && ! $this->insumoCoincideConContexto($fila)) {
+                continue;
+            }
+
+            $notas[] = (float) $fila['nota'];
+        }
+
+        return $notas;
+    }
+
+    /**
+     * @param  array{ciclo?: string, parcial?: int}  $fila
+     */
+    private function insumoCoincideConContexto(array $fila): bool
+    {
+        $ciclo = (string) ($fila['ciclo'] ?? '');
+        $parcial = (int) ($fila['parcial'] ?? 0);
+
+        $mismoCiclo = $ciclo === '' || $ciclo === $this->ciclo;
+        $mismoParcial = $parcial === 0 || $parcial === $this->parcial;
+
+        return $mismoCiclo && $mismoParcial;
+    }
+
+    private function notaPeriodoDelContexto(): ?float
+    {
+        foreach ($this->calificacionesPeriodo as $fila) {
+            if (! is_numeric($fila['nota'] ?? null)) {
+                continue;
+            }
+
+            if ((int) ($fila['parcial'] ?? 0) !== $this->parcial) {
+                continue;
+            }
+
+            return (float) $fila['nota'];
+        }
+
+        return null;
     }
 }

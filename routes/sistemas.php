@@ -1,6 +1,7 @@
 <?php
 
 use App\Crud\CrudRegistry;
+use App\Http\Controllers\AsistenteConsultaController;
 use App\Http\Controllers\CurriculoController;
 use App\Http\Controllers\EstablecimientoController;
 use App\Http\Controllers\EstablecimientoPeriodoController;
@@ -18,6 +19,10 @@ Route::middleware(['auth', 'verified', 'role:Sistemas'])
     ->name('sistemas.')
     ->group(function () {
         Route::view('/', 'sistemas.home')->name('home');
+        Route::get('/asistente-consultas', [AsistenteConsultaController::class, 'index'])->name('asistente-consultas.index');
+        Route::delete('/asistente-consultas/{asistenteConsulta}', [AsistenteConsultaController::class, 'destroy'])
+            ->name('asistente-consultas.destroy')
+            ->whereNumber('asistenteConsulta');
         Route::get('/usuarios', [UserController::class, 'index'])->name('users');
         Route::get('/usuarios/crear', [UserController::class, 'create'])->name('users.create');
         Route::post('/usuarios', [UserController::class, 'store'])->name('users.store');

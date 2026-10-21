@@ -34,6 +34,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('/asistente', [SecretariaController::class, 'store'])->name('asistente.store');
             Route::get('/diagnostico', [DiagnosticoEstudianteController::class, 'index'])->name('diagnostico.index');
             Route::post('/diagnostico', [DiagnosticoEstudianteController::class, 'seleccionar'])->name('diagnostico.seleccionar');
+            Route::get('/diagnostico/grafico', [DiagnosticoEstudianteController::class, 'grafico'])->name('diagnostico.grafico');
             Route::post('/diagnostico/estudiantes', [DiagnosticoEstudianteController::class, 'store'])->name('diagnostico.store');
             Route::post('/diagnostico/grupo', [DiagnosticoEstudianteController::class, 'grupo'])->name('diagnostico.grupo');
         });

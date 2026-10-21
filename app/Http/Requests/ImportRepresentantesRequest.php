@@ -14,7 +14,7 @@ class ImportRepresentantesRequest extends FormRequest
         $user = $this->user();
 
         return $user !== null
-            && $user->hasRole(Role::Admin)
+            && $user->hasAnyRole([Role::Admin, Role::Secretaria])
             && $user->establecimiento_id !== null;
     }
 

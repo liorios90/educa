@@ -219,6 +219,7 @@ it('redirects guests from the teacher diagnosis page to the login page', functio
 })->with([
     'open page' => ['get', 'Docente.diagnostico.index'],
     'select class' => ['post', 'Docente.diagnostico.seleccionar'],
+    'open chart' => ['get', 'Docente.diagnostico.grafico'],
     'analyze student' => ['post', 'Docente.diagnostico.store'],
     'analyze group' => ['post', 'Docente.diagnostico.grupo'],
 ]);
@@ -242,7 +243,76 @@ it('lists the classroom students after the teacher selects a class', function ()
         ->assertSee('Diagnóstico del estudiante')
         ->assertSee('Cárdenas')
         ->assertSee('Analizar con IA')
-        ->assertSee('Analizar alumnos con problemas');
+        ->assertSee('Analizar alumnos con problemas')
+        ->assertSee('Gráfico de notas')
+        ->assertSee(route('Docente.diagnostico.grafico'), false);
+});
+
+it('forbids other roles from opening the grades chart', function (User $user) {
+    $this->actingAs($user)
+        ->get(route('Docente.diagnostico.grafico'))
+        ->assertForbidden();
+})->with([
+    'administrator' => fn () => adminOf(Establecimiento::factory()->create()),
+    'secretary' => fn () => secretariaOf(Establecimiento::factory()->create()),
+]);
+
+it('redirects the teacher to the diagnosis page when no class is selected', function () {
+    $escenario = escenarioDiagnosticoEstudiante();
+
+    $this->actingAs($escenario['docente'])
+        ->get(route('Docente.diagnostico.grafico'))
+        ->assertRedirect(route('Docente.diagnostico.index'));
+});
+
+it('shows a printable chart of classroom students and their averages', function () {
+    $escenario = escenarioDiagnosticoEstudiante();
+    $otro = alumnoMatriculadoEnDiagnostico($escenario, 'Benítez');
+    calificarInsumosDeDiagnostico($escenario, [
+        $escenario['alumno']->id => ['8.00', '6.00'],
+        $otro->id => ['9.50'],
+    ]);
+    guardarContextoDiagnostico($escenario);
+
+    $this->actingAs($escenario['docente'])
+        ->get(route('Docente.diagnostico.grafico'))
+        ->assertOk()
+        ->assertSee('Gráfico de barras')
+        ->assertSee('Alumnos vs notas')
+        ->assertSee('Imprimir PDF')
+        ->assertSee('<svg', false)
+        ->assertSee('<rect', false)
+        ->assertSee('fill="#4f46e5"', false)
+        ->assertDontSee('id="app-sidebar"', false)
+        ->assertSee('Cárdenas')
+        ->assertSee('Benítez')
+        ->assertSee('7.00')
+        ->assertSee('9.50');
+});
+
+it('lists a student without grades as ungraded on the chart', function () {
+    $escenario = escenarioDiagnosticoEstudiante();
+    guardarContextoDiagnostico($escenario);
+
+    $this->actingAs($escenario['docente'])
+        ->get(route('Docente.diagnostico.grafico'))
+        ->assertOk()
+        ->assertSee('Cárdenas')
+        ->assertSee('Sin nota');
+});
+
+it('escapes a dangerous student name on the grades chart', function () {
+    $escenario = escenarioDiagnosticoEstudiante();
+    $escenario['alumno']->persona->update([
+        'apellidos' => "<script>alert('xss')</script>",
+        'nombres' => 'Ana',
+    ]);
+    guardarContextoDiagnostico($escenario);
+
+    $this->actingAs($escenario['docente'])
+        ->get(route('Docente.diagnostico.grafico'))
+        ->assertOk()
+        ->assertDontSee("<script>alert('xss')</script>", false);
 });
 
 it('sends the student grades and attendance to Gemini and shows the diagnosis', function () {

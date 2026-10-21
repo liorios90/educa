@@ -83,6 +83,32 @@ describe('index', function () {
             ->assertForbidden();
     });
 
+    it('allows secretaries to open padres of their establishment', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $secretaria = secretariaOf($establecimiento);
+        $persona = Persona::factory()->create([
+            'nombres' => 'Carlos',
+            'apellidos' => 'Ruiz',
+            'establecimiento_id' => $establecimiento->id,
+        ]);
+        Padre::factory()->for($persona)->create();
+
+        $this->actingAs($secretaria)
+            ->get(route('Admin.padres'))
+            ->assertOk()
+            ->assertSee('Padres de familia')
+            ->assertSee('Carlos')
+            ->assertSee('Nuevo padre');
+    });
+
+    it('forbids teachers from opening padres', function () {
+        $user = assignRole(User::factory()->create(), Role::Docente);
+
+        $this->actingAs($user)
+            ->get(route('Admin.padres'))
+            ->assertForbidden();
+    });
+
     it('redirects guests from padres to login', function () {
         $this->get(route('Admin.padres'))
             ->assertRedirect(route('login'));
@@ -148,6 +174,26 @@ describe('store', function () {
         $this->actingAs($user)
             ->post(route('Admin.padres.store'), [])
             ->assertForbidden();
+    });
+
+    it('lets a secretary create a padre', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $secretaria = secretariaOf($establecimiento);
+        $pais = Sys_Pais::factory()->create();
+        $provincia = Sys_Provincia::factory()->create(['pais_id' => $pais->id]);
+
+        $this->actingAs($secretaria)
+            ->post(route('Admin.padres.store'), padrePayload($pais, $provincia))
+            ->assertRedirect(route('Admin.padres'))
+            ->assertSessionHas('status', 'padre-created');
+
+        $user = User::query()->where('email', 'carlos.ruiz@example.com')->firstOrFail();
+        $persona = Persona::query()->where('identificacion', '0912345678')->firstOrFail();
+
+        expect($user->hasRole(Role::Padre))->toBeTrue()
+            ->and($user->establecimiento_id)->toBe($establecimiento->id)
+            ->and($persona->establecimiento_id)->toBe($establecimiento->id)
+            ->and($persona->usuario)->toBe('Secretaria Andina');
     });
 
     it('creates a padre, persona and user with password', function () {

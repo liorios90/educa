@@ -30,7 +30,7 @@ class SelectDocenteContextoRequest extends FormRequest
             'establecimiento_asignatura_id' => ['required', 'integer'],
             'establecimiento_periodo_ciclo_id' => ['required', 'integer'],
             'parcial_numero' => ['required', 'integer'],
-            'destino' => ['nullable', 'in:crear,editar'],
+            'destino' => ['nullable', 'in:crear,editar,diagnostico'],
         ];
     }
 

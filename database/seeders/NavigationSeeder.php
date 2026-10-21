@@ -61,6 +61,7 @@ class NavigationSeeder extends Seeder
         $this->ensureItem('Asistente', 'secretaria.asistente', 'wrench-screwdriver', 5, false, [$secretaria->id]);
         $this->ensureItem('Diseñar reportes', 'sistemas.reports.index', 'cog', 6, false, [$sistemas->id]);
         $this->ensureItem('Asistente', 'Docente.asistente', 'globe-alt', 6, false, [$docente->id]);
+        $this->ensureItem('Diagnóstico', 'Docente.diagnostico.index', 'chart-bar', 7, false, [$docente->id]);
 
         $estructura = $this->ensureItem('Estructura', 'navigation.hub', 'home', 7, false, [$sistemas->id], isGroup: true);
         $this->ensureItem('Nivel - Subnivel - Grado', 'sistemas.estructura', 'home', 1, false, [$sistemas->id], parentId: $estructura->id);

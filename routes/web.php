@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\CalificarInsumosController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DiagnosticoEstudianteController;
 use App\Http\Controllers\EnrollmentSubmissionController;
 use App\Http\Controllers\HorarioDocenteController;
 use App\Http\Controllers\NavigationHubController;
@@ -31,6 +32,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::put('/calificar/actividades/{actividad}', [CalificarInsumosController::class, 'updateActividad'])->name('calificar.actividades.update');
             Route::get('/asistente', [SecretariaController::class, 'asistente'])->name('asistente');
             Route::post('/asistente', [SecretariaController::class, 'store'])->name('asistente.store');
+            Route::get('/diagnostico', [DiagnosticoEstudianteController::class, 'index'])->name('diagnostico.index');
+            Route::post('/diagnostico', [DiagnosticoEstudianteController::class, 'seleccionar'])->name('diagnostico.seleccionar');
+            Route::post('/diagnostico/estudiantes', [DiagnosticoEstudianteController::class, 'store'])->name('diagnostico.store');
+            Route::post('/diagnostico/grupo', [DiagnosticoEstudianteController::class, 'grupo'])->name('diagnostico.grupo');
         });
 
     Route::get('/menu/{navigationItem}', [NavigationHubController::class, 'show'])->name('navigation.hub');

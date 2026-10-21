@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Http;
 
 class GeminiService
 {
-    public function generate(string $prompt, Establecimiento $establecimiento): GeminiRespuesta
+    public function generate(string $prompt, Establecimiento $establecimiento, ?string $instruccionSistema = null): GeminiRespuesta
     {
         $key = $establecimiento->gemini_api_key;
 
@@ -29,7 +29,7 @@ class GeminiService
             ->post("/models/{$model}:generateContent", [
                 'system_instruction' => [
                     'parts' => [
-                        ['text' => 'Eres un asistente para una plataforma educativa.'],
+                        ['text' => $instruccionSistema ?? 'Eres un asistente para una plataforma educativa.'],
                     ],
                 ],
                 'contents' => [

@@ -167,6 +167,7 @@ describe('create', function () {
             ->assertSee('Guayas')
             ->assertSee('Usuario de acceso')
             ->assertSee('Contraseña')
+            ->assertDontSee('>Lote<', false)
             ->assertSee('Ruiz Vega')
             ->assertDontSee('Colegio');
     });
@@ -215,8 +216,11 @@ describe('store', function () {
         $pais = Sys_Pais::factory()->create();
         $provincia = Sys_Provincia::factory()->create(['pais_id' => $pais->id]);
 
+        $payload = alumnoPayload($pais, $provincia);
+        unset($payload['telefono2'], $payload['lote']);
+
         $this->actingAs($admin)
-            ->post(route('Admin.alumnos.store'), alumnoPayload($pais, $provincia))
+            ->post(route('Admin.alumnos.store'), $payload)
             ->assertRedirect(route('Admin.alumnos'))
             ->assertSessionHas('status', 'alumno-created');
 
@@ -234,6 +238,8 @@ describe('store', function () {
             ->and($persona->apellidos)->toBe('Pérez')
             ->and($persona->user_id)->toBe($user->id)
             ->and($persona->establecimiento_id)->toBe($establecimiento->id)
+            ->and($persona->telefono2)->toBe(' ')
+            ->and($persona->lote)->toBeNull()
             ->and($persona->usuario)->toBe('Director Andino');
 
         expect($alumno->contacto_emergencia)->toBe('0990000000')
@@ -321,7 +327,6 @@ describe('store', function () {
                 'parroquia',
                 'direccion',
                 'telefono1',
-                'telefono2',
                 'contacto_emergencia',
                 'email',
                 'password',
@@ -348,6 +353,7 @@ describe('update', function () {
             'nacionalidad_id' => $pais->id,
             'provincia_id' => $provincia->id,
         ]);
+        $persona->update(['lote' => 9]);
         $alumno = Alumno::factory()->for($persona)->create([
             'contacto_emergencia' => '0990000000',
         ]);
@@ -355,6 +361,11 @@ describe('update', function () {
             'establecimiento_id' => $establecimiento->id,
         ]);
         $padre = Padre::factory()->for($padrePersona)->create();
+
+        $this->actingAs($admin)
+            ->get(route('Admin.alumnos.edit', $alumno))
+            ->assertSee('id="lote"', false)
+            ->assertSee('disabled', false);
 
         $this->actingAs($admin)
             ->patch(route('Admin.alumnos.update', $alumno), alumnoPayload($pais, $provincia, [
@@ -365,6 +376,7 @@ describe('update', function () {
                 'password' => '',
                 'password_confirmation' => '',
                 'padre_id' => $padre->id,
+                'lote' => '1',
             ]))
             ->assertRedirect(route('Admin.alumnos'))
             ->assertSessionHas('status', 'alumno-updated');
@@ -377,6 +389,7 @@ describe('update', function () {
             ->and($alumno->padre_id)->toBe($padre->id)
             ->and($persona->nombres)->toBe('Anita')
             ->and($persona->apellidos)->toBe('Pérez Vega')
+            ->and($persona->lote)->toBe(9)
             ->and($user->email)->toBe('anita.perez@example.com')
             ->and($user->name)->toBe('Anita Pérez Vega');
     });

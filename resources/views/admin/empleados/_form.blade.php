@@ -158,7 +158,7 @@
 
         <div>
             <x-input-label for="telefono2" value="Teléfono 2" />
-            <x-text-input id="telefono2" class="mt-1 block w-full" type="text" name="telefono2" :value="old('telefono2', $persona?->telefono2)" required />
+            <x-text-input id="telefono2" class="mt-1 block w-full" type="text" name="telefono2" :value="old('telefono2', $persona?->telefono2)" />
             <x-input-error class="mt-2" :messages="$errors->get('telefono2')" />
         </div>
     </div>
@@ -239,7 +239,12 @@
         </div>
     </div>
 
-    <input type="hidden" name="lote" value="{{ old('lote', $persona?->lote) }}">
+    @if ($persona !== null)
+        <div>
+            <x-input-label for="lote" value="Lote" />
+            <x-text-input id="lote" class="mt-1 block w-full" type="number" :value="$persona->lote" disabled />
+        </div>
+    @endif
 
     <div class="space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
         <div>

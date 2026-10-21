@@ -45,8 +45,7 @@ class UpsertAlumnoRequest extends FormRequest
             'parroquia' => ['required', 'string', 'max:255'],
             'direccion' => ['required', 'string', 'max:255'],
             'telefono1' => ['required', 'string', 'max:255'],
-            'telefono2' => ['required', 'string', 'max:255'],
-            'lote' => ['nullable', 'integer'],
+            'telefono2' => ['nullable', 'string', 'max:255'],
             'contacto_emergencia' => ['required', 'string', 'max:255'],
             'padre_id' => ['nullable', 'integer', 'exists:padres,id'],
             'activo' => ['required', 'boolean'],
@@ -71,7 +70,6 @@ class UpsertAlumnoRequest extends FormRequest
     {
         $this->merge([
             'activo' => $this->boolean('activo'),
-            'lote' => $this->filled('lote') ? $this->integer('lote') : null,
             'padre_id' => $this->filled('padre_id') ? $this->integer('padre_id') : null,
             'fecha_nacimiento' => $this->filled('fecha_nacimiento') ? $this->input('fecha_nacimiento') : null,
         ]);

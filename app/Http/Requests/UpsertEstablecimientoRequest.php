@@ -38,7 +38,6 @@ class UpsertEstablecimientoRequest extends FormRequest
             'codigo_amie' => ['required', 'string', 'max:255', Rule::unique('establecimientos', 'codigo_amie')->ignore($ignoreId)],
             'regimen' => ['required', Rule::enum(Regimen::class)],
             'email' => ['required', 'string', 'lowercase', 'email', 'max:255', Rule::unique('establecimientos', 'email')->ignore($ignoreId)],
-            'usuario' => ['required', 'string', 'max:255'],
             'activo' => ['required', 'boolean'],
             'bachillerato_tecnico' => ['required', 'boolean'],
             'bachillerato_internacional' => ['required', 'boolean'],

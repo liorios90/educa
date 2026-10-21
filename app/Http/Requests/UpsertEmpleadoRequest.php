@@ -44,8 +44,7 @@ class UpsertEmpleadoRequest extends FormRequest
             'parroquia' => ['required', 'string', 'max:255'],
             'direccion' => ['required', 'string', 'max:255'],
             'telefono1' => ['required', 'string', 'max:255'],
-            'telefono2' => ['required', 'string', 'max:255'],
-            'lote' => ['nullable', 'integer'],
+            'telefono2' => ['nullable', 'string', 'max:255'],
             'tipo_contrato_id' => ['required', 'integer', 'exists:sys_tipo_contratos,id'],
             'cargo_id' => ['nullable', 'integer', 'min:1'],
             'funcion_id' => ['nullable', 'integer', 'exists:sys_funciones,id'],
@@ -81,7 +80,6 @@ class UpsertEmpleadoRequest extends FormRequest
     {
         $this->merge([
             'activo' => $this->boolean('activo'),
-            'lote' => $this->filled('lote') ? $this->integer('lote') : null,
             'cargo_id' => $this->filled('cargo_id') ? $this->integer('cargo_id') : null,
             'funcion_id' => $this->filled('funcion_id') ? $this->integer('funcion_id') : null,
             'fecha_nacimiento' => $this->filled('fecha_nacimiento') ? $this->input('fecha_nacimiento') : null,

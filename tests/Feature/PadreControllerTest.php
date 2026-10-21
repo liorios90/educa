@@ -155,7 +155,8 @@ describe('create', function () {
             ->assertSee('Ecuador')
             ->assertSee('Guayas')
             ->assertSee('Usuario de acceso')
-            ->assertSee('Contraseña');
+            ->assertSee('Contraseña')
+            ->assertDontSee('>Lote<', false);
     });
 
     it('forbids administrators without an establishment from opening the create form', function () {
@@ -202,8 +203,11 @@ describe('store', function () {
         $pais = Sys_Pais::factory()->create();
         $provincia = Sys_Provincia::factory()->create(['pais_id' => $pais->id]);
 
+        $payload = padrePayload($pais, $provincia);
+        unset($payload['telefono2'], $payload['lote']);
+
         $this->actingAs($admin)
-            ->post(route('Admin.padres.store'), padrePayload($pais, $provincia))
+            ->post(route('Admin.padres.store'), $payload)
             ->assertRedirect(route('Admin.padres'))
             ->assertSessionHas('status', 'padre-created');
 
@@ -223,6 +227,8 @@ describe('store', function () {
             ->and($persona->establecimiento_id)->toBe($establecimiento->id)
             ->and($persona->nacionalidad_id)->toBe($pais->id)
             ->and($persona->provincia_id)->toBe($provincia->id)
+            ->and($persona->telefono2)->toBe(' ')
+            ->and($persona->lote)->toBeNull()
             ->and($persona->usuario)->toBe('Director Andino');
 
         expect($padre->titulo)->toBe('Ingeniero')
@@ -268,7 +274,6 @@ describe('store', function () {
                 'parroquia',
                 'direccion',
                 'telefono1',
-                'telefono2',
                 'estado_civil_id',
                 'titulo',
                 'email',
@@ -312,7 +317,13 @@ describe('update', function () {
             'nacionalidad_id' => $pais->id,
             'provincia_id' => $provincia->id,
         ]);
+        $persona->update(['lote' => 9]);
         $padre = Padre::factory()->for($persona)->create(['titulo' => 'Ingeniero']);
+
+        $this->actingAs($admin)
+            ->get(route('Admin.padres.edit', $padre))
+            ->assertSee('id="lote"', false)
+            ->assertSee('disabled', false);
 
         $this->actingAs($admin)
             ->patch(route('Admin.padres.update', $padre), padrePayload($pais, $provincia, [
@@ -322,6 +333,7 @@ describe('update', function () {
                 'email' => 'carla.ruiz@example.com',
                 'password' => '',
                 'password_confirmation' => '',
+                'lote' => '1',
             ]))
             ->assertRedirect(route('Admin.padres'))
             ->assertSessionHas('status', 'padre-updated');
@@ -333,6 +345,7 @@ describe('update', function () {
         expect($padre->titulo)->toBe('Doctora')
             ->and($persona->nombres)->toBe('Carla')
             ->and($persona->apellidos)->toBe('Ruiz Vega')
+            ->and($persona->lote)->toBe(9)
             ->and($user->email)->toBe('carla.ruiz@example.com')
             ->and($user->name)->toBe('Carla Ruiz Vega');
     });

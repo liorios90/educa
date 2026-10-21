@@ -44,8 +44,7 @@ class UpsertPadreRequest extends FormRequest
             'parroquia' => ['required', 'string', 'max:255'],
             'direccion' => ['required', 'string', 'max:255'],
             'telefono1' => ['required', 'string', 'max:255'],
-            'telefono2' => ['required', 'string', 'max:255'],
-            'lote' => ['nullable', 'integer'],
+            'telefono2' => ['nullable', 'string', 'max:255'],
             'estado_civil_id' => ['required', 'string', 'max:255'],
             'vive_con_estudiante' => ['required', 'boolean'],
             'titulo' => ['required', 'string', 'max:255'],
@@ -72,7 +71,6 @@ class UpsertPadreRequest extends FormRequest
         $this->merge([
             'activo' => $this->boolean('activo'),
             'vive_con_estudiante' => $this->boolean('vive_con_estudiante'),
-            'lote' => $this->filled('lote') ? $this->integer('lote') : null,
             'fecha_nacimiento' => $this->filled('fecha_nacimiento') ? $this->input('fecha_nacimiento') : null,
         ]);
     }

@@ -174,6 +174,7 @@ describe('store', function () {
     it('creates an establecimiento with catalog ids not names', function () {
         Storage::fake('public');
         $actor = assignRole(User::factory()->create(), Role::Sistemas);
+        $actor->update(['name' => 'Usuario Sistemas']);
         $zona = Sys_Zona::factory()->create();
         $distrito = Sys_Distrito::factory()->create(['zona_id' => $zona->id]);
         $circuito = Sys_Circuito::factory()->create(['distrito_id' => $distrito->id]);
@@ -189,6 +190,8 @@ describe('store', function () {
             ->and($establecimiento->distrito_id)->toBe($distrito->id)
             ->and($establecimiento->circuito_id)->toBe($circuito->id)
             ->and($establecimiento->regimen)->toBe('Sierra');
+
+        expect($establecimiento->usuario)->toBe('Usuario Sistemas');
 
         $administrador = $establecimiento->administrador();
 
@@ -353,7 +356,7 @@ describe('store', function () {
 describe('update', function () {
     it('updates an establecimiento', function () {
         Storage::fake('public');
-        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+        $actor = assignRole(User::factory()->create(['name' => 'Usuario que modifica']), Role::Sistemas);
         $establecimiento = Establecimiento::factory()->create(['nombre' => 'Viejo']);
         $zona = $establecimiento->zona;
         $distrito = $establecimiento->distrito;
@@ -371,7 +374,10 @@ describe('update', function () {
             ->assertRedirect(route('sistemas.establecimientos'))
             ->assertSessionHas('status', 'establecimiento-updated');
 
-        expect($establecimiento->fresh()->nombre)->toBe('UE Nueva');
+        $establecimiento->refresh();
+
+        expect($establecimiento->nombre)->toBe('UE Nueva')
+            ->and($establecimiento->usuario)->toBe('Usuario que modifica');
     });
 
     it('stores the technical and international bachillerato options', function () {

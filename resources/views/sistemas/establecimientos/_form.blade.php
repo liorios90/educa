@@ -83,11 +83,6 @@
             <x-input-error class="mt-2" :messages="$errors->get('email')" />
         </div>
 
-        <div>
-            <x-input-label for="usuario" value="Usuario" />
-            <x-text-input id="usuario" class="mt-1 block w-full" type="text" name="usuario" :value="old('usuario', $establecimiento?->usuario)" required />
-            <x-input-error class="mt-2" :messages="$errors->get('usuario')" />
-        </div>
     </div>
 
     <div>

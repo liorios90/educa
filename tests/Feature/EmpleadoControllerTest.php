@@ -239,10 +239,13 @@ describe('store', function () {
         $tipoContrato = Sys_TipoContrato::factory()->create();
         $funcion = Sys_Funcion::factory()->create();
 
+        $payload = empleadoPayload($pais, $provincia, $tipoContrato, [
+            'funcion_id' => $funcion->id,
+        ]);
+        unset($payload['telefono2'], $payload['lote']);
+
         $this->actingAs($admin)
-            ->post(route('Admin.empleados.store'), empleadoPayload($pais, $provincia, $tipoContrato, [
-                'funcion_id' => $funcion->id,
-            ]))
+            ->post(route('Admin.empleados.store'), $payload)
             ->assertRedirect(route('Admin.empleados'))
             ->assertSessionHas('status', 'empleado-created');
 
@@ -260,6 +263,8 @@ describe('store', function () {
             ->and($persona->apellidos)->toBe('Mora')
             ->and($persona->user_id)->toBe($user->id)
             ->and($persona->establecimiento_id)->toBe($establecimiento->id)
+            ->and($persona->telefono2)->toBe(' ')
+            ->and($persona->lote)->toBeNull()
             ->and($persona->usuario)->toBe('Director Andino');
 
         expect($empleado->tipo_contrato_id)->toBe($tipoContrato->id)
@@ -497,7 +502,6 @@ describe('store', function () {
                 'parroquia',
                 'direccion',
                 'telefono1',
-                'telefono2',
                 'tipo_contrato_id',
                 'horas',
                 'anios_experiencia',
@@ -533,11 +537,17 @@ describe('update', function () {
             'nacionalidad_id' => $pais->id,
             'provincia_id' => $provincia->id,
         ]);
+        $persona->update(['lote' => 9]);
         $empleado = Empleado::factory()->for($persona)->create([
             'tipo_contrato_id' => $tipoContrato->id,
             'contacto_emergencia' => 'María Mora',
             'contacto_num' => '0990000001',
         ]);
+
+        $this->actingAs($admin)
+            ->get(route('Admin.empleados.edit', $empleado))
+            ->assertSee('id="lote"', false)
+            ->assertSee('disabled', false);
 
         $this->actingAs($admin)
             ->patch(route('Admin.empleados.update', $empleado), empleadoPayload($pais, $provincia, $nuevoTipoContrato, [
@@ -551,6 +561,7 @@ describe('update', function () {
                 'password' => '',
                 'password_confirmation' => '',
                 'roles' => [Role::Admin->value, Role::Secretaria->value],
+                'lote' => '1',
             ]))
             ->assertRedirect(route('Admin.empleados'))
             ->assertSessionHas('status', 'empleado-updated');
@@ -566,6 +577,7 @@ describe('update', function () {
             ->and($empleado->contacto_num)->toBe('0981111112')
             ->and($persona->nombres)->toBe('Luis Alberto')
             ->and($persona->apellidos)->toBe('Mora Vega')
+            ->and($persona->lote)->toBe(9)
             ->and($user->email)->toBe('luis.mora.vega@example.com')
             ->and($user->name)->toBe('Luis Alberto Mora Vega')
             ->and($user->hasRole(Role::Admin))->toBeTrue()

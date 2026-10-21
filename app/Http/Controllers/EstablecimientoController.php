@@ -241,6 +241,7 @@ class EstablecimientoController extends Controller
     private function attributesFrom(UpsertEstablecimientoRequest $request, ?Establecimiento $establecimiento = null): array
     {
         $attributes = $request->safe()->only($this->fillableAttributes());
+        $attributes['usuario'] = $request->user()->name;
 
         $logo = $request->file('logo');
 
@@ -307,7 +308,6 @@ class EstablecimientoController extends Controller
             'codigo_amie',
             'regimen',
             'email',
-            'usuario',
             'activo',
             'bachillerato_tecnico',
             'bachillerato_internacional',

@@ -68,6 +68,7 @@ class EstablecimientoAulaController extends Controller
             'aulasPorGrado' => $aulas->groupBy(fn (EstablecimientoAula $aula): int => (int) $aula->establecimiento_grado_id),
             'docentesPorAsignatura' => $datosDocentes['docentesPorAsignatura'],
             'materiasPorGrado' => $datosDocentes['materiasPorGrado'],
+            'gradosParaDocentes' => $this->gradosParaDocentes($aulas, $datosDocentes['materiasPorGrado']),
         ]);
     }
 
@@ -114,34 +115,14 @@ class EstablecimientoAulaController extends Controller
     {
         /** @var array<int, int|null> $docentes */
         $docentes = $request->validated('docentes');
+        $aulaIds = $request->aulaIds();
 
-        DB::transaction(function () use ($aula, $docentes): void {
-            EstablecimientoAula::query()
-                ->whereKey($aula->id)
+        DB::transaction(function () use ($aulaIds, $docentes): void {
+            $aulas = EstablecimientoAula::query()
+                ->whereKey($aulaIds)
+                ->orderBy('id')
                 ->lockForUpdate()
-                ->firstOrFail();
-
-            $actuales = DB::table('establecimiento_aula_docentes')
-                ->where('establecimiento_aula_id', $aula->id)
-                ->get()
-                ->keyBy('establecimiento_asignatura_id');
-            $materiasConHorario = DB::table('horario_clases')
-                ->where('establecimiento_aula_id', $aula->id)
-                ->pluck('establecimiento_asignatura_id')
-                ->map(fn (mixed $id): int => (int) $id)
-                ->unique();
-
-            foreach ($docentes as $mallaId => $empleadoId) {
-                $actual = $actuales->get((int) $mallaId)?->empleado_id;
-                $actual = $actual === null ? null : (int) $actual;
-                $nuevo = $empleadoId === null ? null : (int) $empleadoId;
-
-                if ($materiasConHorario->contains((int) $mallaId) && $actual !== $nuevo) {
-                    throw ValidationException::withMessages([
-                        'docentes' => 'Elimina primero las clases programadas de una asignatura antes de cambiar su docente.',
-                    ])->errorBag('aula-docentes');
-                }
-            }
+                ->get();
 
             Empleado::query()
                 ->whereIn('id', collect($docentes)->filter()->map(fn (mixed $id): int => (int) $id)->unique()->sort()->values())
@@ -149,17 +130,8 @@ class EstablecimientoAulaController extends Controller
                 ->lockForUpdate()
                 ->get(['id']);
 
-            $aula->asignaciones()->delete();
-
-            foreach ($docentes as $mallaId => $empleadoId) {
-                if ($empleadoId === null) {
-                    continue;
-                }
-
-                $aula->asignaciones()->create([
-                    'establecimiento_asignatura_id' => (int) $mallaId,
-                    'empleado_id' => (int) $empleadoId,
-                ]);
+            foreach ($aulas as $destino) {
+                $this->aplicarDocentes($destino, $docentes, $aulas->count() > 1);
             }
         });
 
@@ -189,6 +161,98 @@ class EstablecimientoAulaController extends Controller
         return redirect()
             ->route('Admin.aulas')
             ->with('status', 'aula-deleted');
+    }
+
+    /**
+     * @param  array<int, int|null>  $docentes
+     */
+    private function aplicarDocentes(EstablecimientoAula $aula, array $docentes, bool $variasAulas): void
+    {
+        $actuales = DB::table('establecimiento_aula_docentes')
+            ->where('establecimiento_aula_id', $aula->id)
+            ->get()
+            ->keyBy('establecimiento_asignatura_id');
+        $materiasConHorario = DB::table('horario_clases')
+            ->where('establecimiento_aula_id', $aula->id)
+            ->pluck('establecimiento_asignatura_id')
+            ->map(fn (mixed $id): int => (int) $id)
+            ->unique();
+
+        foreach ($docentes as $mallaId => $empleadoId) {
+            $actual = $actuales->get((int) $mallaId)?->empleado_id;
+            $actual = $actual === null ? null : (int) $actual;
+            $nuevo = $empleadoId === null ? null : (int) $empleadoId;
+
+            if ($materiasConHorario->contains((int) $mallaId) && $actual !== $nuevo) {
+                $mensaje = $variasAulas
+                    ? 'Elimina primero las clases programadas de '.$aula->etiqueta().' antes de cambiar su docente.'
+                    : 'Elimina primero las clases programadas de una asignatura antes de cambiar su docente.';
+
+                throw ValidationException::withMessages([
+                    'docentes' => $mensaje,
+                ])->errorBag('aula-docentes');
+            }
+        }
+
+        $aula->asignaciones()->delete();
+
+        foreach ($docentes as $mallaId => $empleadoId) {
+            if ($empleadoId === null) {
+                continue;
+            }
+
+            $aula->asignaciones()->create([
+                'establecimiento_asignatura_id' => (int) $mallaId,
+                'empleado_id' => (int) $empleadoId,
+            ]);
+        }
+    }
+
+    /**
+     * @param  Collection<int, EstablecimientoAula>  $aulas
+     * @param  array<int, list<array{id: int, asignaturaId: int, nombre: string}>>  $materiasPorGrado
+     * @return list<array{id: int, nombre: string, materias: list<array{id: int, asignaturaId: int, nombre: string}>, aulas: list<array{id: int, paralelo: string, etiqueta: string, action: string, materias: list<array{id: int, asignaturaId: int, nombre: string, empleadoId: string}>}>}>
+     */
+    private function gradosParaDocentes(Collection $aulas, array $materiasPorGrado): array
+    {
+        return $aulas
+            ->groupBy(fn (EstablecimientoAula $aula): int => (int) $aula->establecimiento_grado_id)
+            ->map(function (Collection $grupo) use ($materiasPorGrado): array {
+                /** @var EstablecimientoAula $primera */
+                $primera = $grupo->first();
+                $gradoId = (int) $primera->establecimiento_grado_id;
+                $materias = $materiasPorGrado[$gradoId] ?? [];
+
+                return [
+                    'id' => $gradoId,
+                    'nombre' => $primera->establecimientoGrado?->etiqueta() ?? 'Grado',
+                    'materias' => $materias,
+                    'aulas' => $grupo
+                        ->map(function (EstablecimientoAula $aula) use ($materias): array {
+                            return [
+                                'id' => (int) $aula->id,
+                                'paralelo' => (string) $aula->paralelo,
+                                'etiqueta' => $aula->etiqueta(),
+                                'action' => route('Admin.aulas.docentes.update', $aula),
+                                'materias' => collect($materias)
+                                    ->map(function (array $materia) use ($aula): array {
+                                        $asignacion = $aula->asignaciones->firstWhere('establecimiento_asignatura_id', $materia['id']);
+
+                                        return [
+                                            ...$materia,
+                                            'empleadoId' => $asignacion === null ? '' : (string) $asignacion->empleado_id,
+                                        ];
+                                    })
+                                    ->values()
+                                    ->all(),
+                            ];
+                        })
+                        ->values()
+                        ->all(),
+                ];
+            })
+            ->values()
+            ->all();
     }
 
     /**

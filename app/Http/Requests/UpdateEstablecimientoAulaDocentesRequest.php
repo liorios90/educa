@@ -31,6 +31,8 @@ class UpdateEstablecimientoAulaDocentesRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'aulas' => ['present', 'array', 'min:1'],
+            'aulas.*' => ['integer'],
             'docentes' => ['present', 'array'],
             'docentes.*' => ['nullable', 'integer'],
         ];
@@ -42,6 +44,10 @@ class UpdateEstablecimientoAulaDocentesRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'aulas.present' => 'Selecciona al menos un paralelo.',
+            'aulas.array' => 'Selecciona al menos un paralelo.',
+            'aulas.min' => 'Selecciona al menos un paralelo.',
+            'aulas.*.integer' => 'Selecciona un paralelo válido.',
             'docentes.present' => 'Indica el docente de cada asignatura.',
             'docentes.array' => 'Indica el docente de cada asignatura.',
             'docentes.*.integer' => 'Selecciona un docente que tenga esta asignatura como especialidad.',
@@ -61,6 +67,11 @@ class UpdateEstablecimientoAulaDocentesRequest extends FormRequest
 
                 $aula = $this->aula();
                 $aula->loadMissing('establecimientoGrado');
+
+                if (! $this->validarAulasDestino($validator, $aula)) {
+                    return;
+                }
+
                 $malla = EstablecimientoAsignatura::query()
                     ->where('establecimiento_id', $aula->establecimiento_id)
                     ->where('establecimiento_modalidad_jornada_id', $aula->establecimiento_modalidad_jornada_id)
@@ -151,8 +162,20 @@ class UpdateEstablecimientoAulaDocentesRequest extends FormRequest
 
         $this->merge([
             'docentes' => $normalizados,
+            'aulas' => $this->aulasNormalizadas($aula),
             'aula_id' => $aula->id,
         ]);
+    }
+
+    /**
+     * @return list<int>
+     */
+    public function aulaIds(): array
+    {
+        /** @var list<int> $ids */
+        $ids = array_values($this->validated('aulas'));
+
+        return $ids;
     }
 
     public function oferta(): ?EstablecimientoModalidadJornada
@@ -172,5 +195,65 @@ class UpdateEstablecimientoAulaDocentesRequest extends FormRequest
         abort_unless($aula instanceof EstablecimientoAula, 404);
 
         return $aula;
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function aulasNormalizadas(EstablecimientoAula $aula): array
+    {
+        $aulas = $this->input('aulas', []);
+        $ids = [];
+
+        if (is_array($aulas)) {
+            foreach ($aulas as $id) {
+                if ($id === null || $id === '') {
+                    continue;
+                }
+
+                $ids[] = (int) $id;
+            }
+        }
+
+        $ids = array_values(array_unique($ids));
+
+        return $ids === [] ? [(int) $aula->id] : $ids;
+    }
+
+    private function validarAulasDestino(Validator $validator, EstablecimientoAula $aula): bool
+    {
+        $ids = $this->aulasNormalizadas($aula);
+        $destinos = EstablecimientoAula::query()
+            ->whereKey($ids)
+            ->get()
+            ->keyBy('id');
+
+        if ($destinos->count() !== count($ids)) {
+            abort(404);
+        }
+
+        foreach ($destinos as $destino) {
+            abort_unless(
+                (int) $destino->establecimiento_id === (int) $aula->establecimiento_id,
+                404,
+            );
+
+            if (
+                (int) $destino->establecimiento_modalidad_jornada_id !== (int) $aula->establecimiento_modalidad_jornada_id
+                || (int) $destino->establecimiento_periodo_id !== (int) $aula->establecimiento_periodo_id
+            ) {
+                $validator->errors()->add('aulas', 'Selecciona paralelos del periodo activo.');
+
+                return false;
+            }
+
+            if ((int) $destino->establecimiento_grado_id !== (int) $aula->establecimiento_grado_id) {
+                $validator->errors()->add('aulas', 'Selecciona paralelos del mismo grado.');
+
+                return false;
+            }
+        }
+
+        return true;
     }
 }

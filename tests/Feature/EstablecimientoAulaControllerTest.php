@@ -759,6 +759,8 @@ describe('docentes', function () {
             ->assertOk()
             ->assertSee('Asignar docentes')
             ->assertSee('8vo Básica A')
+            ->assertSee('Grado')
+            ->assertSee('Paralelos')
             ->assertSee('Matemática')
             ->assertSee('Perez Ana')
             ->assertSee('Mora Luis')
@@ -1098,6 +1100,224 @@ describe('docentes', function () {
             ->withSession(activeContextSession($oferta, $periodo))
             ->patch(route('Admin.aulas.docentes.update', $aulaAjena), [
                 'docentes' => [],
+            ])
+            ->assertNotFound();
+    });
+
+    it('assigns the same docentes to other selected paralelos of the grade', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $oferta = ofertaDe($establecimiento);
+        $periodo = periodoActivoDe($oferta);
+        ['grado' => $catalogo] = catalogoEstructura();
+        $grado = EstablecimientoGrado::factory()->create([
+            'establecimiento_id' => $establecimiento->id,
+            'establecimiento_modalidad_jornada_id' => $oferta->id,
+            'subnivel_id' => $catalogo->subnivel_id,
+            'grado_id' => $catalogo->id,
+        ]);
+        $aulaA = EstablecimientoAula::factory()->create([
+            'establecimiento_id' => $establecimiento->id,
+            'establecimiento_modalidad_jornada_id' => $oferta->id,
+            'establecimiento_periodo_id' => $periodo->id,
+            'establecimiento_grado_id' => $grado->id,
+            'paralelo' => 'A',
+        ]);
+        $aulaB = EstablecimientoAula::factory()->create([
+            'establecimiento_id' => $establecimiento->id,
+            'establecimiento_modalidad_jornada_id' => $oferta->id,
+            'establecimiento_periodo_id' => $periodo->id,
+            'establecimiento_grado_id' => $grado->id,
+            'paralelo' => 'B',
+        ]);
+        $aulaC = EstablecimientoAula::factory()->create([
+            'establecimiento_id' => $establecimiento->id,
+            'establecimiento_modalidad_jornada_id' => $oferta->id,
+            'establecimiento_periodo_id' => $periodo->id,
+            'establecimiento_grado_id' => $grado->id,
+            'paralelo' => 'C',
+        ]);
+        [$matematica, $ana] = mallaYDocente($establecimiento, $grado, 'Matemática', 'Perez', 'Ana');
+
+        $this->actingAs($admin)
+            ->withSession(activeContextSession($oferta, $periodo))
+            ->patch(route('Admin.aulas.docentes.update', $aulaA), [
+                'aulas' => [$aulaA->id, $aulaB->id],
+                'docentes' => [
+                    $matematica->id => $ana->id,
+                ],
+            ])
+            ->assertRedirect(route('Admin.aulas'))
+            ->assertSessionHas('status', 'aula-docentes-updated');
+
+        $this->assertDatabaseHas('establecimiento_aula_docentes', [
+            'establecimiento_aula_id' => $aulaA->id,
+            'establecimiento_asignatura_id' => $matematica->id,
+            'empleado_id' => $ana->id,
+        ]);
+        $this->assertDatabaseHas('establecimiento_aula_docentes', [
+            'establecimiento_aula_id' => $aulaB->id,
+            'establecimiento_asignatura_id' => $matematica->id,
+            'empleado_id' => $ana->id,
+        ]);
+        $this->assertDatabaseMissing('establecimiento_aula_docentes', [
+            'establecimiento_aula_id' => $aulaC->id,
+        ]);
+    });
+
+    it('keeps other paralelos unchanged when they are not selected', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $oferta = ofertaDe($establecimiento);
+        $periodo = periodoActivoDe($oferta);
+        ['grado' => $catalogo] = catalogoEstructura();
+        $grado = EstablecimientoGrado::factory()->create([
+            'establecimiento_id' => $establecimiento->id,
+            'establecimiento_modalidad_jornada_id' => $oferta->id,
+            'subnivel_id' => $catalogo->subnivel_id,
+            'grado_id' => $catalogo->id,
+        ]);
+        $aulaA = EstablecimientoAula::factory()->create([
+            'establecimiento_id' => $establecimiento->id,
+            'establecimiento_modalidad_jornada_id' => $oferta->id,
+            'establecimiento_periodo_id' => $periodo->id,
+            'establecimiento_grado_id' => $grado->id,
+            'paralelo' => 'A',
+        ]);
+        $aulaB = EstablecimientoAula::factory()->create([
+            'establecimiento_id' => $establecimiento->id,
+            'establecimiento_modalidad_jornada_id' => $oferta->id,
+            'establecimiento_periodo_id' => $periodo->id,
+            'establecimiento_grado_id' => $grado->id,
+            'paralelo' => 'B',
+        ]);
+        [$matematica, $ana] = mallaYDocente($establecimiento, $grado, 'Matemática', 'Perez', 'Ana');
+        EstablecimientoAulaDocente::factory()->create([
+            'establecimiento_aula_id' => $aulaB->id,
+            'establecimiento_asignatura_id' => $matematica->id,
+            'empleado_id' => $ana->id,
+        ]);
+
+        $this->actingAs($admin)
+            ->withSession(activeContextSession($oferta, $periodo))
+            ->patch(route('Admin.aulas.docentes.update', $aulaA), [
+                'docentes' => [
+                    $matematica->id => $ana->id,
+                ],
+            ])
+            ->assertRedirect(route('Admin.aulas'));
+
+        $this->assertDatabaseHas('establecimiento_aula_docentes', [
+            'establecimiento_aula_id' => $aulaA->id,
+            'empleado_id' => $ana->id,
+        ]);
+        $this->assertDatabaseHas('establecimiento_aula_docentes', [
+            'establecimiento_aula_id' => $aulaB->id,
+            'empleado_id' => $ana->id,
+        ]);
+    });
+
+    it('rejects paralelos that belong to another grade', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $oferta = ofertaDe($establecimiento);
+        $periodo = periodoActivoDe($oferta);
+        ['grado' => $catalogo] = catalogoEstructura(['grado' => '8vo Básica']);
+        $grado = EstablecimientoGrado::factory()->create([
+            'establecimiento_id' => $establecimiento->id,
+            'establecimiento_modalidad_jornada_id' => $oferta->id,
+            'subnivel_id' => $catalogo->subnivel_id,
+            'grado_id' => $catalogo->id,
+        ]);
+        ['grado' => $otroCatalogo] = catalogoEstructura([
+            'nivel' => 'Educación General Básica',
+            'subnivel' => 'Básica Media',
+            'grado' => '9no Básica',
+        ]);
+        $otroGrado = EstablecimientoGrado::factory()->create([
+            'establecimiento_id' => $establecimiento->id,
+            'establecimiento_modalidad_jornada_id' => $oferta->id,
+            'subnivel_id' => $otroCatalogo->subnivel_id,
+            'grado_id' => $otroCatalogo->id,
+        ]);
+        $aula = EstablecimientoAula::factory()->create([
+            'establecimiento_id' => $establecimiento->id,
+            'establecimiento_modalidad_jornada_id' => $oferta->id,
+            'establecimiento_periodo_id' => $periodo->id,
+            'establecimiento_grado_id' => $grado->id,
+            'paralelo' => 'A',
+        ]);
+        $otraAula = EstablecimientoAula::factory()->create([
+            'establecimiento_id' => $establecimiento->id,
+            'establecimiento_modalidad_jornada_id' => $oferta->id,
+            'establecimiento_periodo_id' => $periodo->id,
+            'establecimiento_grado_id' => $otroGrado->id,
+            'paralelo' => 'A',
+        ]);
+        [$matematica, $ana] = mallaYDocente($establecimiento, $grado, 'Matemática', 'Perez', 'Ana');
+
+        $this->actingAs($admin)
+            ->withSession(activeContextSession($oferta, $periodo))
+            ->from(route('Admin.aulas'))
+            ->patch(route('Admin.aulas.docentes.update', $aula), [
+                'aulas' => [$aula->id, $otraAula->id],
+                'docentes' => [
+                    $matematica->id => $ana->id,
+                ],
+            ])
+            ->assertRedirect(route('Admin.aulas'))
+            ->assertSessionHasErrorsIn('aula-docentes', [
+                'aulas' => 'Selecciona paralelos del mismo grado.',
+            ]);
+
+        $this->assertDatabaseCount('establecimiento_aula_docentes', 0);
+    });
+
+    it('returns 404 when a selected paralelo belongs to another establishment', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $oferta = ofertaDe($establecimiento);
+        $periodo = periodoActivoDe($oferta);
+        ['grado' => $catalogo] = catalogoEstructura();
+        $grado = EstablecimientoGrado::factory()->create([
+            'establecimiento_id' => $establecimiento->id,
+            'establecimiento_modalidad_jornada_id' => $oferta->id,
+            'subnivel_id' => $catalogo->subnivel_id,
+            'grado_id' => $catalogo->id,
+        ]);
+        $aula = EstablecimientoAula::factory()->create([
+            'establecimiento_id' => $establecimiento->id,
+            'establecimiento_modalidad_jornada_id' => $oferta->id,
+            'establecimiento_periodo_id' => $periodo->id,
+            'establecimiento_grado_id' => $grado->id,
+            'paralelo' => 'A',
+        ]);
+        [$matematica, $ana] = mallaYDocente($establecimiento, $grado, 'Matemática', 'Perez', 'Ana');
+
+        $ajeno = Establecimiento::factory()->create();
+        $ofertaAjena = ofertaDe($ajeno);
+        $periodoAjeno = periodoActivoDe($ofertaAjena);
+        $gradoAjeno = EstablecimientoGrado::factory()->create([
+            'establecimiento_id' => $ajeno->id,
+            'establecimiento_modalidad_jornada_id' => $ofertaAjena->id,
+            'subnivel_id' => $catalogo->subnivel_id,
+            'grado_id' => $catalogo->id,
+        ]);
+        $aulaAjena = EstablecimientoAula::factory()->create([
+            'establecimiento_id' => $ajeno->id,
+            'establecimiento_modalidad_jornada_id' => $ofertaAjena->id,
+            'establecimiento_periodo_id' => $periodoAjeno->id,
+            'establecimiento_grado_id' => $gradoAjeno->id,
+            'paralelo' => 'A',
+        ]);
+
+        $this->actingAs($admin)
+            ->withSession(activeContextSession($oferta, $periodo))
+            ->patch(route('Admin.aulas.docentes.update', $aula), [
+                'aulas' => [$aula->id, $aulaAjena->id],
+                'docentes' => [
+                    $matematica->id => $ana->id,
+                ],
             ])
             ->assertNotFound();
     });

@@ -208,26 +208,13 @@
                         @else
                             <div class="flex flex-col gap-3">
                                 @foreach ($aulas as $aula)
-                                    @php
-                                        $materiasDelAula = collect($materiasPorGrado[$aula->establecimiento_grado_id] ?? [])
-                                            ->map(function (array $materia) use ($aula): array {
-                                                $asignacion = $aula->asignaciones->firstWhere('establecimiento_asignatura_id', $materia['id']);
-
-                                                return [
-                                                    ...$materia,
-                                                    'empleadoId' => $asignacion === null ? '' : (string) $asignacion->empleado_id,
-                                                ];
-                                            })
-                                            ->values()
-                                            ->all();
-                                    @endphp
                                     <article class="flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
                                         <h3 class="text-sm font-semibold text-slate-800">
                                             {{ $aula->etiqueta() }}
                                         </h3>
                                         <x-primary-button
                                             type="button"
-                                            x-on:click="$dispatch('aula-docentes', { id: '{{ $aula->id }}', etiqueta: {{ \Illuminate\Support\Js::from($aula->etiqueta()) }}, action: {{ \Illuminate\Support\Js::from(route('Admin.aulas.docentes.update', $aula)) }}, materias: {{ \Illuminate\Support\Js::from($materiasDelAula) }} })"
+                                            x-on:click="$dispatch('aula-docentes', { id: '{{ $aula->id }}', gradoId: '{{ $aula->establecimiento_grado_id }}' })"
                                         >
                                             Docentes
                                         </x-primary-button>

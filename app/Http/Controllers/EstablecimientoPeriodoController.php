@@ -6,6 +6,7 @@ use App\Http\Requests\UpsertEstablecimientoPeriodoRequest;
 use App\Models\Establecimiento;
 use App\Models\EstablecimientoModalidadJornada;
 use App\Models\EstablecimientoPeriodo;
+use App\Services\CopiarConfiguracionPeriodo;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -25,16 +26,38 @@ class EstablecimientoPeriodoController extends Controller
         ]);
     }
 
-    public function store(UpsertEstablecimientoPeriodoRequest $request, Establecimiento $establecimiento): RedirectResponse
-    {
+    public function store(
+        UpsertEstablecimientoPeriodoRequest $request,
+        Establecimiento $establecimiento,
+        CopiarConfiguracionPeriodo $copiarConfiguracionPeriodo,
+    ): RedirectResponse {
         $ofertaId = $request->integer('establecimiento_modalidad_jornada_id');
 
-        DB::transaction(function () use ($request, $establecimiento): void {
+        $resultado = DB::transaction(function () use ($request, $establecimiento, $ofertaId, $copiarConfiguracionPeriodo): array {
+            $periodoAnterior = EstablecimientoPeriodo::query()
+                ->where('establecimiento_modalidad_jornada_id', $ofertaId)
+                ->orderByDesc('id')
+                ->lockForUpdate()
+                ->first();
             $periodo = $establecimiento->periodos()->create($request->safe()->only($this->fillableAttributes()));
+
+            $configuracionCopiada = $periodoAnterior === null
+                ? ['aulas' => 0, 'asignaciones' => 0, 'horarios' => 0]
+                : $copiarConfiguracionPeriodo->handle($periodoAnterior, $periodo);
+
             $periodo->activarEnOferta();
+
+            return [
+                'periodo_anterior' => $periodoAnterior?->nombre,
+                ...$configuracionCopiada,
+            ];
         });
 
-        return $this->redirectToPeriodos($establecimiento, $ofertaId, 'periodo-created');
+        return $this->redirectToPeriodos($establecimiento, $ofertaId, 'periodo-created')
+            ->with('periodo-copiado-desde', $resultado['periodo_anterior'])
+            ->with('periodo-aulas-copiadas', $resultado['aulas'])
+            ->with('periodo-asignaciones-copiadas', $resultado['asignaciones'])
+            ->with('periodo-horarios-copiados', $resultado['horarios']);
     }
 
     public function update(

@@ -1,9 +1,24 @@
 <?php
 
 use App\Enums\Role;
+use App\Models\Empleado;
 use App\Models\Establecimiento;
+use App\Models\EstablecimientoAsignatura;
+use App\Models\EstablecimientoAula;
+use App\Models\EstablecimientoAulaAsignaturaCiclo;
+use App\Models\EstablecimientoAulaDocente;
+use App\Models\EstablecimientoGrado;
 use App\Models\EstablecimientoPeriodo;
+use App\Models\EstablecimientoPeriodoAsignaturaCiclo;
+use App\Models\EstablecimientoPeriodoCiclo;
+use App\Models\EstablecimientoPeriodoCicloParcial;
+use App\Models\EstablecimientoPeriodoConfiguracionGrado;
+use App\Models\EstablecimientoPeriodoConfiguracionGradoCiclo;
+use App\Models\HorarioClase;
+use App\Models\Sys_Asignatura;
+use App\Models\Sys_Grado;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 
 describe('index', function () {
     it('shows a periodos link on the establecimientos list', function () {
@@ -150,7 +165,8 @@ describe('store', function () {
             ->assertSee('2026-2027 Vespertina')
             ->assertSee('05/01/2026')
             ->assertSee('27/02/2026')
-            ->assertSee('Periodo activado correctamente.');
+            ->assertSee('Periodo activado correctamente.')
+            ->assertSee('No había un periodo anterior para copiar su configuración.');
     });
 
     it('deactivates the previous active period of the same oferta', function () {
@@ -187,6 +203,148 @@ describe('store', function () {
         expect($anterior->fresh()->activo)->toBeFalse();
         expect($otraOferta->fresh()->activo)->toBeTrue();
         expect(EstablecimientoPeriodo::query()->where('nombre', '2026-2027')->firstOrFail()->activo)->toBeTrue();
+    });
+
+    it('copies classrooms, subject assignments, schedules and evaluation settings from the last period', function () {
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+        $establecimiento = Establecimiento::factory()->create();
+        $oferta = ofertaDe($establecimiento);
+        $periodoAnterior = EstablecimientoPeriodo::factory()->create([
+            'establecimiento_id' => $establecimiento->id,
+            'establecimiento_modalidad_jornada_id' => $oferta->id,
+            'nombre' => '2025-2026',
+            'activo' => true,
+            'nombre_esquema' => 'Quimestres',
+            'numero_parciales' => 2,
+            'porcentaje_examen_final' => '20.00',
+            'porcentaje_proyecto_final' => '10.00',
+        ]);
+        $grado = Sys_Grado::factory()->create();
+        $gradoOferta = EstablecimientoGrado::factory()->create([
+            'establecimiento_id' => $establecimiento->id,
+            'establecimiento_modalidad_jornada_id' => $oferta->id,
+            'subnivel_id' => $grado->subnivel_id,
+            'grado_id' => $grado->id,
+        ]);
+        $asignatura = Sys_Asignatura::factory()->create();
+        $malla = EstablecimientoAsignatura::factory()->create([
+            'establecimiento_id' => $establecimiento->id,
+            'establecimiento_modalidad_jornada_id' => $oferta->id,
+            'grado_id' => $grado->id,
+            'asignatura_id' => $asignatura->id,
+        ]);
+        $aulaAnterior = EstablecimientoAula::factory()->create([
+            'establecimiento_id' => $establecimiento->id,
+            'establecimiento_modalidad_jornada_id' => $oferta->id,
+            'establecimiento_periodo_id' => $periodoAnterior->id,
+            'establecimiento_grado_id' => $gradoOferta->id,
+            'paralelo' => 'B',
+        ]);
+        $docente = Empleado::factory()->create();
+        EstablecimientoAulaDocente::factory()->create([
+            'establecimiento_aula_id' => $aulaAnterior->id,
+            'establecimiento_asignatura_id' => $malla->id,
+            'empleado_id' => $docente->id,
+        ]);
+        HorarioClase::query()->create([
+            'establecimiento_aula_id' => $aulaAnterior->id,
+            'establecimiento_asignatura_id' => $malla->id,
+            'dia_semana' => 1,
+            'hora_inicio' => '08:00:00',
+            'hora_fin' => '08:45:00',
+        ]);
+        $cicloPeriodo = EstablecimientoPeriodoCiclo::factory()->create([
+            'establecimiento_periodo_id' => $periodoAnterior->id,
+            'nombre' => 'Primer quimestre',
+        ]);
+        EstablecimientoPeriodoCicloParcial::factory()->create([
+            'establecimiento_periodo_ciclo_id' => $cicloPeriodo->id,
+            'cerrado_en' => now(),
+        ]);
+        EstablecimientoPeriodoAsignaturaCiclo::query()->create([
+            'establecimiento_periodo_id' => $periodoAnterior->id,
+            'establecimiento_asignatura_id' => $malla->id,
+            'ciclo_orden' => 1,
+            'porcentaje' => '100.00',
+        ]);
+        EstablecimientoAulaAsignaturaCiclo::query()->create([
+            'establecimiento_periodo_id' => $periodoAnterior->id,
+            'establecimiento_aula_id' => $aulaAnterior->id,
+            'establecimiento_asignatura_id' => $malla->id,
+            'ciclo_orden' => 1,
+            'porcentaje_insumos' => '70.00',
+            'porcentaje_examen' => '30.00',
+            'porcentaje_proyecto' => '0.00',
+        ]);
+        $configuracionGrado = EstablecimientoPeriodoConfiguracionGrado::query()->create([
+            'establecimiento_periodo_id' => $periodoAnterior->id,
+            'nombre' => 'Ajuste de grado',
+            'porcentaje_examen_final' => '20.00',
+            'porcentaje_proyecto_final' => '10.00',
+        ]);
+        EstablecimientoPeriodoConfiguracionGradoCiclo::query()->create([
+            'configuracion_grado_id' => $configuracionGrado->id,
+            'ciclo_orden' => 1,
+            'porcentaje_periodo' => '100.00',
+            'porcentaje_insumos' => '70.00',
+            'porcentaje_examen' => '30.00',
+            'porcentaje_proyecto' => '0.00',
+        ]);
+        DB::table('establecimiento_periodo_configuracion_grado_grados')->insert([
+            'configuracion_grado_id' => $configuracionGrado->id,
+            'grado_id' => $grado->id,
+            'establecimiento_periodo_id' => $periodoAnterior->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->actingAs($actor)
+            ->post(route('sistemas.establecimientos.periodos.store', $establecimiento), [
+                'establecimiento_modalidad_jornada_id' => $oferta->id,
+                'nombre' => '2026-2027',
+                'fecha_inicio' => '2026-09-01',
+                'fecha_fin' => '2027-06-30',
+                'activo' => '1',
+            ])
+            ->assertRedirect(route('sistemas.establecimientos.periodos', [
+                'establecimiento' => $establecimiento,
+                'oferta' => $oferta->id,
+            ]));
+
+        $periodoNuevo = EstablecimientoPeriodo::query()->where('nombre', '2026-2027')->firstOrFail();
+        $aulaNueva = $periodoNuevo->aulas()->firstOrFail();
+
+        expect($periodoNuevo->nombre_esquema)->toBe('Quimestres')
+            ->and($periodoNuevo->numero_parciales)->toBe(2)
+            ->and($periodoNuevo->porcentaje_examen_final)->toBe('20.00')
+            ->and($periodoNuevo->porcentaje_proyecto_final)->toBe('10.00')
+            ->and($aulaNueva->paralelo)->toBe('B')
+            ->and($aulaNueva->establecimiento_grado_id)->toBe($gradoOferta->id)
+            ->and($aulaNueva->asignaciones()->where('establecimiento_asignatura_id', $malla->id)->value('empleado_id'))->toBe($docente->id)
+            ->and(HorarioClase::query()->where('establecimiento_aula_id', $aulaNueva->id)->count())->toBe(1)
+            ->and($periodoNuevo->ciclos()->count())->toBe(1)
+            ->and(EstablecimientoPeriodoCicloParcial::query()
+                ->whereHas('ciclo', fn ($query) => $query->where('establecimiento_periodo_id', $periodoNuevo->id))
+                ->whereNull('cerrado_en')->count())->toBe(1)
+            ->and(EstablecimientoPeriodoAsignaturaCiclo::query()->where('establecimiento_periodo_id', $periodoNuevo->id)->count())->toBe(1)
+            ->and(EstablecimientoAulaAsignaturaCiclo::query()->where('establecimiento_periodo_id', $periodoNuevo->id)->where('establecimiento_aula_id', $aulaNueva->id)->count())->toBe(1)
+            ->and(EstablecimientoPeriodoConfiguracionGrado::query()->where('establecimiento_periodo_id', $periodoNuevo->id)->count())->toBe(1)
+            ->and(EstablecimientoPeriodoConfiguracionGradoCiclo::query()
+                ->whereHas('configuracion', fn ($query) => $query->where('establecimiento_periodo_id', $periodoNuevo->id))
+                ->count())->toBe(1)
+            ->and(DB::table('establecimiento_periodo_configuracion_grado_grados')->where('establecimiento_periodo_id', $periodoNuevo->id)->count())->toBe(1)
+            ->and($periodoAnterior->fresh()->aulas()->count())->toBe(1);
+
+        $this->actingAs($actor)
+            ->get(route('sistemas.establecimientos.periodos', [
+                'establecimiento' => $establecimiento,
+                'oferta' => $oferta->id,
+            ]))
+            ->assertSee('Configuración copiada del periodo anterior: 2025-2026.')
+            ->assertSee('Se copiaron')
+            ->assertSee('1 aula')
+            ->assertSee('1 asignación de asignatura y docente')
+            ->assertSee('1 horario');
     });
 
     it('does not create a period for an oferta of another establishment', function () {

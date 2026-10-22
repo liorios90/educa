@@ -16,6 +16,17 @@
             {{ $oferta->etiqueta() }}. El nombre es el que verán los usuarios. Solo puede haber un periodo activo en esta oferta.
         </p>
 
+        @if ($periodoAnterior = $oferta->periodos->first())
+            <div class="mt-4 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-800">
+                <p class="font-medium">Se copiará la configuración del periodo anterior: {{ $periodoAnterior->nombre }}.</p>
+                <p class="mt-1">Se copiarán las aulas, las asignaturas y docentes asignados, los horarios y las ponderaciones. Después podrás modificar la configuración del nuevo periodo.</p>
+            </div>
+        @else
+            <p class="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                Este es el primer periodo de esta oferta; todavía no hay configuración anterior para copiar.
+            </p>
+        @endif
+
         <div class="mt-4 flex flex-col gap-4">
             <div>
                 <x-input-label :for="'nombre-periodo-create-'.$oferta->id" value="Nombre del periodo" />

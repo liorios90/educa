@@ -38,6 +38,27 @@
             @if (session('status') === 'periodo-created')
                 <p class="mb-4 text-sm font-medium text-green-700">Periodo activado correctamente.</p>
             @endif
+            @if (session('periodo-copiado-desde'))
+                <div class="mb-4 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800" role="status">
+                    @php
+                        $aulasCopiadas = (int) session('periodo-aulas-copiadas', 0);
+                        $asignacionesCopiadas = (int) session('periodo-asignaciones-copiadas', 0);
+                        $horariosCopiados = (int) session('periodo-horarios-copiados', 0);
+                        $asignacionesLabel = $asignacionesCopiadas === 1
+                            ? 'asignación de asignatura y docente'
+                            : 'asignaciones de asignaturas y docentes';
+                    @endphp
+                    <p class="font-semibold">Configuración copiada del periodo anterior: {{ session('periodo-copiado-desde') }}.</p>
+                    <p class="mt-1">
+                        Se copiaron {{ $aulasCopiadas }} {{ $aulasCopiadas === 1 ? 'aula' : 'aulas' }},
+                        {{ $asignacionesCopiadas }} {{ $asignacionesLabel }}, y
+                        {{ $horariosCopiados }} {{ $horariosCopiados === 1 ? 'horario' : 'horarios' }}.
+                        Puedes modificar la configuración de este periodo.
+                    </p>
+                </div>
+            @elseif (session('status') === 'periodo-created')
+                <p class="mb-4 text-sm text-slate-600">No había un periodo anterior para copiar su configuración.</p>
+            @endif
             @if (session('status') === 'periodo-updated')
                 <p class="mb-4 text-sm font-medium text-green-700">Periodo actualizado correctamente.</p>
             @endif

@@ -8,11 +8,12 @@ use App\Enums\TipoCalificacion;
 use App\Http\Controllers\Controller;
 use App\Models\EstablecimientoAsignatura;
 use App\Models\EstablecimientoAula;
+use App\Models\EstablecimientoPeriodo;
 use App\Models\TipoInsumo;
 use App\Models\TipoInsumoDetalle;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -27,15 +28,25 @@ class TipoInsumoController extends Controller
         private ActivePeriodo $activePeriodo,
     ) {}
 
-    public function index(): View
+    public function index(Request $request): View
     {
+        $periodo = $this->activePeriodo->get($request->user());
+
         return view('admin.tipos-insumos.index', [
-            'tiposInsumos' => TipoInsumo::query()->orderBy('nombre')->get(),
+            'periodo' => $periodo,
+            'tiposInsumos' => $periodo === null
+                ? collect()
+                : TipoInsumo::query()
+                    ->where('establecimiento_periodo_id', $periodo->id)
+                    ->orderBy('nombre')
+                    ->get(),
         ]);
     }
 
     public function create(): View
     {
+        $this->periodoActivo();
+
         return view('admin.tipos-insumos.form', [
             'tipoInsumo' => new TipoInsumo(['activo' => true, 'tipo_calificacion' => TipoCalificacion::Cuantitativa->value]),
         ]);
@@ -43,18 +54,26 @@ class TipoInsumoController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        TipoInsumo::query()->create($this->validatedAttributes($request));
+        $periodo = $this->periodoActivo();
+
+        TipoInsumo::query()->create([
+            ...$this->validatedAttributes($request),
+            'establecimiento_periodo_id' => $periodo->id,
+        ]);
 
         return redirect()->route('Admin.tipos-insumos.index')->with('status', 'tipos-insumos-created');
     }
 
     public function edit(TipoInsumo $tipoInsumo): View
     {
+        $this->asegurarDelPeriodo($tipoInsumo);
+
         return view('admin.tipos-insumos.form', compact('tipoInsumo'));
     }
 
     public function update(Request $request, TipoInsumo $tipoInsumo): RedirectResponse
     {
+        $this->asegurarDelPeriodo($tipoInsumo);
         $tipoInsumo->update($this->validatedAttributes($request));
 
         return redirect()->route('Admin.tipos-insumos.index')->with('status', 'tipos-insumos-updated');
@@ -62,6 +81,7 @@ class TipoInsumoController extends Controller
 
     public function destroy(TipoInsumo $tipoInsumo): RedirectResponse
     {
+        $this->asegurarDelPeriodo($tipoInsumo);
         $tipoInsumo->delete();
 
         return redirect()->route('Admin.tipos-insumos.index')->with('status', 'tipos-insumos-deleted');
@@ -69,6 +89,7 @@ class TipoInsumoController extends Controller
 
     public function asignaturas(Request $request, TipoInsumo $tipoInsumo): View|RedirectResponse
     {
+        $this->asegurarDelPeriodo($tipoInsumo);
         $user = $request->user();
         $establecimientoId = $user?->establecimiento_id;
 
@@ -142,6 +163,7 @@ class TipoInsumoController extends Controller
 
     public function actualizarAsignaturas(Request $request, TipoInsumo $tipoInsumo): RedirectResponse
     {
+        $this->asegurarDelPeriodo($tipoInsumo);
         $user = $request->user();
         $establecimientoId = $user?->establecimiento_id;
 
@@ -253,6 +275,7 @@ class TipoInsumoController extends Controller
 
     public function detalles(TipoInsumo $tipoInsumo): View
     {
+        $this->asegurarDelPeriodo($tipoInsumo);
         $tipoInsumo->load(['detalles' => fn ($query) => $query->orderBy('id')]);
 
         return view('admin.tipos-insumos.detalles', [
@@ -265,6 +288,7 @@ class TipoInsumoController extends Controller
 
     public function storeDetalle(Request $request, TipoInsumo $tipoInsumo): RedirectResponse
     {
+        $this->asegurarDelPeriodo($tipoInsumo);
         $tipoInsumo->detalles()->create($this->validatedDetalleAttributes($request, $tipoInsumo));
 
         return redirect()->route('Admin.tipos-insumos.detalles.index', $tipoInsumo)->with('status', 'tipo-insumo-detalle-created');
@@ -272,6 +296,7 @@ class TipoInsumoController extends Controller
 
     public function updateDetalle(Request $request, TipoInsumo $tipoInsumo, TipoInsumoDetalle $detalle): RedirectResponse
     {
+        $this->asegurarDelPeriodo($tipoInsumo);
         $detalle->update($this->validatedDetalleAttributes($request, $tipoInsumo));
 
         return redirect()->route('Admin.tipos-insumos.detalles.index', $tipoInsumo)->with('status', 'tipo-insumo-detalle-updated');
@@ -279,9 +304,23 @@ class TipoInsumoController extends Controller
 
     public function destroyDetalle(TipoInsumo $tipoInsumo, TipoInsumoDetalle $detalle): RedirectResponse
     {
+        $this->asegurarDelPeriodo($tipoInsumo);
         $detalle->delete();
 
         return redirect()->route('Admin.tipos-insumos.detalles.index', $tipoInsumo)->with('status', 'tipo-insumo-detalle-deleted');
+    }
+
+    private function periodoActivo(): EstablecimientoPeriodo
+    {
+        $periodo = $this->activePeriodo->get(request()->user());
+        abort_if($periodo === null, 404);
+
+        return $periodo;
+    }
+
+    private function asegurarDelPeriodo(TipoInsumo $tipoInsumo): void
+    {
+        abort_unless((int) $tipoInsumo->establecimiento_periodo_id === (int) $this->periodoActivo()->id, 404);
     }
 
     /**

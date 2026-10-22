@@ -5,6 +5,7 @@ use App\Auth\ActivePeriodo;
 use App\Enums\Role;
 use App\Enums\TipoAsignatura;
 use App\Models\Alumno;
+use App\Models\Equivalencia;
 use App\Models\Establecimiento;
 use App\Models\EstablecimientoAsignatura;
 use App\Models\EstablecimientoAsignaturaPropia;
@@ -22,6 +23,7 @@ use App\Models\Sys_Jornada;
 use App\Models\Sys_Modalidad;
 use App\Models\Sys_Nivel;
 use App\Models\Sys_Subnivel;
+use App\Models\TipoInsumo;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Role as RoleModel;
@@ -194,6 +196,27 @@ function periodoActivoDe(EstablecimientoModalidadJornada $oferta, array $atribut
     return EstablecimientoPeriodo::factory()->activo()->create([
         'establecimiento_id' => $oferta->establecimientoModalidad->establecimiento_id,
         'establecimiento_modalidad_jornada_id' => $oferta->id,
+        ...$atributos,
+    ]);
+}
+
+function tipoInsumoDe(EstablecimientoPeriodo $periodo, array $atributos = []): TipoInsumo
+{
+    return TipoInsumo::query()->create([
+        'nombre' => 'Evaluación',
+        'tipo_calificacion' => 'cuantitativa',
+        'activo' => true,
+        'establecimiento_periodo_id' => $periodo->id,
+        ...$atributos,
+    ]);
+}
+
+function equivalenciaDe(EstablecimientoPeriodo $periodo, array $atributos = []): Equivalencia
+{
+    return Equivalencia::query()->create([
+        'nombre' => 'Cualitativa MINEDUC',
+        'activo' => true,
+        'establecimiento_periodo_id' => $periodo->id,
         ...$atributos,
     ]);
 }

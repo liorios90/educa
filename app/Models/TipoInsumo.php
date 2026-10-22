@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class TipoInsumo extends Model
@@ -12,6 +13,7 @@ class TipoInsumo extends Model
     public $timestamps = false;
 
     protected $fillable = [
+        'establecimiento_periodo_id',
         'nombre',
         'descripcion',
         'tipo_calificacion',
@@ -23,6 +25,14 @@ class TipoInsumo extends Model
         return [
             'activo' => 'boolean',
         ];
+    }
+
+    /**
+     * @return BelongsTo<EstablecimientoPeriodo, $this>
+     */
+    public function periodo(): BelongsTo
+    {
+        return $this->belongsTo(EstablecimientoPeriodo::class, 'establecimiento_periodo_id');
     }
 
     /**

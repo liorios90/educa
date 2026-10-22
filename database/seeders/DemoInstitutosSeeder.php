@@ -63,7 +63,6 @@ class DemoInstitutosSeeder extends Seeder
                 ],
             );
 
-            $tiposInsumos = $this->crearTiposInsumos();
             $niveles = Sys_Nivel::query()->with(['subniveles.grados', 'subniveles.areas.asignaturas'])->get();
             $modalidades = Sys_Modalidad::query()->orderBy('id')->get()->values();
             $jornadas = Sys_Jornada::query()->orderBy('id')->get()->values();
@@ -121,6 +120,7 @@ class DemoInstitutosSeeder extends Seeder
                     ],
                 );
 
+                $tiposInsumos = $this->crearTiposInsumos($periodo);
                 $empleados = $this->crearDocentes(
                     $establecimiento,
                     $provincia,
@@ -553,7 +553,7 @@ class DemoInstitutosSeeder extends Seeder
     /**
      * @return list<TipoInsumo>
      */
-    private function crearTiposInsumos(): array
+    private function crearTiposInsumos(EstablecimientoPeriodo $periodo): array
     {
         $tipos = [];
 
@@ -563,7 +563,10 @@ class DemoInstitutosSeeder extends Seeder
             ['nombre' => 'Proyectos', 'detalle' => 'Proyecto grupal', 'porcentaje' => '30.00'],
         ] as $tipoData) {
             $tipo = TipoInsumo::query()->updateOrCreate(
-                ['nombre' => $tipoData['nombre']],
+                [
+                    'establecimiento_periodo_id' => $periodo->id,
+                    'nombre' => $tipoData['nombre'],
+                ],
                 [
                     'descripcion' => 'Tipo de insumo de evaluación para datos de demostración.',
                     'tipo_calificacion' => 'cuantitativa',

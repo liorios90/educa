@@ -22,14 +22,16 @@ class EstablecimientoInsumoActividadFactory extends Factory
      */
     public function definition(): array
     {
+        $aula = EstablecimientoAula::factory()->create();
         $tipo = TipoInsumo::query()->create([
+            'establecimiento_periodo_id' => $aula->establecimiento_periodo_id,
             'nombre' => 'Evaluación',
             'tipo_calificacion' => 'cuantitativa',
             'activo' => true,
         ]);
 
         return [
-            'establecimiento_aula_id' => EstablecimientoAula::factory(),
+            'establecimiento_aula_id' => $aula->id,
             'establecimiento_asignatura_id' => EstablecimientoAsignatura::factory(),
             'establecimiento_periodo_ciclo_id' => EstablecimientoPeriodoCiclo::factory(),
             'parcial_numero' => 1,

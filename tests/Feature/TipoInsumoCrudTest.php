@@ -10,9 +10,14 @@ use App\Models\TipoInsumo;
 use Illuminate\Support\Facades\DB;
 
 it('allows an admin to create, list, update, and delete types of supply', function (): void {
-    $admin = adminOf(Establecimiento::factory()->create());
+    $establecimiento = Establecimiento::factory()->create();
+    $admin = adminOf($establecimiento);
+    $oferta = ofertaDe($establecimiento);
+    $periodo = periodoActivoDe($oferta);
+    $sesion = activeContextSession($oferta, $periodo);
 
     $this->actingAs($admin)
+        ->withSession($sesion)
         ->post(route('Admin.tipos-insumos.store'), [
             'nombre' => 'Tarea',
             'descripcion' => 'Trabajo de aula',
@@ -22,16 +27,23 @@ it('allows an admin to create, list, update, and delete types of supply', functi
         ->assertRedirect(route('Admin.tipos-insumos.index'));
 
     $tipoInsumo = TipoInsumo::query()->firstOrFail();
-    $this->assertDatabaseHas('tipos_insumos', ['id' => $tipoInsumo->id, 'nombre' => 'Tarea']);
+    $this->assertDatabaseHas('tipos_insumos', [
+        'id' => $tipoInsumo->id,
+        'nombre' => 'Tarea',
+        'establecimiento_periodo_id' => $periodo->id,
+    ]);
 
     $this->actingAs($admin)
+        ->withSession($sesion)
         ->get(route('Admin.tipos-insumos.index'))
         ->assertOk()
         ->assertSee('Tarea')
+        ->assertSee($periodo->nombre)
         ->assertSee('Asignaturas')
         ->assertSee('Cuantitativa');
 
     $this->actingAs($admin)
+        ->withSession($sesion)
         ->patch(route('Admin.tipos-insumos.update', $tipoInsumo), [
             'nombre' => 'Proyecto',
             'descripcion' => 'Proyecto final',
@@ -43,6 +55,7 @@ it('allows an admin to create, list, update, and delete types of supply', functi
     $this->assertDatabaseHas('tipos_insumos', ['id' => $tipoInsumo->id, 'nombre' => 'Proyecto', 'activo' => false]);
 
     $this->actingAs($admin)
+        ->withSession($sesion)
         ->delete(route('Admin.tipos-insumos.destroy', $tipoInsumo))
         ->assertRedirect(route('Admin.tipos-insumos.index'));
 
@@ -87,16 +100,8 @@ it('assigns classroom subjects to a supply type and removes the assignment when 
         'asignatura_id' => Sys_Asignatura::factory()->create(['nombre' => 'Arte cualitativa'])->id,
         'tipo_calificacion' => 'cualitativa',
     ]);
-    $tipoInsumo = TipoInsumo::query()->create([
-        'nombre' => 'Evaluación inicial',
-        'tipo_calificacion' => 'cuantitativa',
-        'activo' => true,
-    ]);
-    $otroTipoInsumo = TipoInsumo::query()->create([
-        'nombre' => 'Tarea',
-        'tipo_calificacion' => 'cuantitativa',
-        'activo' => true,
-    ]);
+    $tipoInsumo = tipoInsumoDe($periodo, ['nombre' => 'Evaluación inicial']);
+    $otroTipoInsumo = tipoInsumoDe($periodo, ['nombre' => 'Tarea']);
     DB::table('establecimiento_aula_asignatura_tipo_insumos')->insert([
         'establecimiento_aula_id' => $aulaParaleloB->id,
         'establecimiento_asignatura_id' => $asignatura->id,
@@ -123,10 +128,9 @@ it('assigns classroom subjects to a supply type and removes the assignment when 
         ->assertSee('disabled', false)
         ->assertSee('Segundo de inicial B');
 
-    $tipoCualitativo = TipoInsumo::query()->create([
+    $tipoCualitativo = tipoInsumoDe($periodo, [
         'nombre' => 'Destrezas',
         'tipo_calificacion' => 'cualitativa',
-        'activo' => true,
     ]);
     $this->actingAs($admin)
         ->withSession(activeContextSession($oferta, $periodo))
@@ -168,7 +172,12 @@ it('assigns classroom subjects to a supply type and removes the assignment when 
         ->put(route('Admin.tipos-insumos.asignaturas.update', $tipoInsumo), [
             'asignaciones' => [$aula->id.':'.$asignatura->id],
         ])
-        ->assertRedirect(route('Admin.tipos-insumos.asignaturas.index', $tipoInsumo));
+        ->assertRedirect(route('Admin.tipos-insumos.asignaturas.index', [
+            'tipoInsumo' => $tipoInsumo,
+            'orden' => 'id',
+            'direccion' => 'asc',
+            'page' => 1,
+        ]));
 
     $this->assertDatabaseHas('establecimiento_aula_asignatura_tipo_insumos', [
         'establecimiento_aula_id' => $aula->id,
@@ -185,7 +194,12 @@ it('assigns classroom subjects to a supply type and removes the assignment when 
     $this->actingAs($admin)
         ->withSession(activeContextSession($oferta, $periodo))
         ->put(route('Admin.tipos-insumos.asignaturas.update', $tipoInsumo), [])
-        ->assertRedirect(route('Admin.tipos-insumos.asignaturas.index', $tipoInsumo));
+        ->assertRedirect(route('Admin.tipos-insumos.asignaturas.index', [
+            'tipoInsumo' => $tipoInsumo,
+            'orden' => 'id',
+            'direccion' => 'asc',
+            'page' => 1,
+        ]));
 
     $this->assertDatabaseMissing('establecimiento_aula_asignatura_tipo_insumos', [
         'establecimiento_aula_id' => $aula->id,
@@ -222,11 +236,7 @@ it('paginates and sorts classroom subjects without removing assignments from oth
         'grado_id' => $grado->id,
         'asignatura_id' => Sys_Asignatura::factory()->create(['nombre' => 'Materia '.$numero])->id,
     ]));
-    $tipoInsumo = TipoInsumo::query()->create([
-        'nombre' => 'Evaluación inicial',
-        'tipo_calificacion' => 'cuantitativa',
-        'activo' => true,
-    ]);
+    $tipoInsumo = tipoInsumoDe($periodo, ['nombre' => 'Evaluación inicial']);
     $asignaturaEnOtraPagina = $asignaturas->last();
     DB::table('establecimiento_aula_asignatura_tipo_insumos')->insert([
         'establecimiento_aula_id' => $aula->id,
@@ -275,11 +285,7 @@ it('rejects assigning a classroom subject from another establishment', function 
     $admin = adminOf($establecimiento);
     $oferta = ofertaDe($establecimiento);
     $periodo = periodoActivoDe($oferta);
-    $tipoInsumo = TipoInsumo::query()->create([
-        'nombre' => 'Evaluación inicial',
-        'tipo_calificacion' => 'cuantitativa',
-        'activo' => true,
-    ]);
+    $tipoInsumo = tipoInsumoDe($periodo, ['nombre' => 'Evaluación inicial']);
     $establecimientoAjeno = Establecimiento::factory()->create();
     $ofertaAjena = ofertaDe($establecimientoAjeno);
     $periodoAjeno = periodoActivoDe($ofertaAjena);
@@ -316,9 +322,13 @@ it('rejects assigning a classroom subject from another establishment', function 
 });
 
 it('rejects an unsupported grading type', function (): void {
-    $admin = adminOf(Establecimiento::factory()->create());
+    $establecimiento = Establecimiento::factory()->create();
+    $admin = adminOf($establecimiento);
+    $oferta = ofertaDe($establecimiento);
+    $periodo = periodoActivoDe($oferta);
 
     $this->actingAs($admin)
+        ->withSession(activeContextSession($oferta, $periodo))
         ->from(route('Admin.tipos-insumos.create'))
         ->post(route('Admin.tipos-insumos.store'), [
             'nombre' => 'Tarea',
@@ -331,14 +341,17 @@ it('rejects an unsupported grading type', function (): void {
 });
 
 it('stores qualitative detail values on the same detail screen', function (): void {
-    $admin = adminOf(Establecimiento::factory()->create());
-    $tipoInsumo = TipoInsumo::query()->create([
+    $establecimiento = Establecimiento::factory()->create();
+    $admin = adminOf($establecimiento);
+    $oferta = ofertaDe($establecimiento);
+    $periodo = periodoActivoDe($oferta);
+    $tipoInsumo = tipoInsumoDe($periodo, [
         'nombre' => 'Evaluación cualitativa',
         'tipo_calificacion' => 'cualitativa',
-        'activo' => true,
     ]);
 
     $this->actingAs($admin)
+        ->withSession(activeContextSession($oferta, $periodo))
         ->post(route('Admin.tipos-insumos.detalles.store', $tipoInsumo), [
             'nombre' => 'A+',
             'descripcion' => 'Destreza alcanzada',
@@ -355,6 +368,7 @@ it('stores qualitative detail values on the same detail screen', function (): vo
     ]);
 
     $this->actingAs($admin)
+        ->withSession(activeContextSession($oferta, $periodo))
         ->get(route('Admin.tipos-insumos.detalles.index', $tipoInsumo))
         ->assertOk()
         ->assertSee('Detalles creados')
@@ -365,14 +379,15 @@ it('stores qualitative detail values on the same detail screen', function (): vo
 });
 
 it('shows the quantitative active percentage total without blocking incomplete or excessive totals', function (): void {
-    $admin = adminOf(Establecimiento::factory()->create());
-    $tipoInsumo = TipoInsumo::query()->create([
-        'nombre' => 'Evaluación cuantitativa',
-        'tipo_calificacion' => 'cuantitativa',
-        'activo' => true,
-    ]);
+    $establecimiento = Establecimiento::factory()->create();
+    $admin = adminOf($establecimiento);
+    $oferta = ofertaDe($establecimiento);
+    $periodo = periodoActivoDe($oferta);
+    $sesion = activeContextSession($oferta, $periodo);
+    $tipoInsumo = tipoInsumoDe($periodo, ['nombre' => 'Evaluación cuantitativa']);
 
     $this->actingAs($admin)
+        ->withSession($sesion)
         ->post(route('Admin.tipos-insumos.detalles.store', $tipoInsumo), [
             'nombre' => 'Tareas',
             'porcentaje' => '60',
@@ -382,6 +397,7 @@ it('shows the quantitative active percentage total without blocking incomplete o
 
     $activo = $tipoInsumo->detalles()->where('nombre', 'Tareas')->firstOrFail();
     $this->actingAs($admin)
+        ->withSession($sesion)
         ->post(route('Admin.tipos-insumos.detalles.store', $tipoInsumo), [
             'nombre' => 'Inactivo',
             'porcentaje' => '99',
@@ -390,6 +406,7 @@ it('shows the quantitative active percentage total without blocking incomplete o
         ->assertRedirect();
 
     $this->actingAs($admin)
+        ->withSession($sesion)
         ->get(route('Admin.tipos-insumos.detalles.index', $tipoInsumo))
         ->assertOk()
         ->assertSee('Falta')
@@ -397,6 +414,7 @@ it('shows the quantitative active percentage total without blocking incomplete o
         ->assertSee('99.00');
 
     $this->actingAs($admin)
+        ->withSession($sesion)
         ->patch(route('Admin.tipos-insumos.detalles.update', [$tipoInsumo, $activo]), [
             'nombre' => 'Tareas',
             'porcentaje' => '100',
@@ -405,6 +423,7 @@ it('shows the quantitative active percentage total without blocking incomplete o
         ->assertRedirect();
 
     $this->actingAs($admin)
+        ->withSession($sesion)
         ->post(route('Admin.tipos-insumos.detalles.store', $tipoInsumo), [
             'nombre' => 'Examen',
             'porcentaje' => '1',
@@ -413,8 +432,31 @@ it('shows the quantitative active percentage total without blocking incomplete o
         ->assertRedirect();
 
     $this->actingAs($admin)
+        ->withSession($sesion)
         ->get(route('Admin.tipos-insumos.detalles.index', $tipoInsumo))
         ->assertOk()
         ->assertSee('supera el 100%')
         ->assertSee('1.00');
+});
+
+it('hides supply types that belong to another period', function (): void {
+    $establecimiento = Establecimiento::factory()->create();
+    $admin = adminOf($establecimiento);
+    $oferta = ofertaDe($establecimiento);
+    $periodo = periodoActivoDe($oferta);
+    $otroPeriodo = periodoActivoDe($oferta, ['nombre' => 'Periodo anterior', 'activo' => false]);
+    tipoInsumoDe($periodo, ['nombre' => 'Tarea del periodo activo']);
+    $ajeno = tipoInsumoDe($otroPeriodo, ['nombre' => 'Tarea del periodo anterior']);
+
+    $this->actingAs($admin)
+        ->withSession(activeContextSession($oferta, $periodo))
+        ->get(route('Admin.tipos-insumos.index'))
+        ->assertOk()
+        ->assertSee('Tarea del periodo activo')
+        ->assertDontSee('Tarea del periodo anterior');
+
+    $this->actingAs($admin)
+        ->withSession(activeContextSession($oferta, $periodo))
+        ->get(route('Admin.tipos-insumos.edit', $ajeno))
+        ->assertNotFound();
 });

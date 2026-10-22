@@ -1,8 +1,13 @@
 <x-app-layout>
     <x-slot name="header">
         <div class="flex items-center justify-between gap-4">
-            <h2 class="text-xl font-semibold leading-tight text-slate-800">Tipos de Insumo</h2>
-            <a href="{{ route('Admin.tipos-insumos.create') }}" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Nuevo tipo de Insumo</a>
+            <div>
+                <h2 class="text-xl font-semibold leading-tight text-slate-800">Tipos de Insumo</h2>
+                <p class="mt-1 text-sm text-slate-500">{{ $periodo?->nombre ?? 'Sin periodo activo' }}</p>
+            </div>
+            @if ($periodo !== null)
+                <a href="{{ route('Admin.tipos-insumos.create') }}" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">Nuevo tipo de Insumo</a>
+            @endif
         </div>
     </x-slot>
 
@@ -16,6 +21,9 @@
                 <p class="mb-4 text-sm font-medium text-green-700">Tipo de Insumo eliminado correctamente.</p>
             @endif
 
+            @if ($periodo === null)
+                <p class="rounded-2xl border border-slate-200 bg-white px-6 py-8 text-center text-slate-500">Selecciona una oferta con un periodo activo para administrar los tipos de insumo.</p>
+            @else
             <div class="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
                 <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
                     <thead class="bg-slate-50 text-slate-600">
@@ -48,11 +56,12 @@
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="5" class="px-6 py-8 text-center text-slate-500">Aún no hay tipos de Insumo creados.</td></tr>
+                            <tr><td colspan="5" class="px-6 py-8 text-center text-slate-500">Aún no hay tipos de Insumo creados para este periodo.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
             </div>
+            @endif
         </div>
     </div>
 </x-app-layout>

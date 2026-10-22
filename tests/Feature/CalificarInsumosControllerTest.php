@@ -98,7 +98,7 @@ function escenarioCalificarInsumos(array $atributos = []): array
         'nombre' => $atributos['ciclo'] ?? 'Primer quimestre',
     ]);
 
-    return compact('establecimiento', 'docente', 'aula', 'malla', 'ciclo');
+    return compact('establecimiento', 'docente', 'aula', 'malla', 'ciclo', 'periodo');
 }
 
 function guardarContextoCalificar(array $escenario, int $parcial = 1): void
@@ -128,10 +128,9 @@ function matricularAlumnoCalificar(EstablecimientoAula $aula, Alumno $alumno): E
  */
 function asignarTipoInsumoCalificar(array $escenario, string $tipoCalificacion, array $detalles): array
 {
-    $tipo = TipoInsumo::query()->create([
+    $tipo = tipoInsumoDe($escenario['periodo'], [
         'nombre' => 'Evaluación de aula',
         'tipo_calificacion' => $tipoCalificacion,
-        'activo' => true,
     ]);
     $creados = [];
 
@@ -425,11 +424,7 @@ describe('store', function () {
 
     it('shows the activity name and configured supply types after the selection', function () {
         $escenario = escenarioCalificarInsumos();
-        $tipoInsumo = TipoInsumo::query()->create([
-            'nombre' => 'Evaluación de aula',
-            'tipo_calificacion' => 'cuantitativa',
-            'activo' => true,
-        ]);
+        $tipoInsumo = tipoInsumoDe($escenario['periodo'], ['nombre' => 'Evaluación de aula']);
         $tipoInsumo->detalles()->create([
             'nombre' => 'Arte',
             'porcentaje' => '50.00',
@@ -626,11 +621,7 @@ describe('storeActividad', function () {
 
     it('creates an activity for the selected classroom and supply type', function () {
         $escenario = escenarioCalificarInsumos();
-        $tipoInsumo = TipoInsumo::query()->create([
-            'nombre' => 'Evaluación de aula',
-            'tipo_calificacion' => 'cuantitativa',
-            'activo' => true,
-        ]);
+        $tipoInsumo = tipoInsumoDe($escenario['periodo'], ['nombre' => 'Evaluación de aula']);
         $detalle = $tipoInsumo->detalles()->create([
             'nombre' => 'Arte',
             'porcentaje' => '50.00',
@@ -677,11 +668,7 @@ describe('storeActividad', function () {
     it('returns 404 when the supply type belongs to another subject', function () {
         $escenario = escenarioCalificarInsumos();
         $ajeno = escenarioCalificarInsumos(['grado' => '9no Básica']);
-        $tipoInsumo = TipoInsumo::query()->create([
-            'nombre' => 'Evaluación ajena',
-            'tipo_calificacion' => 'cuantitativa',
-            'activo' => true,
-        ]);
+        $tipoInsumo = tipoInsumoDe($ajeno['periodo'], ['nombre' => 'Evaluación ajena']);
         $detalle = $tipoInsumo->detalles()->create([
             'nombre' => 'Deber',
             'porcentaje' => '30.00',
@@ -726,11 +713,7 @@ describe('storeActividad', function () {
 
     it('escapes a dangerous activity name in the list', function () {
         $escenario = escenarioCalificarInsumos();
-        $tipoInsumo = TipoInsumo::query()->create([
-            'nombre' => 'Evaluación de aula',
-            'tipo_calificacion' => 'cuantitativa',
-            'activo' => true,
-        ]);
+        $tipoInsumo = tipoInsumoDe($escenario['periodo'], ['nombre' => 'Evaluación de aula']);
         $detalle = $tipoInsumo->detalles()->create([
             'nombre' => 'Arte',
             'porcentaje' => '50.00',

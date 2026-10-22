@@ -1,7 +1,6 @@
 <?php
 
 use App\Enums\Role;
-use App\Models\Equivalencia;
 use App\Models\Establecimiento;
 use App\Models\User;
 
@@ -21,13 +20,15 @@ it('forbids a teacher from opening equivalence tables', function () {
 });
 
 it('creates an equivalence detail with a numeric range', function () {
-    $admin = adminOf(Establecimiento::factory()->create());
-    $equivalencia = Equivalencia::query()->create([
-        'nombre' => 'Cualitativa MINEDUC',
-        'activo' => true,
-    ]);
+    $establecimiento = Establecimiento::factory()->create();
+    $admin = adminOf($establecimiento);
+    $oferta = ofertaDe($establecimiento);
+    $periodo = periodoActivoDe($oferta);
+    $equivalencia = equivalenciaDe($periodo);
+    $sesion = activeContextSession($oferta, $periodo);
 
     $this->actingAs($admin)
+        ->withSession($sesion)
         ->from(route('Admin.tablas-equivalencias.detalles.index', $equivalencia))
         ->post(route('Admin.tablas-equivalencias.detalles.store', $equivalencia), [
             'nombre' => 'A',
@@ -49,13 +50,14 @@ it('creates an equivalence detail with a numeric range', function () {
 });
 
 it('redirects back when the minimum is greater than the maximum', function () {
-    $admin = adminOf(Establecimiento::factory()->create());
-    $equivalencia = Equivalencia::query()->create([
-        'nombre' => 'Cualitativa MINEDUC',
-        'activo' => true,
-    ]);
+    $establecimiento = Establecimiento::factory()->create();
+    $admin = adminOf($establecimiento);
+    $oferta = ofertaDe($establecimiento);
+    $periodo = periodoActivoDe($oferta);
+    $equivalencia = equivalenciaDe($periodo);
 
     $this->actingAs($admin)
+        ->withSession(activeContextSession($oferta, $periodo))
         ->from(route('Admin.tablas-equivalencias.detalles.index', $equivalencia))
         ->post(route('Admin.tablas-equivalencias.detalles.store', $equivalencia), [
             'nombre' => 'A',
@@ -68,4 +70,42 @@ it('redirects back when the minimum is greater than the maximum', function () {
         ->assertSessionHasErrors(['maximo' => 'El mínimo no puede ser mayor que el máximo.']);
 
     $this->assertDatabaseCount('equivalencias_detalles', 0);
+});
+
+it('keeps equivalence tables scoped to the active period', function () {
+    $establecimiento = Establecimiento::factory()->create();
+    $admin = adminOf($establecimiento);
+    $oferta = ofertaDe($establecimiento);
+    $periodo = periodoActivoDe($oferta);
+    $otroPeriodo = periodoActivoDe($oferta, ['nombre' => 'Periodo anterior', 'activo' => false]);
+    $sesion = activeContextSession($oferta, $periodo);
+
+    $this->actingAs($admin)
+        ->withSession($sesion)
+        ->post(route('Admin.tablas-equivalencias.store'), [
+            'nombre' => 'Tabla del periodo activo',
+            'descripcion' => 'MINEDUC',
+            'activo' => '1',
+        ])
+        ->assertRedirect(route('Admin.tablas-equivalencias.index'));
+
+    $this->assertDatabaseHas('equivalencias', [
+        'nombre' => 'Tabla del periodo activo',
+        'establecimiento_periodo_id' => $periodo->id,
+    ]);
+
+    $ajena = equivalenciaDe($otroPeriodo, ['nombre' => 'Tabla del periodo anterior']);
+
+    $this->actingAs($admin)
+        ->withSession($sesion)
+        ->get(route('Admin.tablas-equivalencias.index'))
+        ->assertOk()
+        ->assertSee('Tabla del periodo activo')
+        ->assertSee($periodo->nombre)
+        ->assertDontSee('Tabla del periodo anterior');
+
+    $this->actingAs($admin)
+        ->withSession($sesion)
+        ->get(route('Admin.tablas-equivalencias.edit', $ajena))
+        ->assertNotFound();
 });

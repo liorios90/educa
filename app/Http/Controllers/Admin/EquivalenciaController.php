@@ -10,6 +10,7 @@ use App\Models\Equivalencia;
 use App\Models\EquivalenciaDetalle;
 use App\Models\EstablecimientoAsignatura;
 use App\Models\EstablecimientoAula;
+use App\Models\EstablecimientoPeriodo;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -20,30 +21,50 @@ class EquivalenciaController extends Controller
 {
     public function __construct(private ActiveOferta $activeOferta, private ActivePeriodo $activePeriodo) {}
 
-    public function index(): View
+    public function index(Request $request): View
     {
-        return view('admin.tablas-equivalencias.index', ['equivalencias' => Equivalencia::query()->orderBy('nombre')->get()]);
+        $periodo = $this->activePeriodo->get($request->user());
+
+        return view('admin.tablas-equivalencias.index', [
+            'periodo' => $periodo,
+            'equivalencias' => $periodo === null
+                ? collect()
+                : Equivalencia::query()
+                    ->where('establecimiento_periodo_id', $periodo->id)
+                    ->orderBy('nombre')
+                    ->get(),
+        ]);
     }
 
     public function create(): View
     {
+        $this->periodoActivo();
+
         return view('admin.tablas-equivalencias.form', ['equivalencia' => new Equivalencia(['activo' => true])]);
     }
 
     public function store(Request $request): RedirectResponse
     {
-        Equivalencia::query()->create($this->validatedAttributes($request));
+        $periodo = $this->periodoActivo();
+
+        Equivalencia::query()->create([
+            ...$this->validatedAttributes($request),
+            'establecimiento_periodo_id' => $periodo->id,
+        ]);
 
         return redirect()->route('Admin.tablas-equivalencias.index')->with('status', 'equivalencia-created');
     }
 
     public function edit(Equivalencia $equivalencia): View
     {
+        $this->asegurarDelPeriodo($equivalencia);
+
         return view('admin.tablas-equivalencias.form', compact('equivalencia'));
     }
 
     public function update(Request $request, Equivalencia $equivalencia): RedirectResponse
     {
+        $this->asegurarDelPeriodo($equivalencia);
         $equivalencia->update($this->validatedAttributes($request));
 
         return redirect()->route('Admin.tablas-equivalencias.index')->with('status', 'equivalencia-updated');
@@ -51,6 +72,7 @@ class EquivalenciaController extends Controller
 
     public function destroy(Equivalencia $equivalencia): RedirectResponse
     {
+        $this->asegurarDelPeriodo($equivalencia);
         $equivalencia->delete();
 
         return redirect()->route('Admin.tablas-equivalencias.index')->with('status', 'equivalencia-deleted');
@@ -58,6 +80,7 @@ class EquivalenciaController extends Controller
 
     public function detalles(Equivalencia $equivalencia): View
     {
+        $this->asegurarDelPeriodo($equivalencia);
         $equivalencia->load(['detalles' => fn ($query) => $query->orderBy('id')]);
 
         return view('admin.tablas-equivalencias.detalles', compact('equivalencia'));
@@ -65,6 +88,7 @@ class EquivalenciaController extends Controller
 
     public function storeDetalle(UpsertEquivalenciaDetalleRequest $request, Equivalencia $equivalencia): RedirectResponse
     {
+        $this->asegurarDelPeriodo($equivalencia);
         $equivalencia->detalles()->create($request->detalle());
 
         return redirect()->route('Admin.tablas-equivalencias.detalles.index', $equivalencia)->with('status', 'equivalencia-detalle-created');
@@ -72,6 +96,7 @@ class EquivalenciaController extends Controller
 
     public function updateDetalle(UpsertEquivalenciaDetalleRequest $request, Equivalencia $equivalencia, EquivalenciaDetalle $detalle): RedirectResponse
     {
+        $this->asegurarDelPeriodo($equivalencia);
         $detalle->update($request->detalle());
 
         return redirect()->route('Admin.tablas-equivalencias.detalles.index', $equivalencia)->with('status', 'equivalencia-detalle-updated');
@@ -79,6 +104,7 @@ class EquivalenciaController extends Controller
 
     public function destroyDetalle(Equivalencia $equivalencia, EquivalenciaDetalle $detalle): RedirectResponse
     {
+        $this->asegurarDelPeriodo($equivalencia);
         $detalle->delete();
 
         return redirect()->route('Admin.tablas-equivalencias.detalles.index', $equivalencia)->with('status', 'equivalencia-detalle-deleted');
@@ -86,6 +112,7 @@ class EquivalenciaController extends Controller
 
     public function asignaturas(Request $request, Equivalencia $equivalencia): View|RedirectResponse
     {
+        $this->asegurarDelPeriodo($equivalencia);
         $user = $request->user();
         abort_if($user?->establecimiento_id === null, 403);
         if ($this->activeOferta->needsSelection($user)) {
@@ -114,6 +141,7 @@ class EquivalenciaController extends Controller
 
     public function actualizarAsignaturas(Request $request, Equivalencia $equivalencia): RedirectResponse
     {
+        $this->asegurarDelPeriodo($equivalencia);
         $user = $request->user();
         abort_if($user?->establecimiento_id === null, 403);
         if ($this->activeOferta->needsSelection($user)) {
@@ -159,6 +187,19 @@ class EquivalenciaController extends Controller
         });
 
         return redirect()->route('Admin.tablas-equivalencias.asignaturas.index', $equivalencia)->with('status', 'equivalencia-asignaturas-updated');
+    }
+
+    private function periodoActivo(): EstablecimientoPeriodo
+    {
+        $periodo = $this->activePeriodo->get(request()->user());
+        abort_if($periodo === null, 404);
+
+        return $periodo;
+    }
+
+    private function asegurarDelPeriodo(Equivalencia $equivalencia): void
+    {
+        abort_unless((int) $equivalencia->establecimiento_periodo_id === (int) $this->periodoActivo()->id, 404);
     }
 
     /** @return Collection<int, EstablecimientoAula> */

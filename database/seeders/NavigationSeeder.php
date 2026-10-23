@@ -63,6 +63,7 @@ class NavigationSeeder extends Seeder
         $this->ensureItem('Funciones', 'sistemas.crud.funciones.index', 'cog', 8, false, [$sistemas->id], parentId: $catalogos->id);
         $this->ensureItem('Tipos de contrato', 'sistemas.crud.tipos-contratos.index', 'cog', 9, false, [$sistemas->id], parentId: $catalogos->id);
 
+        $this->ensureItem('Libreta', 'secretaria.libreta.index', 'table-cells', 4, false, [$secretaria->id]);
         $this->ensureItem('Asistente', 'secretaria.asistente', 'wrench-screwdriver', 5, false, [$secretaria->id]);
         $this->ensureItem('Diseñar reportes', 'sistemas.reports.index', 'cog', 6, false, [$sistemas->id]);
         $this->ensureItem('Consultas IA', 'sistemas.asistente-consultas.index', 'clipboard-document-list', 7, false, [$sistemas->id]);

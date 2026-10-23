@@ -8,6 +8,8 @@ use App\Enums\TipoCalificacion;
 use App\Enums\TipoCierreEvaluacion;
 use App\Models\Alumno;
 use App\Models\EstablecimientoAlumnoAsignatura;
+use App\Models\EstablecimientoAsignatura;
+use App\Models\EstablecimientoAula;
 use App\Models\EstablecimientoAulaAsignaturaCiclo;
 use App\Models\EstablecimientoAulaDocente;
 use App\Models\EstablecimientoCierreActividad;
@@ -210,6 +212,46 @@ class AsignacionesDocente
 
         $campo = $tipo === TipoCierreEvaluacion::Examen ? 'porcentaje_examen' : 'porcentaje_proyecto';
 
+        return $this->pesoCampoCiclo($contexto, $campo);
+    }
+
+    /**
+     * @return array{
+     *     insumos: float,
+     *     examen: float,
+     *     proyecto: float,
+     *     periodo: float,
+     *     examen_final: float,
+     *     proyecto_final: float
+     * }
+     */
+    public function pesosEvaluacion(EstablecimientoAula $aula, EstablecimientoAsignatura $asignatura, EstablecimientoPeriodoCiclo $ciclo): array
+    {
+        $contexto = new DocenteContexto($aula, $asignatura, $ciclo, 0);
+
+        return [
+            'insumos' => $this->pesoCampoCiclo($contexto, 'porcentaje_insumos'),
+            'examen' => $this->pesoCierre($contexto, TipoCierreEvaluacion::Examen),
+            'proyecto' => $this->pesoCierre($contexto, TipoCierreEvaluacion::Proyecto),
+            'periodo' => $this->pesoCicloEnPeriodo($contexto),
+            'examen_final' => $this->pesoCierre($contexto, TipoCierreEvaluacion::ExamenFinal),
+            'proyecto_final' => $this->pesoCierre($contexto, TipoCierreEvaluacion::ProyectoFinal),
+        ];
+    }
+
+    public function pesoCicloEnPeriodo(DocenteContexto $contexto): float
+    {
+        $porGrado = $this->cierrePorGrado($contexto);
+
+        if ($porGrado !== null) {
+            return (float) $porGrado->porcentaje_periodo;
+        }
+
+        return (float) $contexto->ciclo->porcentaje;
+    }
+
+    public function pesoCampoCiclo(DocenteContexto $contexto, string $campo): float
+    {
         $porAsignatura = EstablecimientoAulaAsignaturaCiclo::query()
             ->where('establecimiento_periodo_id', $contexto->aula->establecimiento_periodo_id)
             ->where('establecimiento_aula_id', $contexto->aula->id)
@@ -365,12 +407,19 @@ class AsignacionesDocente
      */
     public function alumnos(DocenteContexto $contexto): Collection
     {
-        $idsDelAula = $this->alumnoIdsMatriculadosEnAula((int) $contexto->aula->id);
-        $asignatura = $contexto->asignatura;
+        return $this->alumnosDe($contexto->aula, $contexto->asignatura);
+    }
+
+    /**
+     * @return Collection<int, Alumno>
+     */
+    public function alumnosDe(EstablecimientoAula $aula, EstablecimientoAsignatura $asignatura): Collection
+    {
+        $idsDelAula = $this->alumnoIdsMatriculadosEnAula((int) $aula->id);
 
         if ($asignatura->tipo_asignatura->exigeInscripcionIndividual()) {
             $inscritos = $this->alumnoIdsDeAsignatura(
-                (int) $contexto->aula->establecimiento_periodo_id,
+                (int) $aula->establecimiento_periodo_id,
                 (int) $asignatura->id,
             );
             $enAula = $idsDelAula->intersect($inscritos)->values();
@@ -380,7 +429,7 @@ class AsignacionesDocente
 
         if ($asignatura->es_flotante && $idsDelAula->isEmpty()) {
             return $this->alumnosPorIds($this->alumnoIdsDeAsignatura(
-                (int) $contexto->aula->establecimiento_periodo_id,
+                (int) $aula->establecimiento_periodo_id,
                 (int) $asignatura->id,
             ));
         }

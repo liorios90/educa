@@ -166,6 +166,7 @@ it('shows class groups and programs to secretaries', function () {
         ->assertSee(route('Admin.grupos-asignatura.flotantes'), false)
         ->assertSee(route('Admin.matriculas.index'), false)
         ->assertSee(route('secretaria.asistente'), false)
+        ->assertSee(route('secretaria.libreta.index'), false)
         ->assertSee(route('Admin.padres'), false)
         ->assertSee(route('Admin.alumnos'), false)
         ->assertDontSee(route('Admin.aulas'), false)
@@ -177,7 +178,7 @@ it('shows class groups and programs to secretaries', function () {
     $mantenimiento = $items->firstWhere('label', 'Matenimiento');
 
     expect($items->pluck('label')->all())
-        ->toContain('Matriculas', 'Grupos flotantes', 'Asistente', 'Matenimiento')
+        ->toContain('Matriculas', 'Grupos flotantes', 'Asistente', 'Libreta', 'Matenimiento')
         ->not->toContain('Grupos de clase', 'Programas')
         ->and(collect($mantenimiento?->children)->pluck('label')->all())->toBe(['Padres', 'Alumnos']);
 });

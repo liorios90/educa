@@ -26,6 +26,8 @@ use Illuminate\Validation\ValidationException;
 
 class OrganizacionAcademica
 {
+    public function __construct(private DecimalesEstablecimiento $decimales) {}
+
     public function matricular(
         EstablecimientoAula $aula,
         Alumno $alumno,
@@ -727,7 +729,9 @@ class OrganizacionAcademica
             ]);
         }
 
-        $valor = round((float) $nota, 2);
+        $asignatura->loadMissing('establecimiento');
+        $establecimiento = $asignatura->establecimiento;
+        $valor = $this->decimales->aplicar((float) $nota, $establecimiento);
 
         if (! $asignatura->escala->contiene($valor)) {
             throw ValidationException::withMessages([
@@ -735,7 +739,7 @@ class OrganizacionAcademica
             ]);
         }
 
-        return number_format($valor, 2, '.', '');
+        return $this->decimales->formatear($valor, $establecimiento);
     }
 
     /**

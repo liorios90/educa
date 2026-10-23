@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\EscalaCalificacion;
+use App\Enums\ModoDecimal;
 use App\Enums\TipoAsignatura;
 use App\Enums\TipoCalificacion;
 use App\Enums\TipoPrograma;
@@ -104,6 +105,24 @@ it('rejects the same student in two groups of one subject', function () {
     expect(fn () => $organizacion->sincronizarAlumnosGrupo($segundo, [$alumno->id]))
         ->toThrow(fn (ValidationException $exception) => expect($exception->errors()['alumno_id'][0])->toBe('El alumno ya pertenece a un grupo de esta asignatura.'));
 });
+
+it('stores a period grade using the school decimal mode', function (ModoDecimal $modo, string $esperado) {
+    $curso = cursoDeOctavo();
+    $curso['establecimiento']->update([
+        'decimales_calificacion' => 2,
+        'modo_decimal' => $modo,
+    ]);
+    $organizacion = app(OrganizacionAcademica::class);
+    $alumno = alumnoDelEstablecimiento($curso['establecimiento'], 'Vega');
+    $organizacion->matricular($curso['aulaA'], $alumno);
+
+    $calificacion = $organizacion->registrarCalificacion($alumno, $curso['periodo'], $curso['matematica'], 1, 1, 5.256);
+
+    expect($calificacion->nota)->toBe($esperado);
+})->with([
+    'approximate' => [ModoDecimal::Aproximar, '5.26'],
+    'truncate' => [ModoDecimal::Truncar, '5.25'],
+]);
 
 it('rejects an international baccalaureate grade outside 1 to 7', function () {
     $curso = cursoDeOctavo();

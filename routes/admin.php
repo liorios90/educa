@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Admin\ConfiguracionAsignaturasController;
 use App\Http\Controllers\Admin\ConfiguracionAsistenteController;
+use App\Http\Controllers\Admin\ConfiguracionDecimalesController;
 use App\Http\Controllers\Admin\EquivalenciaController;
 use App\Http\Controllers\Admin\EstablecimientoFiguraProfesionalController;
 use App\Http\Controllers\Admin\EstablecimientoPeriodoConfiguracionGradoController;
@@ -36,6 +37,8 @@ Route::middleware(['auth', 'verified', 'role:Admin'])
         Route::put('periodo', [EstablecimientoPeriodoEvaluacionController::class, 'update'])->name('periodo.update');
         Route::get('asistente', [ConfiguracionAsistenteController::class, 'edit'])->name('asistente');
         Route::put('asistente', [ConfiguracionAsistenteController::class, 'update'])->name('asistente.update');
+        Route::get('decimales', [ConfiguracionDecimalesController::class, 'edit'])->name('decimales');
+        Route::put('decimales', [ConfiguracionDecimalesController::class, 'update'])->name('decimales.update');
         Route::post('periodo/aperturar', [EstablecimientoPeriodoEvaluacionController::class, 'aperturar'])->name('periodo.aperturar');
         Route::get('configuracion-grados', [EstablecimientoPeriodoConfiguracionGradoController::class, 'index'])->name('configuracion-grados.index');
         Route::get('configuracion-grados/crear', [EstablecimientoPeriodoConfiguracionGradoController::class, 'create'])->name('configuracion-grados.create');

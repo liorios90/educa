@@ -36,7 +36,7 @@
                             Ver
                         </button>
                     </div>
-                    <p class="mt-2 text-xs text-slate-500">El valor de Insumos es el cálculo ponderado. Ábrelo para ver las notas agrupadas por tipo. El peso de insumos, examen y proyecto sigue asignatura, luego grado y luego periodo.</p>
+                    <p class="mt-2 text-xs text-slate-500">Insumos (100 %) es el promedio de las notas ingresadas. Pond. es ese valor por el porcentaje de insumos configurado en la asignatura, o en el grado, o en el periodo.</p>
                 </form>
 
                 @if ($aula && $libreta !== null)

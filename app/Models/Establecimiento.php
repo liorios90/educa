@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\ModoDecimal;
 use App\Enums\Role;
 use Database\Factories\EstablecimientoFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -37,6 +38,8 @@ class Establecimiento extends Model
         'mision',
         'vision',
         'ideario',
+        'decimales_calificacion',
+        'modo_decimal',
         'grupo_amie',
         'zona_id',
         'distrito_id',
@@ -57,6 +60,14 @@ class Establecimiento extends Model
         'gemini_api_key',
     ];
 
+    /**
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'decimales_calificacion' => 2,
+        'modo_decimal' => 'aproximar',
+    ];
+
     protected static function newFactory(): EstablecimientoFactory
     {
         return EstablecimientoFactory::new();
@@ -74,6 +85,8 @@ class Establecimiento extends Model
             'gemini_tokens_limite' => 'integer',
             'gemini_preguntas_usadas' => 'integer',
             'gemini_tokens_usados' => 'integer',
+            'decimales_calificacion' => 'integer',
+            'modo_decimal' => ModoDecimal::class,
         ];
     }
 

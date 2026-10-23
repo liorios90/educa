@@ -3,6 +3,7 @@
 use App\Auth\ActiveDocenteContexto;
 use App\Auth\ActiveRole;
 use App\Enums\EsquemaCiclo;
+use App\Enums\ModoDecimal;
 use App\Enums\Role;
 use App\Enums\TipoAsignatura;
 use App\Enums\TipoCalificacion;
@@ -788,6 +789,42 @@ describe('storeActividad', function () {
             'nota' => '8.50',
         ]);
     });
+
+    it('stores a quantitative grade using the school decimal mode', function (ModoDecimal $modo, string $esperado) {
+        $escenario = escenarioCalificarInsumos();
+        $escenario['establecimiento']->update([
+            'decimales_calificacion' => 2,
+            'modo_decimal' => $modo,
+        ]);
+        $insumo = asignarTipoInsumoCalificar($escenario, 'cuantitativa', [
+            ['nombre' => 'Arte', 'porcentaje' => '50.00'],
+        ]);
+        $alumno = alumnoDelEstablecimiento($escenario['establecimiento'], 'Vega');
+        matricularAlumnoCalificar($escenario['aula'], $alumno);
+
+        $this->actingAs($escenario['docente'])
+            ->from(route('Docente.calificar.index'))
+            ->post(route('Docente.calificar.actividades.store'), [
+                'establecimiento_aula_id' => $escenario['aula']->id,
+                'establecimiento_asignatura_id' => $escenario['malla']->id,
+                'establecimiento_periodo_ciclo_id' => $escenario['ciclo']->id,
+                'parcial_numero' => 1,
+                'nombre' => 'Ensayo de arte',
+                'tipo_insumo_detalle_id' => $insumo['detalles'][0]->id,
+                'notas' => [
+                    $alumno->id => '5.256',
+                ],
+            ])
+            ->assertRedirect(route('Docente.calificar.index'));
+
+        $this->assertDatabaseHas('establecimiento_insumo_actividad_calificaciones', [
+            'alumno_id' => $alumno->id,
+            'nota' => $esperado,
+        ]);
+    })->with([
+        'approximate' => [ModoDecimal::Aproximar, '5.26'],
+        'truncate' => [ModoDecimal::Truncar, '5.25'],
+    ]);
 
     it('saves qualitative grades from the configured values', function () {
         $escenario = escenarioCalificarInsumos([

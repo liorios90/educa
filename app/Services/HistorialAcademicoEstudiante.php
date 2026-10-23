@@ -57,6 +57,7 @@ class HistorialAcademicoEstudiante
                 notasInsumo: $notasInsumo->get((int) $alumno->id, []),
                 calificacionesPeriodo: $calificaciones->get((int) $alumno->id, []),
                 asistencias: $asistencias->get((int) $alumno->id, []),
+                establecimiento: $establecimiento,
             ))
             ->values();
     }

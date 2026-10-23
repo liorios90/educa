@@ -151,7 +151,7 @@ it('returns only the links the user may see', function () {
 
     expect($items->pluck('label')->all())->toContain('Matenimiento', 'Estructura Institucional', 'Configuración', 'Matriculas', 'Grupos flotantes')
         ->not->toContain('Grupos de clase', 'Usuarios')
-        ->and(collect($configuracion?->children)->pluck('label')->all())->toBe(['Período', 'Por grados', 'Por Asignaturas', 'Tipos de Insumos', 'Tablas de Equivalencias', 'Asistente'])
+        ->and(collect($configuracion?->children)->pluck('label')->all())->toBe(['Período', 'Por grados', 'Por Asignaturas', 'Tipos de Insumos', 'Tablas de Equivalencias', 'Asistente', 'Decimales'])
         ->and(collect($matriculas?->children)->pluck('label')->all())->toBe(['Formularios', 'Matricular Alumno']);
 });
 

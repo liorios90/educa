@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\ModoDecimal;
 use App\Models\Establecimiento;
 use App\Models\Sys_Circuito;
 use App\Models\Sys_Distrito;
@@ -37,6 +38,16 @@ class EstablecimientoFactory extends Factory
             'zona_id' => $zonaId,
             'distrito_id' => $circuito->distrito_id,
             'circuito_id' => $circuito->id,
+            'decimales_calificacion' => 2,
+            'modo_decimal' => ModoDecimal::Aproximar,
         ];
+    }
+
+    public function truncar(int $decimales = 2): static
+    {
+        return $this->state([
+            'decimales_calificacion' => $decimales,
+            'modo_decimal' => ModoDecimal::Truncar,
+        ]);
     }
 }

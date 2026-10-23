@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Models\Establecimiento;
+
 readonly class HistorialAcademico
 {
     /**
@@ -21,6 +23,7 @@ readonly class HistorialAcademico
         public array $notasInsumo,
         public array $calificacionesPeriodo,
         public array $asistencias,
+        public ?Establecimiento $establecimiento = null,
     ) {}
 
     /**
@@ -123,7 +126,7 @@ readonly class HistorialAcademico
             return $this->notaPeriodoDelContexto();
         }
 
-        return round(array_sum($notas) / count($notas), 2);
+        return $this->decimales()->aplicar(array_sum($notas) / count($notas), $this->establecimiento);
     }
 
     /**
@@ -137,10 +140,15 @@ readonly class HistorialAcademico
         return [
             'estudiante' => $this->estudiante,
             'nota' => $nota,
-            'etiqueta' => $nota === null ? 'Sin nota' : number_format($nota, 2, '.', ''),
+            'etiqueta' => $nota === null ? 'Sin nota' : $this->decimales()->formatear($nota, $this->establecimiento),
             'porcentaje' => $nota === null ? 0.0 : round(min(100, max(0, ($nota / $maxima) * 100)), 2),
             'bajoMinimo' => $nota !== null && $nota < $this->notaMinimaAprobacion,
         ];
+    }
+
+    private function decimales(): DecimalesEstablecimiento
+    {
+        return new DecimalesEstablecimiento;
     }
 
     private function tieneNotasBajoElMinimo(): bool

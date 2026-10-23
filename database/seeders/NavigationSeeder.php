@@ -83,6 +83,7 @@ class NavigationSeeder extends Seeder
         $this->ensureItem('Tipos de Insumos', 'Admin.tipos-insumos.index', 'calendar-days', 4, false, [$admin->id], parentId: $configuracion->id);
         $this->ensureItem('Tablas de Equivalencias', 'Admin.tablas-equivalencias.index', 'table-cells', 5, false, [$admin->id], parentId: $configuracion->id);
         $this->ensureItem('Asistente', 'Admin.asistente', 'sparkles', 6, false, [$admin->id], parentId: $configuracion->id);
+        $this->ensureItem('Decimales', 'Admin.decimales', 'chart-bar', 7, false, [$admin->id], parentId: $configuracion->id);
 
         $this->ensureItem('Reportes', 'reports.index', 'home', 8, true, []);
         $this->ensureItem('Establecimientos', 'sistemas.establecimientos', 'building-library', 8, false, [$sistemas->id]);

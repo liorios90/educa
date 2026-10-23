@@ -2,6 +2,7 @@
 
 use App\Auth\ActiveRole;
 use App\Enums\EsquemaCiclo;
+use App\Enums\ModoDecimal;
 use App\Enums\Role;
 use App\Enums\TipoAsignatura;
 use App\Enums\TipoCalificacion;
@@ -273,6 +274,7 @@ it('shows student notes and the weighted period average of the selected classroo
         ->assertSee('Tarea 1')
         ->assertDontSee('>Tarea 1<', false)
         ->assertSee('8.00')
+        ->assertSee('5.60')
         ->assertSee('10.00')
         ->assertSee('9.00')
         ->assertSee('8.60')
@@ -320,6 +322,7 @@ it('averages insumos of the same type and prefers the subject cycle weights', fu
         ->assertSee('Insumos')
         ->assertSee('50 %')
         ->assertSee('6.90')
+        ->assertSee('3.45')
         ->assertSee('8.45')
         ->assertSee('href="#insumos-'.$escenario['malla']->id.'-'.$escenario['ciclo']->id.'-'.$alumno->id.'"', false)
         ->assertSee('abrir-libreta-insumos', false)
@@ -334,43 +337,51 @@ it('averages insumos of the same type and prefers the subject cycle weights', fu
         ->assertDontSee('9.30');
 });
 
-it('keeps the configured insumo percentage when other types have no notes', function () {
-    $escenario = escenarioLibreta();
+it('shows the configured percentage of the 100 percent insumo value in pond', function () {
+    $escenario = escenarioLibreta([
+        'porcentaje_insumos' => '30.00',
+        'porcentaje_examen' => '70.00',
+    ]);
     $alumno = alumnoDelEstablecimiento($escenario['establecimiento'], 'Espinoza');
     matricularAlumnoLibreta($escenario['aula'], $alumno);
-    ['detalles' => $detalles] = asignarTipoInsumoLibreta($escenario, [
-        ['nombre' => 'Tarea', 'porcentaje' => '30.00'],
-        ['nombre' => 'Lección', 'porcentaje' => '30.00'],
-        ['nombre' => 'Proyecto', 'porcentaje' => '40.00'],
-    ]);
-    actividadLibreta($escenario, $detalles[0], $alumno, 'Tarea 1', '10.00');
-    EstablecimientoInsumoActividad::factory()->create([
-        'establecimiento_aula_id' => $escenario['aula']->id,
-        'establecimiento_asignatura_id' => $escenario['malla']->id,
-        'establecimiento_periodo_ciclo_id' => $escenario['ciclo']->id,
-        'parcial_numero' => 1,
-        'tipo_insumo_detalle_id' => $detalles[1]->id,
-        'empleado_id' => $escenario['empleado']->id,
-        'nombre' => 'Lección vacía',
-    ]);
-    EstablecimientoInsumoActividad::factory()->create([
-        'establecimiento_aula_id' => $escenario['aula']->id,
-        'establecimiento_asignatura_id' => $escenario['malla']->id,
-        'establecimiento_periodo_ciclo_id' => $escenario['ciclo']->id,
-        'parcial_numero' => 1,
-        'tipo_insumo_detalle_id' => $detalles[2]->id,
-        'empleado_id' => $escenario['empleado']->id,
-        'nombre' => 'Proyecto vacío',
-    ]);
+    ['detalle' => $detalle] = asignarTipoInsumoLibreta($escenario);
+    actividadLibreta($escenario, $detalle, $alumno, 'Tarea 1', '10.00');
 
     $this->actingAs($escenario['secretaria'])
         ->withSession(sesionLibreta($escenario))
         ->get(route('secretaria.libreta.index', [
             'establecimiento_aula_id' => $escenario['aula']->id,
         ]))
-        ->assertSee('>3.00</a>', false)
-        ->assertDontSee('>10.00</a>', false);
+        ->assertSee('100 %')
+        ->assertSee('30 %')
+        ->assertSee('Pond.')
+        ->assertSee('>10.00</a>', false)
+        ->assertSee('3.00')
+        ->assertDontSee('>3.00</a>', false);
 });
+
+it('applies the school decimal mode to the pond calculation', function (ModoDecimal $modo, string $esperado) {
+    $escenario = escenarioLibreta();
+    $escenario['establecimiento']->update([
+        'decimales_calificacion' => 2,
+        'modo_decimal' => $modo,
+    ]);
+    $alumno = alumnoDelEstablecimiento($escenario['establecimiento'], 'Vega');
+    matricularAlumnoLibreta($escenario['aula'], $alumno);
+    ['detalle' => $detalle] = asignarTipoInsumoLibreta($escenario);
+    actividadLibreta($escenario, $detalle, $alumno, 'Tarea 1', '7.51');
+
+    $this->actingAs($escenario['secretaria'])
+        ->withSession(sesionLibreta($escenario))
+        ->get(route('secretaria.libreta.index', [
+            'establecimiento_aula_id' => $escenario['aula']->id,
+        ]))
+        ->assertSee('>7.51</a>', false)
+        ->assertSeeText($esperado);
+})->with([
+    'approximate' => [ModoDecimal::Aproximar, '5.26'],
+    'truncate' => [ModoDecimal::Truncar, '5.25'],
+]);
 
 it('does not show a classroom from another school', function () {
     $escenario = escenarioLibreta();

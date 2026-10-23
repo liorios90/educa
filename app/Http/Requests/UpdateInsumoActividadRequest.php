@@ -6,10 +6,12 @@ use App\Auth\DocenteContexto;
 use App\Enums\Role;
 use App\Enums\TipoCalificacion;
 use App\Models\Alumno;
+use App\Models\Establecimiento;
 use App\Models\EstablecimientoAulaDocente;
 use App\Models\EstablecimientoInsumoActividad;
 use App\Models\TipoInsumoDetalle;
 use App\Services\AsignacionesDocente;
+use App\Services\DecimalesEstablecimiento;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
@@ -204,6 +206,8 @@ class UpdateInsumoActividadRequest extends FormRequest
             ?? $asignaciones->tipoCalificacion($contexto);
         $valoresPermitidos = array_column($asignaciones->valoresCualitativos($contexto), 'valor');
         $escala = $contexto->asignatura->escala;
+        $decimales = $this->container->make(DecimalesEstablecimiento::class);
+        $establecimiento = Establecimiento::query()->find($this->user()?->establecimiento_id);
         $normalizadas = [];
 
         foreach ($payload as $alumnoId => $nota) {
@@ -241,7 +245,7 @@ class UpdateInsumoActividadRequest extends FormRequest
                 continue;
             }
 
-            $valor = round((float) $texto, 2);
+            $valor = $decimales->aplicar((float) $texto, $establecimiento);
 
             if (! $escala->contiene($valor)) {
                 $validator->errors()->add('notas.'.$alumnoId, $escala->mensajeRango());
@@ -249,7 +253,7 @@ class UpdateInsumoActividadRequest extends FormRequest
                 continue;
             }
 
-            $normalizadas[(int) $alumnoId] = number_format($valor, 2, '.', '');
+            $normalizadas[(int) $alumnoId] = $decimales->formatear($valor, $establecimiento);
         }
 
         $this->notas = $normalizadas;

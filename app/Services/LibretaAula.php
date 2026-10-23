@@ -7,6 +7,7 @@ use App\Enums\ModoPonderacionCiclos;
 use App\Enums\TipoCalificacion;
 use App\Enums\TipoCierreEvaluacion;
 use App\Models\Alumno;
+use App\Models\Establecimiento;
 use App\Models\EstablecimientoAsignatura;
 use App\Models\EstablecimientoAula;
 use App\Models\EstablecimientoAulaDocente;
@@ -18,7 +19,12 @@ use Illuminate\Support\Collection;
 
 class LibretaAula
 {
-    public function __construct(private AsignacionesDocente $asignaciones) {}
+    private ?Establecimiento $establecimiento = null;
+
+    public function __construct(
+        private AsignacionesDocente $asignaciones,
+        private DecimalesEstablecimiento $decimales,
+    ) {}
 
     /**
      * @return Collection<int, EstablecimientoAula>
@@ -45,7 +51,8 @@ class LibretaAula
      */
     public function paraAula(EstablecimientoAula $aula): array
     {
-        $aula->loadMissing(['periodo.ciclos', 'establecimientoGrado.grado', 'asignaciones.malla.asignatura', 'asignaciones.malla.asignaturaPropia']);
+        $aula->loadMissing(['establecimiento', 'periodo.ciclos', 'establecimientoGrado.grado', 'asignaciones.malla.asignatura', 'asignaciones.malla.asignaturaPropia']);
+        $this->establecimiento = $aula->establecimiento;
         $periodo = $aula->periodo;
         $ciclos = $periodo?->ciclos ?? collect();
 
@@ -118,8 +125,13 @@ class LibretaAula
                 $columnasCiclo[] = [
                     'clave' => 'insumos-'.$ciclo->id,
                     'etiqueta' => 'Insumos',
-                    'ayuda' => $this->porcentaje($pesos['insumos']),
+                    'ayuda' => '100 %',
                     'tipo' => 'insumos',
+                ];
+                $columnasCiclo[] = [
+                    'clave' => 'insumos-pond-'.$ciclo->id,
+                    'etiqueta' => 'Pond.',
+                    'ayuda' => $this->porcentaje($pesos['insumos']),
                 ];
             }
 
@@ -201,13 +213,17 @@ class LibretaAula
                 $pesos = $pesosPorCiclo[$ciclo->id];
                 $delCiclo = $actividades->where('establecimiento_periodo_ciclo_id', $ciclo->id)->values();
 
-                $insumos = $cuantitativa
-                    ? $this->promedioInsumos($delCiclo, (int) $alumno->id)
+                $insumosCien = $cuantitativa
+                    ? $this->promedioInsumosAlCien($delCiclo, (int) $alumno->id)
                     : null;
+                $insumosPond = $this->aplicar(
+                    $insumosCien === null ? null : $insumosCien * ($pesos['insumos'] / 100),
+                );
 
                 if ($pesos['insumos'] > 0.009) {
                     $clave = 'insumos-'.$ciclo->id;
-                    $celdas[$clave] = $this->textoNota($insumos);
+                    $celdas[$clave] = $this->textoNota($insumosCien);
+                    $celdas['insumos-pond-'.$ciclo->id] = $this->textoNota($insumosPond);
                     $detalle = $this->detalleInsumos($delCiclo, (int) $alumno->id);
 
                     if ($detalle !== []) {
@@ -231,7 +247,7 @@ class LibretaAula
                 }
 
                 $promedioCiclo = $cuantitativa
-                    ? $this->promedioCiclo($insumos, $examen, $proyecto, $pesos)
+                    ? $this->promedioCiclo($insumosCien, $examen, $proyecto, $pesos)
                     : null;
                 $celdas['promedio-ciclo-'.$ciclo->id] = $this->textoNota($promedioCiclo);
                 $promediosCiclo[] = [
@@ -396,13 +412,31 @@ class LibretaAula
     /**
      * @param  Collection<int, EstablecimientoInsumoActividad>  $actividades
      */
-    private function promedioInsumos(Collection $actividades, int $alumnoId): ?float
+    private function promedioInsumosAlCien(Collection $actividades, int $alumnoId): ?float
     {
-        $porDetalle = $actividades->groupBy('tipo_insumo_detalle_id');
-        $aportes = [];
+        ['partes' => $partes, 'simples' => $simples] = $this->partesInsumos($actividades, $alumnoId);
+
+        if ($partes !== []) {
+            return $this->ponderar($partes);
+        }
+
+        if ($simples === []) {
+            return null;
+        }
+
+        return $this->aplicar(array_sum($simples) / count($simples));
+    }
+
+    /**
+     * @param  Collection<int, EstablecimientoInsumoActividad>  $actividades
+     * @return array{partes: list<array{valor: float, peso: float}>, simples: list<float>}
+     */
+    private function partesInsumos(Collection $actividades, int $alumnoId): array
+    {
+        $partes = [];
         $simples = [];
 
-        foreach ($porDetalle as $grupo) {
+        foreach ($actividades->groupBy('tipo_insumo_detalle_id') as $grupo) {
             $notas = $grupo
                 ->map(fn (EstablecimientoInsumoActividad $actividad): ?float => $this->notaNumerica($actividad->calificaciones, $alumnoId))
                 ->filter(fn (?float $nota): bool => $nota !== null)
@@ -419,19 +453,11 @@ class LibretaAula
             $peso = (float) ($primera->detalle?->porcentaje ?? 0);
 
             if ($peso > 0.009) {
-                $aportes[] = $promedio * ($peso / 100);
+                $partes[] = ['valor' => $promedio, 'peso' => $peso];
             }
         }
 
-        if ($aportes !== []) {
-            return round(array_sum($aportes), 2);
-        }
-
-        if ($simples === []) {
-            return null;
-        }
-
-        return round(array_sum($simples) / count($simples), 2);
+        return compact('partes', 'simples');
     }
 
     /**
@@ -451,7 +477,7 @@ class LibretaAula
             $suma += $parte['valor'] * $parte['peso'];
         }
 
-        return round($suma / $peso, 2);
+        return $this->aplicar($suma / $peso);
     }
 
     /**
@@ -501,7 +527,7 @@ class LibretaAula
             return null;
         }
 
-        return round((float) $texto, 2);
+        return (float) $texto;
     }
 
     private function textoNota(?float $nota): string
@@ -510,7 +536,16 @@ class LibretaAula
             return '—';
         }
 
-        return number_format($nota, 2, '.', '');
+        return $this->decimales->formatear($nota, $this->establecimiento);
+    }
+
+    private function aplicar(?float $valor): ?float
+    {
+        if ($valor === null) {
+            return null;
+        }
+
+        return $this->decimales->aplicar($valor, $this->establecimiento);
     }
 
     private function etiquetaParcial(int $numero): string

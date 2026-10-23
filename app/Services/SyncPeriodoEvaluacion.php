@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\EsquemaCiclo;
+use App\Enums\ModoPonderacionCiclos;
 use App\Models\EstablecimientoPeriodo;
 use App\Models\EstablecimientoPeriodoAsignaturaCiclo;
 use Illuminate\Support\Facades\DB;
@@ -21,10 +22,12 @@ class SyncPeriodoEvaluacion
         int $parciales,
         string $examenFinal,
         string $proyectoFinal,
+        ModoPonderacionCiclos $modoPonderacion,
+        ?string $porcentajePromedioCiclos,
         array $ciclos,
         ?array $ponderacionesGrado = null,
     ): void {
-        DB::transaction(function () use ($periodo, $esquema, $nombreEsquema, $parciales, $examenFinal, $proyectoFinal, $ciclos, $ponderacionesGrado): void {
+        DB::transaction(function () use ($periodo, $esquema, $nombreEsquema, $parciales, $examenFinal, $proyectoFinal, $modoPonderacion, $porcentajePromedioCiclos, $ciclos, $ponderacionesGrado): void {
             $periodo = EstablecimientoPeriodo::query()
                 ->whereKey($periodo->id)
                 ->lockForUpdate()
@@ -38,6 +41,8 @@ class SyncPeriodoEvaluacion
                 'esquema_ciclo' => $esquema,
                 'nombre_esquema' => $nombreEsquema,
                 'numero_parciales' => $parciales,
+                'modo_ponderacion_ciclos' => $modoPonderacion,
+                'porcentaje_promedio_ciclos' => $porcentajePromedioCiclos,
                 'porcentaje_examen_final' => $examenFinal,
                 'porcentaje_proyecto_final' => $proyectoFinal,
             ]);

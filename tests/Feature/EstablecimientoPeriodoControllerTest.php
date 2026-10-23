@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\ModoPonderacionCiclos;
 use App\Enums\Role;
 use App\Models\Empleado;
 use App\Models\Establecimiento;
@@ -216,6 +217,8 @@ describe('store', function () {
             'activo' => true,
             'nombre_esquema' => 'Quimestres',
             'numero_parciales' => 2,
+            'modo_ponderacion_ciclos' => ModoPonderacionCiclos::Promedio,
+            'porcentaje_promedio_ciclos' => '70.00',
             'porcentaje_examen_final' => '20.00',
             'porcentaje_proyecto_final' => '10.00',
         ]);
@@ -316,6 +319,8 @@ describe('store', function () {
 
         expect($periodoNuevo->nombre_esquema)->toBe('Quimestres')
             ->and($periodoNuevo->numero_parciales)->toBe(2)
+            ->and($periodoNuevo->modo_ponderacion_ciclos)->toBe(ModoPonderacionCiclos::Promedio)
+            ->and($periodoNuevo->porcentaje_promedio_ciclos)->toBe('70.00')
             ->and($periodoNuevo->porcentaje_examen_final)->toBe('20.00')
             ->and($periodoNuevo->porcentaje_proyecto_final)->toBe('10.00')
             ->and($aulaNueva->paralelo)->toBe('B')

@@ -26,6 +26,8 @@ class CopiarConfiguracionPeriodo
             'esquema_ciclo' => $origen->esquema_ciclo,
             'nombre_esquema' => $origen->nombre_esquema,
             'numero_parciales' => $origen->numero_parciales,
+            'modo_ponderacion_ciclos' => $origen->modo_ponderacion_ciclos,
+            'porcentaje_promedio_ciclos' => $origen->porcentaje_promedio_ciclos,
             'porcentaje_examen_final' => $origen->porcentaje_examen_final,
             'porcentaje_proyecto_final' => $origen->porcentaje_proyecto_final,
         ]);

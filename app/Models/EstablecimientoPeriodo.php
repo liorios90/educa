@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\EsquemaCiclo;
+use App\Enums\ModoPonderacionCiclos;
 use Database\Factories\EstablecimientoPeriodoFactory;
 use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
@@ -31,6 +32,8 @@ class EstablecimientoPeriodo extends Model
         'esquema_ciclo',
         'nombre_esquema',
         'numero_parciales',
+        'modo_ponderacion_ciclos',
+        'porcentaje_promedio_ciclos',
         'porcentaje_examen_final',
         'porcentaje_proyecto_final',
         'abierto_en',
@@ -42,6 +45,7 @@ class EstablecimientoPeriodo extends Model
     protected $attributes = [
         'activo' => false,
         'ultima_secuencia_matricula' => 0,
+        'modo_ponderacion_ciclos' => 'individual',
     ];
 
     /**
@@ -57,6 +61,8 @@ class EstablecimientoPeriodo extends Model
             'ultima_secuencia_matricula' => 'integer',
             'esquema_ciclo' => EsquemaCiclo::class,
             'numero_parciales' => 'integer',
+            'modo_ponderacion_ciclos' => ModoPonderacionCiclos::class,
+            'porcentaje_promedio_ciclos' => 'decimal:2',
             'porcentaje_examen_final' => 'decimal:2',
             'porcentaje_proyecto_final' => 'decimal:2',
         ];

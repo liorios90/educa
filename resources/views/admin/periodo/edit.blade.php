@@ -32,8 +32,10 @@
                 <section class="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                     <p class="text-sm text-slate-600">
                         Configura cómo se evalúa este periodo según la legislación: quimestres, trimestres u otro esquema.
-                        Los ciclos más el examen final y/o el proyecto final deben sumar 100%. Por ejemplo, en quimestres:
-                        primer ciclo 30%, segundo ciclo 30%, examen final 20% y proyecto final 20%. En cada ciclo, los insumos
+                        Puedes dar un porcentaje a cada ciclo o usar el promedio de los ciclos. En los dos casos, junto con
+                        el examen final y el proyecto final, el total debe sumar 100%. Por ejemplo, en quimestres:
+                        primer ciclo 30%, segundo ciclo 30%, examen final 20% y proyecto final 20%. Con el promedio,
+                        (primer ciclo + segundo ciclo) / 2 aporta 60%, examen final 20% y proyecto final 20%. En cada ciclo, los insumos
                         más el examen y/o el proyecto también deben sumar 100%. Estas ponderaciones porcentuales aplican solo
                         a los grados, cursos y asignaturas que se califican cuantitativamente. Si la evaluación es cualitativa,
                         se registra con la escala correspondiente y no se configura con porcentajes.
@@ -71,6 +73,8 @@
                         porcentajeExamenFinal: @js((string) $porcentajeExamenFinal),
                         tieneProyectoFinal: @js((bool) $tieneProyectoFinal),
                         porcentajeProyectoFinal: @js((string) $porcentajeProyectoFinal),
+                        modoPonderacion: @js($modoPonderacion),
+                        porcentajePromedioCiclos: @js((string) $porcentajePromedioCiclos),
                         cicloVacio() {
                             return {
                                 nombre: 'Ciclo ' + (this.ciclos.length + 1),
@@ -172,6 +176,40 @@
                         numero(valor) {
                             return Number(valor || 0)
                         },
+                        alCambiarModoPonderacion() {
+                            if (this.modoPonderacion === 'promedio') {
+                                this.porcentajePromedioCiclos = this.sumaCiclos().toFixed(2)
+
+                                return
+                            }
+
+                            this.repartirPromedioEnCiclos()
+                        },
+                        repartirPromedioEnCiclos() {
+                            const cantidad = this.ciclos.length
+
+                            if (cantidad === 0) {
+                                return
+                            }
+
+                            const centavos = Math.round(this.numero(this.porcentajePromedioCiclos) * 100)
+                            const base = Math.floor(centavos / cantidad)
+                            const resto = centavos - (base * cantidad)
+
+                            this.ciclos.forEach((ciclo, indice) => {
+                                const asignado = base + (indice === cantidad - 1 ? resto : 0)
+                                ciclo.porcentaje = (asignado / 100).toFixed(2)
+                            })
+                        },
+                        formulaPromedio() {
+                            const partes = this.ciclos.map((ciclo, indice) => ciclo.nombre || ('Ciclo ' + (indice + 1)))
+
+                            if (partes.length === 0) {
+                                return ''
+                            }
+
+                            return '(' + partes.join(' + ') + ') / ' + partes.length
+                        },
                         sumaCiclos() {
                             return this.ciclos.reduce((total, ciclo) => total + this.numero(ciclo.porcentaje), 0)
                         },
@@ -180,12 +218,30 @@
                                 + this.numero(this.tieneProyectoFinal ? this.porcentajeProyectoFinal : 0)
                         },
                         sumaPeriodo() {
-                            return this.sumaCiclos() + this.sumaCierrePeriodo()
+                            const pesoCiclos = this.modoPonderacion === 'promedio'
+                                ? this.numero(this.porcentajePromedioCiclos)
+                                : this.sumaCiclos()
+
+                            return pesoCiclos + this.sumaCierrePeriodo()
                         },
                         sumaPeriodoOk() {
                             return Math.abs(this.sumaPeriodo() - 100) < 0.01
                         },
                         desglosePeriodo() {
+                            if (this.modoPonderacion === 'promedio') {
+                                const partesPromedio = ['Promedio de los ciclos ' + this.numero(this.porcentajePromedioCiclos).toFixed(2) + '%']
+
+                                if (this.tieneExamenFinal) {
+                                    partesPromedio.push(this.numero(this.porcentajeExamenFinal).toFixed(2) + '% examen')
+                                }
+
+                                if (this.tieneProyectoFinal) {
+                                    partesPromedio.push(this.numero(this.porcentajeProyectoFinal).toFixed(2) + '% proyecto')
+                                }
+
+                                return partesPromedio.join(' + ') + ' = ' + this.sumaPeriodo().toFixed(2) + '%'
+                            }
+
                             const partes = this.ciclos.map((ciclo, indice) => (ciclo.nombre || ('Ciclo ' + (indice + 1))) + ' ' + this.numero(ciclo.porcentaje).toFixed(2) + '%')
 
                             if (this.tieneExamenFinal) {
@@ -214,6 +270,7 @@
                     <input type="hidden" name="esquema_ciclo" :value="esquema" @disabled($periodo->estaAbierto())>
                     <input type="hidden" name="tiene_examen_final" :value="tieneExamenFinal ? 1 : 0" @disabled($periodo->estaAbierto())>
                     <input type="hidden" name="tiene_proyecto_final" :value="tieneProyectoFinal ? 1 : 0" @disabled($periodo->estaAbierto())>
+                    <input type="hidden" name="modo_ponderacion_ciclos" :value="modoPonderacion" @disabled($periodo->estaAbierto())>
 
                     <div>
                         <style>
@@ -427,10 +484,57 @@
                     <section class="estructura-subnivel">
                         <h3 class="text-base font-semibold text-slate-800">Ponderación de los ciclos</h3>
                         <p class="mt-1 text-sm text-slate-500">
-                            Para grados, cursos y asignaturas con calificación cuantitativa, este es el peso de cada ciclo en el periodo.
-                            Junto con el examen final y el proyecto final debe sumar 100%. No aplica a evaluaciones cualitativas.
+                            Para grados, cursos y asignaturas con calificación cuantitativa. No aplica a evaluaciones cualitativas.
                         </p>
-                        <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <div class="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+                            <label class="flex items-start gap-3 rounded-xl border p-4" :class="modoPonderacion === 'individual' ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200'">
+                                <input
+                                    type="radio"
+                                    class="mt-1 border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500"
+                                    value="individual"
+                                    x-model="modoPonderacion"
+                                    @change="alCambiarModoPonderacion()"
+                                >
+                                <span>
+                                    <span class="block text-sm font-medium text-slate-800">Porcentaje de cada ciclo</span>
+                                    <span class="mt-1 block text-sm text-slate-500">Cada ciclo tiene su propio peso. La suma de los ciclos, el examen final y el proyecto final debe ser 100%.</span>
+                                </span>
+                            </label>
+                            <label class="flex items-start gap-3 rounded-xl border p-4" :class="modoPonderacion === 'promedio' ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200'">
+                                <input
+                                    type="radio"
+                                    class="mt-1 border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500"
+                                    value="promedio"
+                                    x-model="modoPonderacion"
+                                    @change="alCambiarModoPonderacion()"
+                                >
+                                <span>
+                                    <span class="block text-sm font-medium text-slate-800">Promedio de los ciclos</span>
+                                    <span class="mt-1 block text-sm text-slate-500">El promedio de los ciclos es un solo porcentaje. Ese porcentaje, más el examen final y el proyecto final, debe sumar 100%.</span>
+                                </span>
+                            </label>
+                        </div>
+                        <div class="mt-4" x-show="modoPonderacion === 'promedio'" x-cloak>
+                            <label class="block text-sm font-medium text-gray-700" for="porcentaje-promedio-ciclos">Porcentaje del promedio de los ciclos</label>
+                            <input
+                                id="porcentaje-promedio-ciclos"
+                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 md:max-w-xs"
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="0.01"
+                                name="porcentaje_promedio_ciclos"
+                                x-model="porcentajePromedioCiclos"
+                                :required="modoPonderacion === 'promedio'"
+                                :disabled="modoPonderacion !== 'promedio'"
+                            >
+                            <p class="mt-2 text-sm text-slate-500">
+                                La nota de los ciclos es <span class="font-medium text-slate-700" x-text="formulaPromedio()"></span>.
+                                Ese resultado aporta este porcentaje al periodo.
+                            </p>
+                            <x-input-error class="mt-2" :messages="$errors->get('porcentaje_promedio_ciclos')" />
+                        </div>
+                        <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2" x-show="modoPonderacion === 'individual'" x-cloak>
                             <template x-for="(ciclo, indice) in ciclos" :key="'peso-' + indice">
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700" :for="'ciclo-porcentaje-' + indice">
@@ -445,7 +549,8 @@
                                         step="0.01"
                                         :name="'ciclos[' + indice + '][porcentaje]'"
                                         x-model="ciclo.porcentaje"
-                                        required
+                                        :required="modoPonderacion === 'individual'"
+                                        :disabled="modoPonderacion !== 'individual'"
                                     >
                                 </div>
                             </template>
@@ -461,7 +566,7 @@
                         <h3 class="text-base font-semibold text-slate-800">Ponderación final</h3>
                         <p class="mt-1 text-sm text-slate-500">
                             Para grados, cursos y asignaturas con calificación cuantitativa, puedes marcar examen, proyecto, ambos o ninguno.
-                            Junto con los ciclos deben sumar 100%. No aplica a evaluaciones cualitativas.
+                            Junto con el peso de los ciclos deben sumar 100%. No aplica a evaluaciones cualitativas.
                         </p>
                         <div class="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
                             <div class="rounded-xl border border-slate-200 p-4">
@@ -520,7 +625,7 @@
                             </div>
                         </div>
                         <p class="mt-4 text-sm" :class="sumaPeriodoOk() ? 'text-slate-600' : 'font-medium text-red-600'">
-                            Suma de los ciclos, el examen final y el proyecto final:
+                            <span x-text="modoPonderacion === 'promedio' ? 'Suma del promedio de los ciclos, el examen final y el proyecto final:' : 'Suma de los ciclos, el examen final y el proyecto final:'">Suma de los ciclos, el examen final y el proyecto final:</span>
                             <span x-text="desglosePeriodo()"></span>
                         </p>
                         <x-input-error class="mt-2" :messages="$errors->get('totales')" />

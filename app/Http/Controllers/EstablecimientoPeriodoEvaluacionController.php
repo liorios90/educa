@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Auth\ActiveOferta;
 use App\Auth\ActivePeriodo;
 use App\Enums\EsquemaCiclo;
+use App\Enums\ModoPonderacionCiclos;
 use App\Http\Requests\AperturarEstablecimientoPeriodoRequest;
 use App\Http\Requests\UpdateEstablecimientoPeriodoEvaluacionRequest;
 use App\Models\Establecimiento;
@@ -58,6 +59,11 @@ class EstablecimientoPeriodoEvaluacionController extends Controller
                 ->all(),
             'nombreEsquema' => $this->nombreEsquema($periodo, $esquema),
             'numeroCiclos' => count($ciclosFormulario),
+            'modoPonderacion' => old(
+                'modo_ponderacion_ciclos',
+                $periodo?->modo_ponderacion_ciclos?->value ?? ModoPonderacionCiclos::Individual->value,
+            ),
+            'porcentajePromedioCiclos' => $this->porcentajePromedioCiclos($periodo, $ciclosFormulario),
             'parcialesSeleccionados' => old('numero_parciales', $periodo?->numero_parciales ?? 2),
             'tieneExamenFinal' => $tieneExamenFinal !== null
                 ? filter_var($tieneExamenFinal, FILTER_VALIDATE_BOOLEAN)
@@ -85,6 +91,8 @@ class EstablecimientoPeriodoEvaluacionController extends Controller
             $request->integer('numero_parciales'),
             $request->porcentajeExamenFinal(),
             $request->porcentajeProyectoFinal(),
+            $request->modoPonderacion(),
+            $request->porcentajePromedioCiclos(),
             $request->ciclos(),
             $request->ponderacionesGrado(),
         );
@@ -131,6 +139,25 @@ class EstablecimientoPeriodoEvaluacionController extends Controller
         }
 
         return $esquema->nombrePorDefecto();
+    }
+
+    /**
+     * @param  list<array{porcentaje?: string}>  $ciclos
+     */
+    private function porcentajePromedioCiclos(?EstablecimientoPeriodo $periodo, array $ciclos): string
+    {
+        $guardado = old('porcentaje_promedio_ciclos', $periodo?->porcentaje_promedio_ciclos);
+
+        if (is_string($guardado) && $guardado !== '') {
+            return $guardado;
+        }
+
+        $suma = array_sum(array_map(
+            fn (array $ciclo): float => (float) ($ciclo['porcentaje'] ?? 0),
+            $ciclos,
+        ));
+
+        return number_format($suma, 2, '.', '');
     }
 
     /**

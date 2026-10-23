@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\EsquemaCiclo;
+use App\Enums\ModoPonderacionCiclos;
 use App\Enums\Role;
 use App\Enums\TipoCalificacion;
 use App\Models\Establecimiento;
@@ -41,6 +42,9 @@ describe('edit', function () {
             ->assertSee('Parciales por ciclo')
             ->assertSee('Primer quimestre')
             ->assertSee('Ponderación de los ciclos')
+            ->assertSee('Porcentaje de cada ciclo')
+            ->assertSee('Promedio de los ciclos')
+            ->assertSee('Porcentaje del promedio de los ciclos')
             ->assertSee('Ponderación final')
             ->assertSee('Suma de los ciclos, el examen final y el proyecto final')
             ->assertSee('Examen final')
@@ -290,6 +294,8 @@ describe('update', function () {
         expect($periodo->esquema_ciclo)->toBe(EsquemaCiclo::Quimestres)
             ->and($periodo->nombre_esquema)->toBe('Quimestres')
             ->and($periodo->numero_parciales)->toBe(2)
+            ->and($periodo->modo_ponderacion_ciclos)->toBe(ModoPonderacionCiclos::Individual)
+            ->and($periodo->porcentaje_promedio_ciclos)->toBeNull()
             ->and($periodo->porcentaje_examen_final)->toBe('0.00')
             ->and($periodo->porcentaje_proyecto_final)->toBe('0.00')
             ->and($periodo->abierto_en)->toBeNull()
@@ -387,6 +393,117 @@ describe('update', function () {
             ->assertSessionHasErrors([
                 'totales' => 'Los ciclos, el examen final y el proyecto final deben sumar 100%.',
             ]);
+    });
+
+    it('saves the average of the cycles as one period percentage', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $oferta = ofertaDe($establecimiento);
+        $periodo = periodoActivoDe($oferta);
+        $payload = evaluacionQuimestral();
+        $payload['modo_ponderacion_ciclos'] = ModoPonderacionCiclos::Promedio->value;
+        $payload['porcentaje_promedio_ciclos'] = '60';
+        $payload['ciclos'][0]['porcentaje'] = '10';
+        $payload['ciclos'][1]['porcentaje'] = '10';
+        $payload['tiene_examen_final'] = '1';
+        $payload['porcentaje_examen_final'] = '20';
+        $payload['tiene_proyecto_final'] = '1';
+        $payload['porcentaje_proyecto_final'] = '20';
+
+        $this->actingAs($admin)
+            ->withSession(activeContextSession($oferta, $periodo))
+            ->put(route('Admin.periodo.update'), $payload)
+            ->assertRedirect(route('Admin.periodo'))
+            ->assertSessionHas('status', 'periodo-evaluacion-updated');
+
+        $periodo->refresh();
+        $ciclos = $periodo->ciclos()->orderBy('orden')->get();
+
+        expect($periodo->modo_ponderacion_ciclos)->toBe(ModoPonderacionCiclos::Promedio)
+            ->and($periodo->porcentaje_promedio_ciclos)->toBe('60.00')
+            ->and($periodo->porcentaje_examen_final)->toBe('20.00')
+            ->and($periodo->porcentaje_proyecto_final)->toBe('20.00')
+            ->and($ciclos[0]->porcentaje)->toBe('30.00')
+            ->and($ciclos[1]->porcentaje)->toBe('30.00');
+    });
+
+    it('splits the average cycle percentage across cycles and gives the remainder to the last one', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $oferta = ofertaDe($establecimiento);
+        $periodo = periodoActivoDe($oferta);
+        $payload = evaluacionQuimestral();
+        $payload['esquema_ciclo'] = EsquemaCiclo::Otro->value;
+        $payload['nombre_esquema'] = 'Bloques';
+        $payload['modo_ponderacion_ciclos'] = ModoPonderacionCiclos::Promedio->value;
+        $payload['porcentaje_promedio_ciclos'] = '70';
+        $payload['tiene_examen_final'] = '1';
+        $payload['porcentaje_examen_final'] = '20';
+        $payload['tiene_proyecto_final'] = '1';
+        $payload['porcentaje_proyecto_final'] = '10';
+        $payload['ciclos'][] = [
+            'nombre' => 'Ciclo 3',
+            'porcentaje' => '5',
+            'porcentaje_insumos' => '100',
+            'tiene_examen' => '0',
+            'porcentaje_examen' => '0',
+            'tiene_proyecto' => '0',
+            'porcentaje_proyecto' => '0',
+        ];
+
+        $this->actingAs($admin)
+            ->withSession(activeContextSession($oferta, $periodo))
+            ->put(route('Admin.periodo.update'), $payload)
+            ->assertRedirect(route('Admin.periodo'));
+
+        $periodo->refresh();
+
+        expect($periodo->modo_ponderacion_ciclos)->toBe(ModoPonderacionCiclos::Promedio)
+            ->and($periodo->porcentaje_promedio_ciclos)->toBe('70.00')
+            ->and($periodo->ciclos()->orderBy('orden')->pluck('porcentaje')->all())->toBe(['23.33', '23.33', '23.34']);
+    });
+
+    it('rejects an average cycle weight that does not add up to 100 percent', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $oferta = ofertaDe($establecimiento);
+        $periodo = periodoActivoDe($oferta);
+        $payload = evaluacionQuimestral();
+        $payload['modo_ponderacion_ciclos'] = ModoPonderacionCiclos::Promedio->value;
+        $payload['porcentaje_promedio_ciclos'] = '70';
+        $payload['tiene_examen_final'] = '1';
+        $payload['porcentaje_examen_final'] = '20';
+        $payload['tiene_proyecto_final'] = '1';
+        $payload['porcentaje_proyecto_final'] = '20';
+
+        $this->actingAs($admin)
+            ->withSession(activeContextSession($oferta, $periodo))
+            ->from(route('Admin.periodo'))
+            ->put(route('Admin.periodo.update'), $payload)
+            ->assertRedirect(route('Admin.periodo'))
+            ->assertSessionHasErrors([
+                'totales' => 'El promedio de los ciclos, el examen final y el proyecto final deben sumar 100%.',
+            ]);
+
+        expect($periodo->fresh()->porcentaje_promedio_ciclos)->toBeNull()
+            ->and($periodo->ciclos()->count())->toBe(0);
+    });
+
+    it('shows the saved average weighting on the period screen', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $oferta = ofertaDe($establecimiento);
+        $periodo = periodoActivoDe($oferta, [
+            'modo_ponderacion_ciclos' => ModoPonderacionCiclos::Promedio,
+            'porcentaje_promedio_ciclos' => '80.00',
+        ]);
+
+        $this->actingAs($admin)
+            ->withSession(activeContextSession($oferta, $periodo))
+            ->get(route('Admin.periodo'))
+            ->assertOk()
+            ->assertSee("modoPonderacion: 'promedio'", false)
+            ->assertSee("porcentajePromedioCiclos: '80.00'", false);
     });
 
     it('saves a period-level final exam and project with the cycles', function () {

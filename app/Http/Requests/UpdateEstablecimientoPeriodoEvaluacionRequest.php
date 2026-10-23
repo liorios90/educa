@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Auth\ActivePeriodo;
 use App\Enums\EsquemaCiclo;
+use App\Enums\ModoPonderacionCiclos;
 use App\Enums\Role;
 use App\Models\EstablecimientoPeriodo;
 use App\Services\GradosConPonderacionCuantitativa;
@@ -41,7 +42,21 @@ class UpdateEstablecimientoPeriodoEvaluacionRequest extends FormRequest
             ];
         }
 
+        $modo = $this->modoEnviado();
+        $porcentajePromedio = $this->input('porcentaje_promedio_ciclos');
+
+        if ($modo === ModoPonderacionCiclos::Promedio && is_numeric($porcentajePromedio)) {
+            $this->merge([
+                'porcentaje_promedio_ciclos' => number_format((float) $porcentajePromedio, 2, '.', ''),
+            ]);
+        }
+
+        if ($modo === ModoPonderacionCiclos::Promedio) {
+            $ciclos = $this->asignarPorcentajePromedio($ciclos);
+        }
+
         $this->merge([
+            'modo_ponderacion_ciclos' => $modo?->value ?? $this->input('modo_ponderacion_ciclos'),
             'nombre_esquema' => trim((string) $this->input('nombre_esquema', '')),
             'tiene_examen_final' => $this->boolean('tiene_examen_final'),
             'tiene_proyecto_final' => $this->boolean('tiene_proyecto_final'),
@@ -64,6 +79,8 @@ class UpdateEstablecimientoPeriodoEvaluacionRequest extends FormRequest
             'esquema_ciclo' => ['required', Rule::enum(EsquemaCiclo::class)],
             'nombre_esquema' => ['required', 'string', 'max:255'],
             'numero_parciales' => ['required', 'integer', 'min:1', 'max:6'],
+            'modo_ponderacion_ciclos' => ['required', Rule::enum(ModoPonderacionCiclos::class)],
+            'porcentaje_promedio_ciclos' => ['exclude_unless:modo_ponderacion_ciclos,promedio', 'required', 'numeric', 'min:0', 'max:100'],
             'tiene_examen_final' => ['required', 'boolean'],
             'tiene_proyecto_final' => ['required', 'boolean'],
             'porcentaje_examen_final' => ['required', 'numeric', 'min:0', 'max:100'],
@@ -126,6 +143,12 @@ class UpdateEstablecimientoPeriodoEvaluacionRequest extends FormRequest
             'numero_parciales.required' => 'Indica cuántos parciales se van a trabajar.',
             'numero_parciales.min' => 'Debe haber al menos un parcial.',
             'numero_parciales.max' => 'No se pueden configurar más de 6 parciales.',
+            'modo_ponderacion_ciclos.required' => 'Indica cómo se ponderan los ciclos del periodo.',
+            'modo_ponderacion_ciclos.enum' => 'Selecciona si cada ciclo tiene su porcentaje o si se usa el promedio de los ciclos.',
+            'porcentaje_promedio_ciclos.required' => 'Indica el porcentaje del promedio de los ciclos.',
+            'porcentaje_promedio_ciclos.numeric' => 'El porcentaje del promedio de los ciclos debe ser numérico.',
+            'porcentaje_promedio_ciclos.min' => 'El porcentaje del promedio de los ciclos no puede ser menor que cero.',
+            'porcentaje_promedio_ciclos.max' => 'El porcentaje del promedio de los ciclos no puede superar 100%.',
             'ciclos.required' => 'Configura los ciclos del periodo.',
             'ciclos.min' => 'Debe haber al menos un ciclo.',
             'ciclos.max' => 'No se pueden configurar más de 6 ciclos.',
@@ -179,15 +202,21 @@ class UpdateEstablecimientoPeriodoEvaluacionRequest extends FormRequest
                     return;
                 }
 
-                $sumaPeriodo = round(array_sum(array_map(
-                    fn (array $ciclo): float => (float) $ciclo['porcentaje'],
-                    $ciclos,
-                )) + (float) $this->input('porcentaje_examen_final') + (float) $this->input('porcentaje_proyecto_final'), 2);
+                $modo = ModoPonderacionCiclos::tryFrom($this->string('modo_ponderacion_ciclos')->toString());
+                $pesoCiclos = $modo === ModoPonderacionCiclos::Promedio
+                    ? (float) $this->input('porcentaje_promedio_ciclos')
+                    : array_sum(array_map(
+                        fn (array $ciclo): float => (float) $ciclo['porcentaje'],
+                        $ciclos,
+                    ));
+                $sumaPeriodo = round($pesoCiclos + (float) $this->input('porcentaje_examen_final') + (float) $this->input('porcentaje_proyecto_final'), 2);
 
                 if (abs($sumaPeriodo - 100.0) > 0.009) {
                     $validator->errors()->add(
                         'totales',
-                        'Los ciclos, el examen final y el proyecto final deben sumar 100%.',
+                        $modo === ModoPonderacionCiclos::Promedio
+                            ? 'El promedio de los ciclos, el examen final y el proyecto final deben sumar 100%.'
+                            : 'Los ciclos, el examen final y el proyecto final deben sumar 100%.',
                     );
                 }
 
@@ -267,6 +296,20 @@ class UpdateEstablecimientoPeriodoEvaluacionRequest extends FormRequest
     public function esquema(): EsquemaCiclo
     {
         return EsquemaCiclo::from($this->string('esquema_ciclo')->toString());
+    }
+
+    public function modoPonderacion(): ModoPonderacionCiclos
+    {
+        return ModoPonderacionCiclos::from($this->string('modo_ponderacion_ciclos')->toString());
+    }
+
+    public function porcentajePromedioCiclos(): ?string
+    {
+        if ($this->modoPonderacion() !== ModoPonderacionCiclos::Promedio) {
+            return null;
+        }
+
+        return number_format((float) $this->validated('porcentaje_promedio_ciclos'), 2, '.', '');
     }
 
     public function porcentajeExamenFinal(): string
@@ -352,6 +395,61 @@ class UpdateEstablecimientoPeriodoEvaluacionRequest extends FormRequest
                 }
             }
         }
+    }
+
+    private function modoEnviado(): ?ModoPonderacionCiclos
+    {
+        $entrada = $this->input('modo_ponderacion_ciclos');
+
+        if ($entrada === null || $entrada === '') {
+            return ModoPonderacionCiclos::Individual;
+        }
+
+        if (! is_string($entrada)) {
+            return null;
+        }
+
+        return ModoPonderacionCiclos::tryFrom($entrada);
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $ciclos
+     * @return list<array<string, mixed>>
+     */
+    private function asignarPorcentajePromedio(array $ciclos): array
+    {
+        $porcentaje = $this->input('porcentaje_promedio_ciclos');
+        $partes = is_numeric($porcentaje)
+            ? $this->repartirPorcentaje((float) $porcentaje, count($ciclos))
+            : array_fill(0, count($ciclos), '0.00');
+
+        foreach ($ciclos as $indice => $ciclo) {
+            $ciclos[$indice]['porcentaje'] = $partes[$indice] ?? '0.00';
+        }
+
+        return $ciclos;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function repartirPorcentaje(float $total, int $cantidad): array
+    {
+        if ($cantidad < 1) {
+            return [];
+        }
+
+        $centavos = (int) round(max(0, min(100, $total)) * 100);
+        $base = intdiv($centavos, $cantidad);
+        $resto = $centavos - ($base * $cantidad);
+        $porcentajes = [];
+
+        for ($indice = 0; $indice < $cantidad; $indice++) {
+            $asignado = $base + ($indice === $cantidad - 1 ? $resto : 0);
+            $porcentajes[] = number_format($asignado / 100, 2, '.', '');
+        }
+
+        return $porcentajes;
     }
 
     private function toBoolean(mixed $value): bool

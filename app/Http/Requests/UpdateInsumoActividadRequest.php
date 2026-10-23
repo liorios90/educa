@@ -46,7 +46,7 @@ class UpdateInsumoActividadRequest extends FormRequest
             'establecimiento_aula_id' => ['required', 'integer'],
             'establecimiento_asignatura_id' => ['required', 'integer'],
             'establecimiento_periodo_ciclo_id' => ['required', 'integer'],
-            'parcial_numero' => ['required', 'integer'],
+            'parcial_numero' => ['required', 'integer', 'min:1'],
             'nombre' => ['required', 'string', 'max:255'],
             'notas' => ['nullable', 'array'],
             'notas.*' => ['nullable', 'string', 'max:50'],
@@ -63,6 +63,7 @@ class UpdateInsumoActividadRequest extends FormRequest
             'establecimiento_asignatura_id.required' => 'Selecciona una materia.',
             'establecimiento_periodo_ciclo_id.required' => 'Selecciona un quimestre o trimestre.',
             'parcial_numero.required' => 'Selecciona un parcial.',
+            'parcial_numero.min' => 'Selecciona un parcial.',
             'nombre.required' => 'Escribe el nombre de la actividad.',
         ];
     }

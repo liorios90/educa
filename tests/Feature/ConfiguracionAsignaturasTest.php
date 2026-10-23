@@ -7,6 +7,7 @@ use App\Models\EstablecimientoAula;
 use App\Models\EstablecimientoAulaAsignaturaCiclo;
 use App\Models\EstablecimientoGrado;
 use App\Models\EstablecimientoPeriodoCiclo;
+use App\Models\EstablecimientoPeriodoConfiguracionGrado;
 use App\Models\Sys_Asignatura;
 use App\Models\Sys_Grado;
 use Database\Seeders\NavigationSeeder;
@@ -209,6 +210,125 @@ it('saves cycle component percentages separately for each quantitative subject i
         ->and($guardados->pluck('porcentaje_proyecto')->all())->toBe(['10.00', '25.00'])
         ->and($guardadosParaleloB->pluck('porcentaje_insumos')->all())->toBe(['50.00', '60.00'])
         ->and($guardadosParaleloB->pluck('porcentaje_proyecto')->all())->toBe(['10.00', '40.00']);
+});
+
+it('lets an administrator set a project percentage when the period cycle has none', function () {
+    $establecimiento = Establecimiento::factory()->create();
+    $admin = adminOf($establecimiento);
+    $oferta = ofertaDe($establecimiento);
+    $periodo = periodoActivoDe($oferta);
+    $grado = Sys_Grado::factory()->create(['nombre' => 'Primero de Bachillerato']);
+    $gradoEstablecimiento = EstablecimientoGrado::factory()->create([
+        'establecimiento_id' => $establecimiento->id,
+        'establecimiento_modalidad_jornada_id' => $oferta->id,
+        'grado_id' => $grado->id,
+    ]);
+    $aula = EstablecimientoAula::factory()->create([
+        'establecimiento_id' => $establecimiento->id,
+        'establecimiento_modalidad_jornada_id' => $oferta->id,
+        'establecimiento_periodo_id' => $periodo->id,
+        'establecimiento_grado_id' => $gradoEstablecimiento->id,
+    ]);
+    $asignatura = EstablecimientoAsignatura::factory()->create([
+        'establecimiento_id' => $establecimiento->id,
+        'establecimiento_modalidad_jornada_id' => $oferta->id,
+        'grado_id' => $grado->id,
+        'asignatura_id' => Sys_Asignatura::factory()->create(['nombre' => 'Matemática'])->id,
+        'tipo_calificacion' => TipoCalificacion::Cuantitativa,
+    ]);
+    EstablecimientoPeriodoCiclo::factory()->create([
+        'establecimiento_periodo_id' => $periodo->id,
+        'orden' => 1,
+        'nombre' => 'Primer quimestre',
+        'porcentaje_insumos' => '70.00',
+        'porcentaje_examen' => '30.00',
+        'porcentaje_proyecto' => '0.00',
+    ]);
+
+    $this->actingAs($admin)
+        ->withSession(activeContextSession($oferta, $periodo))
+        ->get(route('Admin.configuracion-asignaturas.index'))
+        ->assertOk()
+        ->assertDontSee('!ciclo.tiene_proyecto', false)
+        ->assertSee(':disabled="!asignatura.personalizada"', false);
+
+    $this->actingAs($admin)
+        ->withSession(activeContextSession($oferta, $periodo))
+        ->put(route('Admin.configuracion-asignaturas.update', $aula), [
+            'configuraciones' => [
+                $asignatura->id => [
+                    'personalizada' => '1',
+                    'ciclos' => [
+                        1 => ['porcentaje_insumos' => '50', 'porcentaje_examen' => '30', 'porcentaje_proyecto' => '20'],
+                    ],
+                ],
+            ],
+        ])
+        ->assertRedirect(route('Admin.configuracion-asignaturas.index'))
+        ->assertSessionHas('status', 'configuracion-asignaturas-updated');
+
+    $this->assertDatabaseHas('establecimiento_aula_asignatura_ciclos', [
+        'establecimiento_aula_id' => $aula->id,
+        'establecimiento_asignatura_id' => $asignatura->id,
+        'ciclo_orden' => 1,
+        'porcentaje_proyecto' => '20.00',
+    ]);
+});
+
+it('prefills the project percentage from the grade configuration when the period has none', function () {
+    $establecimiento = Establecimiento::factory()->create();
+    $admin = adminOf($establecimiento);
+    $oferta = ofertaDe($establecimiento);
+    $periodo = periodoActivoDe($oferta);
+    $grado = Sys_Grado::factory()->create(['nombre' => 'Primero de Bachillerato']);
+    $gradoEstablecimiento = EstablecimientoGrado::factory()->create([
+        'establecimiento_id' => $establecimiento->id,
+        'establecimiento_modalidad_jornada_id' => $oferta->id,
+        'grado_id' => $grado->id,
+    ]);
+    EstablecimientoAula::factory()->create([
+        'establecimiento_id' => $establecimiento->id,
+        'establecimiento_modalidad_jornada_id' => $oferta->id,
+        'establecimiento_periodo_id' => $periodo->id,
+        'establecimiento_grado_id' => $gradoEstablecimiento->id,
+    ]);
+    EstablecimientoAsignatura::factory()->create([
+        'establecimiento_id' => $establecimiento->id,
+        'establecimiento_modalidad_jornada_id' => $oferta->id,
+        'grado_id' => $grado->id,
+        'asignatura_id' => Sys_Asignatura::factory()->create(['nombre' => 'Matemática'])->id,
+        'tipo_calificacion' => TipoCalificacion::Cuantitativa,
+    ]);
+    EstablecimientoPeriodoCiclo::factory()->create([
+        'establecimiento_periodo_id' => $periodo->id,
+        'orden' => 1,
+        'nombre' => 'Primer quimestre',
+        'porcentaje_insumos' => '70.00',
+        'porcentaje_examen' => '30.00',
+        'porcentaje_proyecto' => '0.00',
+    ]);
+    $configuracion = EstablecimientoPeriodoConfiguracionGrado::query()->create([
+        'establecimiento_periodo_id' => $periodo->id,
+        'nombre' => 'Bachillerato',
+        'porcentaje_examen_final' => '0.00',
+        'porcentaje_proyecto_final' => '0.00',
+    ]);
+    $configuracion->grados()->sync([
+        $grado->id => ['establecimiento_periodo_id' => $periodo->id],
+    ]);
+    $configuracion->ciclos()->create([
+        'ciclo_orden' => 1,
+        'porcentaje_periodo' => '50.00',
+        'porcentaje_insumos' => '50.00',
+        'porcentaje_examen' => '25.00',
+        'porcentaje_proyecto' => '25.00',
+    ]);
+
+    $this->actingAs($admin)
+        ->withSession(activeContextSession($oferta, $periodo))
+        ->get(route('Admin.configuracion-asignaturas.index'))
+        ->assertOk()
+        ->assertSee('\u0022porcentaje_proyecto\u0022:\u002225.00\u0022', false);
 });
 
 it('rejects a subject cycle whose components do not add up to one hundred percent', function () {

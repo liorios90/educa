@@ -3,6 +3,8 @@
     'seleccion',
     'storeRoute',
     'destino' => 'crear',
+    'requiereParcial' => true,
+    'requiereCiclo' => true,
 ])
 
 <div
@@ -39,14 +41,16 @@
         get insumos() {
             return this.materia?.insumos ?? [];
         },
+        requiereParcial: @js((bool) $requiereParcial),
+        requiereCiclo: @js((bool) $requiereCiclo),
         get seleccionCompleta() {
-            return Boolean(this.aulaId && this.asignaturaId && this.cicloId && this.parcialId);
+            return Boolean(this.aulaId && this.asignaturaId && (! this.requiereCiclo || this.cicloId) && (! this.requiereParcial || this.parcialId));
         },
         get coincideConGuardado() {
             return String(this.aulaId) === String(this.guardado.aula)
                 && String(this.asignaturaId) === String(this.guardado.asignatura)
-                && String(this.cicloId) === String(this.guardado.ciclo)
-                && String(this.parcialId) === String(this.guardado.parcial)
+                && (! this.requiereCiclo || String(this.cicloId) === String(this.guardado.ciclo))
+                && (! this.requiereParcial || String(this.parcialId) === String(this.guardado.parcial))
                 && this.seleccionCompleta;
         },
         aplicarSiCompleto() {
@@ -105,7 +109,7 @@
                 <x-input-error class="mt-1" :messages="$errors->get('establecimiento_asignatura_id')" />
             </div>
 
-            <div class="w-40 shrink-0">
+            <div class="w-40 shrink-0" @if (! $requiereCiclo) hidden @endif>
                 <label for="establecimiento_periodo_ciclo_id" class="block text-xs font-medium text-slate-700" x-text="cicloLabel + ':'">Ciclos:</label>
                 <select
                     id="establecimiento_periodo_ciclo_id"
@@ -114,7 +118,7 @@
                     @change="aplicarSiCompleto()"
                     class="mt-0.5 block w-full rounded-md border-slate-300 bg-slate-100 py-1.5 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                     :disabled="!aulaId"
-                    required
+                    @if ($requiereCiclo) required @endif
                 >
                     <option value="">Ciclo</option>
                     <template x-for="ciclo in ciclos" :key="ciclo.id">
@@ -124,7 +128,7 @@
                 <x-input-error class="mt-1" :messages="$errors->get('establecimiento_periodo_ciclo_id')" />
             </div>
 
-            <div class="w-36 shrink-0">
+            <div class="w-36 shrink-0" @if (! $requiereParcial) hidden @endif>
                 <label for="parcial_numero" class="block text-xs font-medium text-slate-700">Parciales:</label>
                 <select
                     id="parcial_numero"
@@ -133,7 +137,7 @@
                     @change="aplicarSiCompleto()"
                     class="mt-0.5 block w-full rounded-md border-slate-300 bg-slate-100 py-1.5 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                     :disabled="!aulaId"
-                    required
+                    @if ($requiereParcial) required @endif
                 >
                     <option value="">Parcial</option>
                     <template x-for="parcial in parciales" :key="parcial.numero">

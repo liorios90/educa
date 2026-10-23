@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\CalificarCierresController;
 use App\Http\Controllers\CalificarInsumosController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DiagnosticoEstudianteController;
@@ -30,6 +31,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/calificar/editar', [CalificarInsumosController::class, 'editar'])->name('calificar.editar');
             Route::post('/calificar/actividades', [CalificarInsumosController::class, 'storeActividad'])->name('calificar.actividades.store');
             Route::put('/calificar/actividades/{actividad}', [CalificarInsumosController::class, 'updateActividad'])->name('calificar.actividades.update');
+            foreach (['examenes', 'proyectos', 'examenes-finales', 'proyectos-finales'] as $tipoCierre) {
+                Route::prefix($tipoCierre)
+                    ->name($tipoCierre.'.')
+                    ->group(function () use ($tipoCierre): void {
+                        Route::get('/', [CalificarCierresController::class, 'index'])->defaults('tipo', $tipoCierre)->name('index');
+                        Route::post('/', [CalificarCierresController::class, 'store'])->defaults('tipo', $tipoCierre)->name('store');
+                        Route::post('/actividades', [CalificarCierresController::class, 'storeActividad'])->defaults('tipo', $tipoCierre)->name('actividades.store');
+                    });
+            }
             Route::get('/asistente', [SecretariaController::class, 'asistente'])->name('asistente');
             Route::post('/asistente', [SecretariaController::class, 'store'])->name('asistente.store');
             Route::get('/diagnostico', [DiagnosticoEstudianteController::class, 'index'])->name('diagnostico.index');

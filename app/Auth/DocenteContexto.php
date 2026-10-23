@@ -17,11 +17,16 @@ class DocenteContexto
 
     public function etiqueta(): string
     {
-        return trim(implode(' · ', [
+        $partes = [
             $this->aula->etiqueta(),
             $this->asignatura->nombre(),
             $this->ciclo->nombre,
-            'Parcial '.$this->parcialNumero,
-        ]));
+        ];
+
+        if ($this->parcialNumero > 0) {
+            $partes[] = 'Parcial '.$this->parcialNumero;
+        }
+
+        return trim(implode(' · ', $partes));
     }
 }

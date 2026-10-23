@@ -45,6 +45,11 @@ class NavigationSeeder extends Seeder
         $this->ensureItem('Nuevo Insumo', 'Docente.calificar.index', 'book-open', 1, false, [$docente->id], parentId: $insumos->id);
         $this->ensureItem('Editar Insumo', 'Docente.calificar.editar', 'folder', 2, false, [$docente->id], parentId: $insumos->id);
 
+        $this->ensureItem('Exámenes', 'Docente.examenes.index', 'clipboard-document-list', 4, false, [$docente->id]);
+        $this->ensureItem('Proyectos', 'Docente.proyectos.index', 'academic-cap', 5, false, [$docente->id]);
+        $this->ensureItem('Examen final', 'Docente.examenes-finales.index', 'check-badge', 6, false, [$docente->id]);
+        $this->ensureItem('Proyecto final', 'Docente.proyectos-finales.index', 'flag', 7, false, [$docente->id]);
+
         $this->ensureItem('Menú', 'sistemas.navigation-items.index', 'cog', 4, false, [$sistemas->id]);
 
         $catalogos = $this->ensureItem('Catálogos', 'navigation.hub', 'cog', 5, false, [$sistemas->id], isGroup: true);
@@ -61,8 +66,10 @@ class NavigationSeeder extends Seeder
         $this->ensureItem('Asistente', 'secretaria.asistente', 'wrench-screwdriver', 5, false, [$secretaria->id]);
         $this->ensureItem('Diseñar reportes', 'sistemas.reports.index', 'cog', 6, false, [$sistemas->id]);
         $this->ensureItem('Consultas IA', 'sistemas.asistente-consultas.index', 'clipboard-document-list', 7, false, [$sistemas->id]);
-        $this->ensureItem('Asistente', 'Docente.asistente', 'globe-alt', 6, false, [$docente->id]);
-        $this->ensureItem('Diagnóstico', 'Docente.diagnostico.index', 'chart-bar', 7, false, [$docente->id]);
+        $this->ensureItem('Asistente', 'Docente.asistente', 'globe-alt', 8, false, [$docente->id]);
+        $this->ensureItem('Diagnóstico', 'Docente.diagnostico.index', 'chart-bar', 9, false, [$docente->id]);
+        NavigationItem::query()->where('route_name', 'Docente.asistente')->whereNull('parent_id')->where('sort_order', 6)->update(['sort_order' => 8]);
+        NavigationItem::query()->where('route_name', 'Docente.diagnostico.index')->whereNull('parent_id')->where('sort_order', 7)->update(['sort_order' => 9]);
 
         $estructura = $this->ensureItem('Estructura', 'navigation.hub', 'home', 7, false, [$sistemas->id], isGroup: true);
         $this->ensureItem('Nivel - Subnivel - Grado', 'sistemas.estructura', 'home', 1, false, [$sistemas->id], parentId: $estructura->id);

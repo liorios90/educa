@@ -11,7 +11,10 @@ use App\Models\EstablecimientoAsignatura;
 use App\Models\EstablecimientoAula;
 use App\Models\EstablecimientoAulaAsignaturaCiclo;
 use App\Models\EstablecimientoGrado;
+use App\Models\EstablecimientoPeriodo;
 use App\Models\EstablecimientoPeriodoCiclo;
+use App\Models\EstablecimientoPeriodoConfiguracionGrado;
+use App\Models\EstablecimientoPeriodoConfiguracionGradoCiclo;
 use App\Services\GradosConPonderacionCuantitativa;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -77,10 +80,13 @@ class ConfiguracionAsignaturasController extends Controller
                 ->groupBy('establecimiento_aula_id')
                 ->map(fn ($configuraciones): Collection => $configuraciones->groupBy('establecimiento_asignatura_id'));
 
+        $ciclosPorGradoCatalogo = $this->ciclosPorGradoCatalogo($periodo);
+
         $aulas = $periodo === null
             ? collect()
-            : $grados->flatMap(function (EstablecimientoGrado $grado) use ($aulasPorGrado, $ciclosPeriodo, $gradosCuantitativos, $configuracionesPorAula, $periodo): array {
+            : $grados->flatMap(function (EstablecimientoGrado $grado) use ($aulasPorGrado, $ciclosPeriodo, $gradosCuantitativos, $configuracionesPorAula, $ciclosPorGradoCatalogo, $periodo): array {
                 $aulasDelGrado = $aulasPorGrado->get($grado->id, collect());
+                $ciclosGrado = $ciclosPorGradoCatalogo->get((int) $grado->grado_id, collect());
 
                 if ($aulasDelGrado->isEmpty()) {
                     return [[
@@ -93,12 +99,13 @@ class ConfiguracionAsignaturasController extends Controller
                             $gradosCuantitativos->get($grado->grado_id)['asignaturas'] ?? collect(),
                             $ciclosPeriodo,
                             collect(),
+                            $ciclosGrado,
                         ),
                     ]];
                 }
 
                 return $aulasDelGrado
-                    ->map(function (EstablecimientoAula $aula) use ($grado, $ciclosPeriodo, $gradosCuantitativos, $configuracionesPorAula, $periodo): array {
+                    ->map(function (EstablecimientoAula $aula) use ($grado, $ciclosPeriodo, $gradosCuantitativos, $configuracionesPorAula, $ciclosGrado, $periodo): array {
                         return [
                             'etiqueta' => $aula->etiqueta(),
                             'grado_id' => (int) $grado->grado_id,
@@ -109,6 +116,7 @@ class ConfiguracionAsignaturasController extends Controller
                                 $gradosCuantitativos->get($grado->grado_id)['asignaturas'] ?? collect(),
                                 $ciclosPeriodo,
                                 $configuracionesPorAula->get($aula->id, collect()),
+                                $ciclosGrado,
                             ),
                         ];
                     })
@@ -205,29 +213,64 @@ class ConfiguracionAsignaturasController extends Controller
     }
 
     /**
+     * @return Collection<int, Collection<int, EstablecimientoPeriodoConfiguracionGradoCiclo>>
+     */
+    private function ciclosPorGradoCatalogo(?EstablecimientoPeriodo $periodo): Collection
+    {
+        if ($periodo === null) {
+            return collect();
+        }
+
+        $ciclosPorGrado = collect();
+
+        $configuraciones = EstablecimientoPeriodoConfiguracionGrado::query()
+            ->with(['grados', 'ciclos'])
+            ->where('establecimiento_periodo_id', $periodo->id)
+            ->get();
+
+        foreach ($configuraciones as $configuracion) {
+            $ciclos = $configuracion->ciclos->keyBy('ciclo_orden');
+
+            foreach ($configuracion->grados as $grado) {
+                $ciclosPorGrado->put((int) $grado->id, $ciclos);
+            }
+        }
+
+        return $ciclosPorGrado;
+    }
+
+    /**
      * @param  Collection<int, EstablecimientoAsignatura>  $asignaturas
      * @param  Collection<int, EstablecimientoPeriodoCiclo>  $ciclos
      * @param  Collection<int, Collection<int, EstablecimientoAulaAsignaturaCiclo>>  $configuraciones
-     * @return list<array{id: int, nombre: string, personalizada: bool, ciclos: list<array{orden: int, nombre: string, porcentaje_insumos: string, porcentaje_examen: string, porcentaje_proyecto: string, tiene_examen: bool, tiene_proyecto: bool}>}>
+     * @param  Collection<int, EstablecimientoPeriodoConfiguracionGradoCiclo>  $ciclosGrado
+     * @return list<array{id: int, nombre: string, personalizada: bool, ciclos: list<array{orden: int, nombre: string, porcentaje_insumos: string, porcentaje_examen: string, porcentaje_proyecto: string}>}>
      */
-    private function asignaturasParaAula(Collection $asignaturas, Collection $ciclos, Collection $configuraciones): array
-    {
-        return $asignaturas->map(function (EstablecimientoAsignatura $asignatura) use ($ciclos, $configuraciones): array {
+    private function asignaturasParaAula(
+        Collection $asignaturas,
+        Collection $ciclos,
+        Collection $configuraciones,
+        Collection $ciclosGrado,
+    ): array {
+        return $asignaturas->map(function (EstablecimientoAsignatura $asignatura) use ($ciclos, $configuraciones, $ciclosGrado): array {
             $guardados = $configuraciones->get($asignatura->id, collect())->keyBy('ciclo_orden');
 
             return [
                 'id' => (int) $asignatura->id,
                 'nombre' => $asignatura->asignaturaPropia?->nombre ?? $asignatura->asignatura?->nombre ?? 'Asignatura',
                 'personalizada' => $guardados->isNotEmpty(),
-                'ciclos' => $ciclos->map(fn (EstablecimientoPeriodoCiclo $ciclo): array => [
-                    'orden' => (int) $ciclo->orden,
-                    'nombre' => $ciclo->nombre,
-                    'porcentaje_insumos' => (string) ($guardados->get($ciclo->orden)?->porcentaje_insumos ?? $ciclo->porcentaje_insumos),
-                    'porcentaje_examen' => (string) ($guardados->get($ciclo->orden)?->porcentaje_examen ?? $ciclo->porcentaje_examen),
-                    'porcentaje_proyecto' => (string) ($guardados->get($ciclo->orden)?->porcentaje_proyecto ?? $ciclo->porcentaje_proyecto),
-                    'tiene_examen' => (float) $ciclo->porcentaje_examen > 0.009,
-                    'tiene_proyecto' => (float) $ciclo->porcentaje_proyecto > 0.009,
-                ])->all(),
+                'ciclos' => $ciclos->map(function (EstablecimientoPeriodoCiclo $ciclo) use ($guardados, $ciclosGrado): array {
+                    $guardado = $guardados->get($ciclo->orden);
+                    $porGrado = $ciclosGrado->get($ciclo->orden);
+
+                    return [
+                        'orden' => (int) $ciclo->orden,
+                        'nombre' => $ciclo->nombre,
+                        'porcentaje_insumos' => (string) ($guardado?->porcentaje_insumos ?? $porGrado?->porcentaje_insumos ?? $ciclo->porcentaje_insumos),
+                        'porcentaje_examen' => (string) ($guardado?->porcentaje_examen ?? $porGrado?->porcentaje_examen ?? $ciclo->porcentaje_examen),
+                        'porcentaje_proyecto' => (string) ($guardado?->porcentaje_proyecto ?? $porGrado?->porcentaje_proyecto ?? $ciclo->porcentaje_proyecto),
+                    ];
+                })->all(),
             ];
         })->values()->all();
     }

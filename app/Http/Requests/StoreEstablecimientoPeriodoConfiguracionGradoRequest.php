@@ -7,7 +7,6 @@ use App\Models\EstablecimientoPeriodoConfiguracionGrado;
 use App\Services\GradosConPonderacionCuantitativa;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
@@ -93,11 +92,15 @@ class StoreEstablecimientoPeriodoConfiguracionGradoRequest extends FormRequest
             }
 
             $configuracionActual = $this->route('configuracionGrado');
-            $gradosExistentes = DB::table('establecimiento_periodo_configuracion_grado_grados')
-                ->join('establecimiento_periodo_configuraciones_grado', 'establecimiento_periodo_configuraciones_grado.id', '=', 'establecimiento_periodo_configuracion_grado_grados.configuracion_grado_id')
-                ->where('establecimiento_periodo_configuraciones_grado.establecimiento_periodo_id', $periodo->id)
-                ->when($configuracionActual instanceof EstablecimientoPeriodoConfiguracionGrado, fn ($query) => $query->where('establecimiento_periodo_configuracion_grado_grados.configuracion_grado_id', '!=', $configuracionActual->id))
-                ->pluck('grado_id')->map(fn ($id): string => (string) $id)->all();
+            $gradosExistentes = array_map(
+                'strval',
+                EstablecimientoPeriodoConfiguracionGrado::gradoIdsOcupados(
+                    (int) $periodo->id,
+                    $configuracionActual instanceof EstablecimientoPeriodoConfiguracionGrado
+                        ? (int) $configuracionActual->id
+                        : null,
+                ),
+            );
 
             if (array_intersect(array_map('strval', $this->input('grados', [])), $gradosExistentes) !== []) {
                 $validator->errors()->add('grados', 'Un grado seleccionado ya pertenece a otra configuración.');

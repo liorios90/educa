@@ -5,13 +5,18 @@ namespace App\Services;
 use App\Auth\DocenteContexto;
 use App\Enums\EsquemaCiclo;
 use App\Enums\TipoCalificacion;
+use App\Enums\TipoCierreEvaluacion;
 use App\Models\Alumno;
 use App\Models\EstablecimientoAlumnoAsignatura;
+use App\Models\EstablecimientoAulaAsignaturaCiclo;
 use App\Models\EstablecimientoAulaDocente;
+use App\Models\EstablecimientoCierreActividad;
 use App\Models\EstablecimientoGrupoAlumno;
 use App\Models\EstablecimientoInsumoActividad;
 use App\Models\EstablecimientoMatricula;
 use App\Models\EstablecimientoPeriodoCiclo;
+use App\Models\EstablecimientoPeriodoConfiguracionGrado;
+use App\Models\EstablecimientoPeriodoConfiguracionGradoCiclo;
 use App\Models\TipoInsumo;
 use App\Models\TipoInsumoDetalle;
 use App\Models\User;
@@ -148,11 +153,127 @@ class AsignacionesDocente
 
         $numeroParciales = (int) ($asignacion->aula->periodo?->numero_parciales ?? 0);
 
-        if ($parcialNumero < 1 || $parcialNumero > $numeroParciales) {
+        if ($parcialNumero !== 0 && ($parcialNumero < 1 || $parcialNumero > $numeroParciales)) {
             return null;
         }
 
         return new DocenteContexto($asignacion->aula, $asignacion->malla, $ciclo, $parcialNumero);
+    }
+
+    public function contextoCierre(
+        User $user,
+        int $aulaId,
+        int $asignaturaId,
+        TipoCierreEvaluacion $tipo,
+        ?int $cicloId,
+    ): ?DocenteContexto {
+        if ($tipo->esFinal()) {
+            $asignacion = $this->forUser($user)->first(
+                fn (EstablecimientoAulaDocente $asignacion): bool => (int) $asignacion->establecimiento_aula_id === $aulaId
+                    && (int) $asignacion->establecimiento_asignatura_id === $asignaturaId,
+            );
+
+            $cicloId = $asignacion?->aula?->periodo?->ciclos->first()?->id;
+        }
+
+        if (! is_numeric($cicloId) || (int) $cicloId < 1) {
+            return null;
+        }
+
+        return $this->contexto($user, $aulaId, $asignaturaId, (int) $cicloId, 0);
+    }
+
+    public function cierreDelContexto(DocenteContexto $contexto, TipoCierreEvaluacion $tipo): ?EstablecimientoCierreActividad
+    {
+        return EstablecimientoCierreActividad::query()
+            ->with('calificaciones')
+            ->where('establecimiento_aula_id', $contexto->aula->id)
+            ->where('establecimiento_asignatura_id', $contexto->asignatura->id)
+            ->where('tipo', $tipo)
+            ->when(
+                ! $tipo->esFinal(),
+                fn ($query) => $query->where('establecimiento_periodo_ciclo_id', $contexto->ciclo->id),
+            )
+            ->first();
+    }
+
+    public function cicloTieneCierre(DocenteContexto $contexto, TipoCierreEvaluacion $tipo): bool
+    {
+        return $this->pesoCierre($contexto, $tipo) > 0.009;
+    }
+
+    public function pesoCierre(DocenteContexto $contexto, TipoCierreEvaluacion $tipo): float
+    {
+        if ($tipo->esFinal()) {
+            return $this->pesoCierreFinal($contexto, $tipo);
+        }
+
+        $campo = $tipo === TipoCierreEvaluacion::Examen ? 'porcentaje_examen' : 'porcentaje_proyecto';
+
+        $porAsignatura = EstablecimientoAulaAsignaturaCiclo::query()
+            ->where('establecimiento_periodo_id', $contexto->aula->establecimiento_periodo_id)
+            ->where('establecimiento_aula_id', $contexto->aula->id)
+            ->where('establecimiento_asignatura_id', $contexto->asignatura->id)
+            ->where('ciclo_orden', $contexto->ciclo->orden)
+            ->first();
+
+        if ($porAsignatura !== null) {
+            return (float) $porAsignatura->{$campo};
+        }
+
+        $porGrado = $this->cierrePorGrado($contexto);
+
+        if ($porGrado !== null) {
+            return (float) $porGrado->{$campo};
+        }
+
+        return (float) $contexto->ciclo->{$campo};
+    }
+
+    private function pesoCierreFinal(DocenteContexto $contexto, TipoCierreEvaluacion $tipo): float
+    {
+        $campo = $tipo === TipoCierreEvaluacion::ExamenFinal
+            ? 'porcentaje_examen_final'
+            : 'porcentaje_proyecto_final';
+
+        $porGrado = $this->configuracionGrado($contexto);
+
+        if ($porGrado !== null) {
+            return (float) $porGrado->{$campo};
+        }
+
+        $contexto->aula->loadMissing('periodo');
+
+        return (float) ($contexto->aula->periodo?->{$campo} ?? 0);
+    }
+
+    private function configuracionGrado(DocenteContexto $contexto): ?EstablecimientoPeriodoConfiguracionGrado
+    {
+        $contexto->aula->loadMissing('establecimientoGrado');
+        $gradoId = $contexto->aula->establecimientoGrado?->grado_id;
+
+        if ($gradoId === null) {
+            return null;
+        }
+
+        return EstablecimientoPeriodoConfiguracionGrado::query()
+            ->where('establecimiento_periodo_id', $contexto->aula->establecimiento_periodo_id)
+            ->whereHas('grados', fn ($grados) => $grados->whereKey($gradoId))
+            ->first();
+    }
+
+    private function cierrePorGrado(DocenteContexto $contexto): ?EstablecimientoPeriodoConfiguracionGradoCiclo
+    {
+        $configuracion = $this->configuracionGrado($contexto);
+
+        if ($configuracion === null) {
+            return null;
+        }
+
+        return EstablecimientoPeriodoConfiguracionGradoCiclo::query()
+            ->where('configuracion_grado_id', $configuracion->id)
+            ->where('ciclo_orden', $contexto->ciclo->orden)
+            ->first();
     }
 
     public function detalleAsignado(int $aulaId, int $asignaturaId, int $detalleId): ?TipoInsumoDetalle

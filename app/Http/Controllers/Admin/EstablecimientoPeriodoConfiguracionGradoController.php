@@ -8,6 +8,7 @@ use App\Http\Requests\StoreEstablecimientoPeriodoConfiguracionGradoRequest;
 use App\Models\EstablecimientoPeriodo;
 use App\Models\EstablecimientoPeriodoConfiguracionGrado;
 use App\Services\GradosConPonderacionCuantitativa;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
@@ -45,18 +46,24 @@ class EstablecimientoPeriodoConfiguracionGradoController extends Controller
         $periodo = $this->periodoActivo();
         $datos = $request->validated();
 
-        $configuracion = DB::transaction(function () use ($datos, $periodo): EstablecimientoPeriodoConfiguracionGrado {
-            $configuracion = EstablecimientoPeriodoConfiguracionGrado::query()->create([
-                'establecimiento_periodo_id' => $periodo->id,
-                'nombre' => $datos['nombre'],
-                'porcentaje_examen_final' => $datos['porcentaje_examen_final'],
-                'porcentaje_proyecto_final' => $datos['porcentaje_proyecto_final'],
-            ]);
-            $configuracion->grados()->sync($this->datosPivoteGrados($datos['grados'], $periodo));
-            $this->guardarPonderaciones($configuracion, $datos);
+        try {
+            $configuracion = DB::transaction(function () use ($datos, $periodo): EstablecimientoPeriodoConfiguracionGrado {
+                $configuracion = EstablecimientoPeriodoConfiguracionGrado::query()->create([
+                    'establecimiento_periodo_id' => $periodo->id,
+                    'nombre' => $datos['nombre'],
+                    'porcentaje_examen_final' => $datos['porcentaje_examen_final'],
+                    'porcentaje_proyecto_final' => $datos['porcentaje_proyecto_final'],
+                ]);
+                $configuracion->grados()->sync($this->datosPivoteGrados($datos['grados'], $periodo));
+                $this->guardarPonderaciones($configuracion, $datos);
 
-            return $configuracion;
-        });
+                return $configuracion;
+            });
+        } catch (UniqueConstraintViolationException) {
+            return back()->withInput()->withErrors([
+                'grados' => 'Un grado seleccionado ya pertenece a otra configuración.',
+            ]);
+        }
 
         return redirect()->route('Admin.configuracion-grados.edit', $configuracion)
             ->with('status', 'configuracion-grados-created');
@@ -81,16 +88,22 @@ class EstablecimientoPeriodoConfiguracionGradoController extends Controller
         abort_unless((int) $configuracionGrado->establecimiento_periodo_id === (int) $periodo->id, 404);
         $datos = $request->validated();
 
-        DB::transaction(function () use ($configuracionGrado, $datos): void {
-            $configuracionGrado->update([
-                'nombre' => $datos['nombre'],
-                'porcentaje_examen_final' => $datos['porcentaje_examen_final'],
-                'porcentaje_proyecto_final' => $datos['porcentaje_proyecto_final'],
+        try {
+            DB::transaction(function () use ($configuracionGrado, $datos): void {
+                $configuracionGrado->update([
+                    'nombre' => $datos['nombre'],
+                    'porcentaje_examen_final' => $datos['porcentaje_examen_final'],
+                    'porcentaje_proyecto_final' => $datos['porcentaje_proyecto_final'],
+                ]);
+                $configuracionGrado->grados()->sync($this->datosPivoteGrados($datos['grados'], $this->periodoActivo()));
+                $configuracionGrado->ciclos()->delete();
+                $this->guardarPonderaciones($configuracionGrado, $datos);
+            });
+        } catch (UniqueConstraintViolationException) {
+            return back()->withInput()->withErrors([
+                'grados' => 'Un grado seleccionado ya pertenece a otra configuración.',
             ]);
-            $configuracionGrado->grados()->sync($this->datosPivoteGrados($datos['grados'], $this->periodoActivo()));
-            $configuracionGrado->ciclos()->delete();
-            $this->guardarPonderaciones($configuracionGrado, $datos);
-        });
+        }
 
         return redirect()->route('Admin.configuracion-grados.edit', $configuracionGrado)
             ->with('status', 'configuracion-grados-updated');
@@ -114,15 +127,9 @@ class EstablecimientoPeriodoConfiguracionGradoController extends Controller
         $gradosDisponibles = $this->gradosCuantitativos->paraOferta($periodo?->establecimiento_modalidad_jornada_id);
 
         if ($periodo instanceof EstablecimientoPeriodo) {
-            $gradosEnOtrasConfiguraciones = DB::table('establecimiento_periodo_configuracion_grado_grados')
-                ->join('establecimiento_periodo_configuraciones_grado', 'establecimiento_periodo_configuraciones_grado.id', '=', 'establecimiento_periodo_configuracion_grado_grados.configuracion_grado_id')
-                ->where('establecimiento_periodo_configuraciones_grado.establecimiento_periodo_id', $periodo->id)
-                ->when($configuracion !== null, fn ($query) => $query->where('establecimiento_periodo_configuracion_grado_grados.configuracion_grado_id', '!=', $configuracion->id))
-                ->pluck('grado_id')
-                ->map(fn ($id): int => (int) $id)
-                ->all();
-
-            $gradosDisponibles = $gradosDisponibles->except($gradosEnOtrasConfiguraciones);
+            $gradosDisponibles = $gradosDisponibles->except(
+                EstablecimientoPeriodoConfiguracionGrado::gradoIdsOcupados($periodo->id, $configuracion?->id),
+            );
         }
         $gradosConfigurados = $configuracion?->grados->modelKeys() ?? [];
         $seleccionados = old('grados', array_map('strval', $gradosConfigurados));

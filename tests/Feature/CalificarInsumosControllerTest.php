@@ -422,6 +422,21 @@ describe('store', function () {
             ->assertNotFound();
     });
 
+    it('redirects back when the partial is zero', function () {
+        $escenario = escenarioCalificarInsumos();
+
+        $this->actingAs($escenario['docente'])
+            ->from(route('Docente.calificar.index'))
+            ->post(route('Docente.calificar.store'), [
+                'establecimiento_aula_id' => $escenario['aula']->id,
+                'establecimiento_asignatura_id' => $escenario['malla']->id,
+                'establecimiento_periodo_ciclo_id' => $escenario['ciclo']->id,
+                'parcial_numero' => 0,
+            ])
+            ->assertRedirect(route('Docente.calificar.index'))
+            ->assertSessionHasErrors(['parcial_numero' => 'Selecciona un parcial.']);
+    });
+
     it('shows the activity name and configured supply types after the selection', function () {
         $escenario = escenarioCalificarInsumos();
         $tipoInsumo = tipoInsumoDe($escenario['periodo'], ['nombre' => 'Evaluación de aula']);

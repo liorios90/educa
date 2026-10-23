@@ -29,7 +29,7 @@ class SelectDocenteContextoRequest extends FormRequest
             'establecimiento_aula_id' => ['required', 'integer'],
             'establecimiento_asignatura_id' => ['required', 'integer'],
             'establecimiento_periodo_ciclo_id' => ['required', 'integer'],
-            'parcial_numero' => ['required', 'integer'],
+            'parcial_numero' => ['required', 'integer', 'min:1'],
             'destino' => ['nullable', 'in:crear,editar,diagnostico'],
         ];
     }
@@ -44,6 +44,7 @@ class SelectDocenteContextoRequest extends FormRequest
             'establecimiento_asignatura_id.required' => 'Selecciona una materia.',
             'establecimiento_periodo_ciclo_id.required' => 'Selecciona un quimestre o trimestre.',
             'parcial_numero.required' => 'Selecciona un parcial.',
+            'parcial_numero.min' => 'Selecciona un parcial.',
         ];
     }
 

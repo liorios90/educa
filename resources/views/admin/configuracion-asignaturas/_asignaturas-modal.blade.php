@@ -76,14 +76,8 @@
                                                 :id="'examen-' + asignatura.id + '-' + ciclo.orden"
                                                 :name="'configuraciones[' + asignatura.id + '][ciclos][' + ciclo.orden + '][porcentaje_examen]'"
                                                 x-model="ciclo.porcentaje_examen"
-                                                :disabled="!asignatura.personalizada || !ciclo.tiene_examen"
+                                                :disabled="!asignatura.personalizada"
                                                 required
-                                            >
-                                            <input
-                                                type="hidden"
-                                                :name="'configuraciones[' + asignatura.id + '][ciclos][' + ciclo.orden + '][porcentaje_examen]'"
-                                                value="0"
-                                                :disabled="!asignatura.personalizada || ciclo.tiene_examen"
                                             >
                                         </div>
                                         <div>
@@ -94,18 +88,12 @@
                                                 :id="'proyecto-' + asignatura.id + '-' + ciclo.orden"
                                                 :name="'configuraciones[' + asignatura.id + '][ciclos][' + ciclo.orden + '][porcentaje_proyecto]'"
                                                 x-model="ciclo.porcentaje_proyecto"
-                                                :disabled="!asignatura.personalizada || !ciclo.tiene_proyecto"
+                                                :disabled="!asignatura.personalizada"
                                                 required
-                                            >
-                                            <input
-                                                type="hidden"
-                                                :name="'configuraciones[' + asignatura.id + '][ciclos][' + ciclo.orden + '][porcentaje_proyecto]'"
-                                                value="0"
-                                                :disabled="!asignatura.personalizada || ciclo.tiene_proyecto"
                                             >
                                         </div>
                                     </div>
-                                    <p class="mt-2 text-xs text-slate-500">Los componentes habilitados deben sumar 100%.</p>
+                                    <p class="mt-2 text-xs text-slate-500">Insumos, examen y proyecto deben sumar 100%.</p>
                                 </div>
                             </template>
                             <p class="text-sm text-amber-700" x-show="asignatura.ciclos.length === 0">

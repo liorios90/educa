@@ -2,6 +2,7 @@
     <x-slot name="header">
         <div>
             <h2 class="text-xl font-semibold leading-tight text-slate-800">Calificar {{ $tipo->labelPlural() }}</h2>
+            <a class="mt-2 inline-flex text-sm font-medium text-indigo-700 hover:text-indigo-900" href="{{ route('Docente.mejora-calificaciones.index') }}">Mejoras de calificaciones</a>
         </div>
     </x-slot>
 

@@ -6,6 +6,7 @@ use Database\Factories\EstablecimientoCierreActividadCalificacionFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class EstablecimientoCierreActividadCalificacion extends Model
 {
@@ -42,5 +43,11 @@ class EstablecimientoCierreActividadCalificacion extends Model
     public function alumno(): BelongsTo
     {
         return $this->belongsTo(Alumno::class);
+    }
+
+    /** @return HasOne<EstablecimientoMejoraCalificacion, $this> */
+    public function mejora(): HasOne
+    {
+        return $this->hasOne(EstablecimientoMejoraCalificacion::class, 'establecimiento_cierre_actividad_calificacion_id');
     }
 }

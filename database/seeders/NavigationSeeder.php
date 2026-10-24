@@ -49,6 +49,7 @@ class NavigationSeeder extends Seeder
         $this->ensureItem('Proyectos', 'Docente.proyectos.index', 'academic-cap', 5, false, [$docente->id]);
         $this->ensureItem('Examen final', 'Docente.examenes-finales.index', 'check-badge', 6, false, [$docente->id]);
         $this->ensureItem('Proyecto final', 'Docente.proyectos-finales.index', 'flag', 7, false, [$docente->id]);
+        $this->ensureItem('Mejoras de calificaciones', 'Docente.mejora-calificaciones.index', 'arrow-trending-up', 8, false, [$docente->id]);
 
         $this->ensureItem('Menú', 'sistemas.navigation-items.index', 'cog', 4, false, [$sistemas->id]);
 

@@ -14,6 +14,7 @@ use App\Models\EstablecimientoAula;
 use App\Models\EstablecimientoAulaAsignaturaCiclo;
 use App\Models\EstablecimientoAulaDocente;
 use App\Models\EstablecimientoCierreActividad;
+use App\Models\EstablecimientoCierreActividadCalificacion;
 use App\Models\EstablecimientoGrado;
 use App\Models\EstablecimientoMatricula;
 use App\Models\EstablecimientoPeriodoCiclo;
@@ -21,6 +22,7 @@ use App\Models\EstablecimientoPeriodoConfiguracionGrado;
 use App\Models\Persona;
 use App\Models\Sys_Asignatura;
 use App\Models\User;
+use App\Services\LibretaAula;
 use Database\Seeders\NavigationSeeder;
 
 /**
@@ -648,5 +650,180 @@ describe('cierres finales', function () {
             ->get(route('Docente.examenes-finales.index'))
             ->assertSee('Nombre del Examen final')
             ->assertDontSee('Esta aula no tiene Examen final configurado.');
+    });
+});
+
+describe('mejoras de calificaciones', function () {
+    it('records a direct improvement under the 2026 rules and uses it in the gradebook', function () {
+        $escenario = escenarioCalificarCierres();
+        $escenario['establecimiento']->update(['regimen' => 'Sierra']);
+        $escenario['periodo']->update([
+            'fecha_inicio' => '2026-09-01',
+            'fecha_fin' => '2027-06-30',
+        ]);
+        $alumno = alumnoDelEstablecimiento($escenario['establecimiento'], 'Vega');
+        matricularAlumnoCierre($escenario['aula'], $alumno);
+        $actividad = EstablecimientoCierreActividad::factory()->create([
+            'establecimiento_aula_id' => $escenario['aula']->id,
+            'establecimiento_asignatura_id' => $escenario['malla']->id,
+            'establecimiento_periodo_ciclo_id' => $escenario['ciclo']->id,
+            'tipo' => TipoCierreEvaluacion::Examen,
+        ]);
+        $calificacion = EstablecimientoCierreActividadCalificacion::factory()->create([
+            'establecimiento_cierre_actividad_id' => $actividad->id,
+            'alumno_id' => $alumno->id,
+            'nota' => '8.00',
+            'updated_at' => now()->subDay(),
+        ]);
+        guardarContextoCierre($escenario);
+
+        $this->actingAs($escenario['docente'])
+            ->get(route('Docente.mejora-calificaciones.index'))
+            ->assertOk()
+            ->assertSee('Mejoras de calificaciones')
+            ->assertSee('8.00')
+            ->assertSee('Mejora directa');
+
+        $this->actingAs($escenario['docente'])
+            ->post(route('Docente.mejora-calificaciones.store'), [
+                'calificacion_id' => $calificacion->id,
+                'nota_adicional' => '10.00',
+                'fecha_notificacion' => today()->toDateString(),
+                'fecha_solicitud' => today()->toDateString(),
+                'fecha_evaluacion' => today()->toDateString(),
+                'referencia_solicitud' => 'SOL-2026-001',
+            ])
+            ->assertRedirect(route('Docente.mejora-calificaciones.index'))
+            ->assertSessionHas('status', 'mejora-calificacion-registrada');
+
+        $this->assertDatabaseHas('establecimiento_mejoras_calificacion', [
+            'establecimiento_cierre_actividad_calificacion_id' => $calificacion->id,
+            'tipo_mejora' => 'directa',
+            'nota_inicial' => '8.00',
+            'nota_adicional' => '10.00',
+            'nota_final' => '9.00',
+            'normativa_aplicada' => '2026',
+        ]);
+
+        $libreta = app(LibretaAula::class)->paraAula($escenario['aula']);
+        expect($libreta['materias'][0]['filas'][0]['celdas']['examen-'.$escenario['ciclo']->id])->toBe('9.00');
+    });
+
+    it('averages the initial, reinforcement, and additional grades under the 2024 rules', function () {
+        $escenario = escenarioCalificarCierres();
+        $escenario['establecimiento']->update(['regimen' => 'Costa']);
+        $escenario['periodo']->update([
+            'fecha_inicio' => '2026-05-01',
+            'fecha_fin' => '2027-02-25',
+        ]);
+        $alumno = alumnoDelEstablecimiento($escenario['establecimiento'], 'Mora');
+        matricularAlumnoCierre($escenario['aula'], $alumno);
+        $actividad = EstablecimientoCierreActividad::factory()->create([
+            'establecimiento_aula_id' => $escenario['aula']->id,
+            'establecimiento_asignatura_id' => $escenario['malla']->id,
+            'establecimiento_periodo_ciclo_id' => $escenario['ciclo']->id,
+            'tipo' => TipoCierreEvaluacion::Examen,
+        ]);
+        $calificacion = EstablecimientoCierreActividadCalificacion::factory()->create([
+            'establecimiento_cierre_actividad_id' => $actividad->id,
+            'alumno_id' => $alumno->id,
+            'nota' => '6.00',
+            'updated_at' => now()->subDay(),
+        ]);
+        guardarContextoCierre($escenario);
+
+        $this->actingAs($escenario['docente'])
+            ->post(route('Docente.mejora-calificaciones.store'), [
+                'calificacion_id' => $calificacion->id,
+                'nota_refuerzo' => '8.00',
+                'nota_adicional' => '10.00',
+                'fecha_notificacion' => today()->toDateString(),
+                'fecha_solicitud' => today()->toDateString(),
+                'fecha_evaluacion' => today()->toDateString(),
+                'referencia_solicitud' => 'SOL-2026-002',
+            ])
+            ->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('establecimiento_mejoras_calificacion', [
+            'establecimiento_cierre_actividad_calificacion_id' => $calificacion->id,
+            'tipo_mejora' => 'refuerzo',
+            'nota_final' => '8.00',
+            'normativa_aplicada' => '2024',
+        ]);
+    });
+
+    it('rejects a grade of exactly seven because it is outside the regulatory ranges', function () {
+        $escenario = escenarioCalificarCierres();
+        $alumno = alumnoDelEstablecimiento($escenario['establecimiento'], 'Paz');
+        matricularAlumnoCierre($escenario['aula'], $alumno);
+        $actividad = EstablecimientoCierreActividad::factory()->create([
+            'establecimiento_aula_id' => $escenario['aula']->id,
+            'establecimiento_asignatura_id' => $escenario['malla']->id,
+            'establecimiento_periodo_ciclo_id' => $escenario['ciclo']->id,
+            'tipo' => TipoCierreEvaluacion::Examen,
+        ]);
+        $calificacion = EstablecimientoCierreActividadCalificacion::factory()->create([
+            'establecimiento_cierre_actividad_id' => $actividad->id,
+            'alumno_id' => $alumno->id,
+            'nota' => '7.00',
+        ]);
+        guardarContextoCierre($escenario);
+
+        $this->actingAs($escenario['docente'])
+            ->post(route('Docente.mejora-calificaciones.store'), [
+                'calificacion_id' => $calificacion->id,
+                'nota_adicional' => '10.00',
+                'fecha_notificacion' => today()->toDateString(),
+                'fecha_solicitud' => today()->toDateString(),
+                'fecha_evaluacion' => today()->toDateString(),
+                'referencia_solicitud' => 'SOL-2026-003',
+            ])
+            ->assertSessionHasErrors('calificacion_id');
+
+        $this->assertDatabaseCount('establecimiento_mejoras_calificacion', 0);
+    });
+
+    it('enforces the 2024 request and reinforcement deadlines', function () {
+        $escenario = escenarioCalificarCierres();
+        $escenario['establecimiento']->update(['regimen' => 'Costa']);
+        $escenario['periodo']->update([
+            'fecha_inicio' => '2026-05-01',
+            'fecha_fin' => '2027-02-25',
+        ]);
+        $alumno = alumnoDelEstablecimiento($escenario['establecimiento'], 'Luna');
+        matricularAlumnoCierre($escenario['aula'], $alumno);
+        $actividad = EstablecimientoCierreActividad::factory()->create([
+            'establecimiento_aula_id' => $escenario['aula']->id,
+            'establecimiento_asignatura_id' => $escenario['malla']->id,
+            'establecimiento_periodo_ciclo_id' => $escenario['ciclo']->id,
+            'tipo' => TipoCierreEvaluacion::Examen,
+        ]);
+        $calificacion = EstablecimientoCierreActividadCalificacion::factory()->create([
+            'establecimiento_cierre_actividad_id' => $actividad->id,
+            'alumno_id' => $alumno->id,
+            'nota' => '6.00',
+        ]);
+        guardarContextoCierre($escenario);
+        $solicitud = [
+            'calificacion_id' => $calificacion->id,
+            'nota_refuerzo' => '8.00',
+            'nota_adicional' => '10.00',
+            'fecha_notificacion' => today()->subDays(10)->toDateString(),
+            'fecha_solicitud' => today()->toDateString(),
+            'fecha_evaluacion' => today()->toDateString(),
+            'referencia_solicitud' => 'SOL-2026-004',
+        ];
+
+        $this->actingAs($escenario['docente'])
+            ->post(route('Docente.mejora-calificaciones.store'), $solicitud)
+            ->assertSessionHasErrors('fecha_solicitud');
+
+        $solicitud['fecha_solicitud'] = today()->subDays(9)->toDateString();
+
+        $this->actingAs($escenario['docente'])
+            ->post(route('Docente.mejora-calificaciones.store'), $solicitud)
+            ->assertSessionHasErrors('fecha_evaluacion');
+
+        $this->assertDatabaseCount('establecimiento_mejoras_calificacion', 0);
     });
 });

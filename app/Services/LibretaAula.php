@@ -65,7 +65,7 @@ class LibretaAula
             ->groupBy('establecimiento_asignatura_id');
 
         $cierres = EstablecimientoCierreActividad::query()
-            ->with('calificaciones')
+            ->with('calificaciones.mejora')
             ->where('establecimiento_aula_id', $aula->id)
             ->get()
             ->groupBy('establecimiento_asignatura_id');
@@ -516,7 +516,7 @@ class LibretaAula
             return '—';
         }
 
-        return (string) $calificacion->nota;
+        return (string) ($calificacion->mejora?->nota_final ?? $calificacion->nota);
     }
 
     private function notaNumerica(Collection $calificaciones, int $alumnoId): ?float

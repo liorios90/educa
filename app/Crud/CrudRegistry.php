@@ -54,8 +54,9 @@ class CrudRegistry
             $relatedModel = $field['related_model'] ?? null;
             $relation = $field['relation'] ?? null;
             $optionLabel = $field['option_label'] ?? 'nombre';
+            $options = $this->options($slug, $field);
 
-            if ($type === 'select') {
+            if ($type === 'select' && $options === []) {
                 if (! is_string($relatedModel) || ! is_a($relatedModel, Model::class, true)) {
                     throw new InvalidArgumentException("Invalid CRUD related_model for {$slug}.{$field['name']}.");
                 }
@@ -75,7 +76,14 @@ class CrudRegistry
                 relatedModel: is_string($relatedModel) ? $relatedModel : null,
                 optionLabel: is_string($optionLabel) ? $optionLabel : 'nombre',
                 relation: is_string($relation) ? $relation : null,
+                options: $options,
             );
+        }
+
+        $messages = $config['messages'] ?? [];
+
+        if (! is_array($messages)) {
+            throw new InvalidArgumentException("Invalid CRUD messages for {$slug}.");
         }
 
         return new CrudDefinition(
@@ -85,6 +93,38 @@ class CrudRegistry
             singular: $config['singular'],
             orderBy: $config['order_by'] ?? 'id',
             fields: $fields,
+            messages: $messages,
+            newLabel: is_string($config['new_label'] ?? null) ? $config['new_label'] : null,
         );
+    }
+
+    /**
+     * @param  array<string, mixed>  $field
+     * @return list<array{id: string, label: string}>
+     */
+    private function options(string $slug, array $field): array
+    {
+        if (! array_key_exists('options', $field)) {
+            return [];
+        }
+
+        if (! is_array($field['options'])) {
+            throw new InvalidArgumentException("Invalid CRUD options for {$slug}.{$field['name']}.");
+        }
+
+        $options = [];
+
+        foreach ($field['options'] as $option) {
+            if (! is_array($option) || ! isset($option['id'], $option['label']) || ! is_scalar($option['id']) || ! is_string($option['label'])) {
+                throw new InvalidArgumentException("Invalid CRUD options for {$slug}.{$field['name']}.");
+            }
+
+            $options[] = [
+                'id' => (string) $option['id'],
+                'label' => $option['label'],
+            ];
+        }
+
+        return $options;
     }
 }

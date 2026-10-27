@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\UsoEquivalencia;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -12,11 +13,23 @@ class Equivalencia extends Model
 
     public $timestamps = false;
 
-    protected $fillable = ['establecimiento_periodo_id', 'nombre', 'descripcion', 'activo'];
+    protected $attributes = [
+        'uso' => 'asignatura',
+    ];
+
+    protected $fillable = ['establecimiento_periodo_id', 'nombre', 'descripcion', 'uso', 'activo'];
 
     protected function casts(): array
     {
-        return ['activo' => 'boolean'];
+        return [
+            'uso' => UsoEquivalencia::class,
+            'activo' => 'boolean',
+        ];
+    }
+
+    public function esComportamiento(): bool
+    {
+        return $this->uso === UsoEquivalencia::Comportamiento;
     }
 
     /**

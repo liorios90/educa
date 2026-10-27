@@ -18,4 +18,19 @@ enum EstadoAsistencia: string
             self::Justificada => 'Falta justificada',
         };
     }
+
+    public function etiquetaRegistro(): string
+    {
+        return match ($this) {
+            self::Presente => 'Presente',
+            self::Falta => 'Falta injustificada',
+            self::Atraso => 'Atraso',
+            self::Justificada => 'Falta justificada',
+        };
+    }
+
+    public function exigeJustificacion(): bool
+    {
+        return $this === self::Justificada;
+    }
 }

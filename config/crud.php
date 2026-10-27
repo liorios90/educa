@@ -1,6 +1,8 @@
 <?php
 
+use App\Enums\TipoCriterioComportamiento;
 use App\Models\Sys_Circuito;
+use App\Models\Sys_CriterioComportamiento;
 use App\Models\Sys_Distrito;
 use App\Models\Sys_Funcion;
 use App\Models\Sys_Jornada;
@@ -316,6 +318,67 @@ return [
                 [
                     'name' => 'activo',
                     'label' => 'Activo',
+                    'type' => 'boolean',
+                    'list' => true,
+                    'rules' => ['required', 'boolean'],
+                ],
+            ],
+        ],
+        'criterios-comportamiento' => [
+            'model' => Sys_CriterioComportamiento::class,
+            'title' => 'Criterios de comportamiento',
+            'singular' => 'criterio de comportamiento',
+            'new_label' => 'Nuevo criterio',
+            'order_by' => 'codigo',
+            'messages' => [
+                'codigo.required' => 'Escribe el código del criterio.',
+                'codigo.unique' => 'Ese código ya existe en el catálogo.',
+                'descripcion.required' => 'Escribe la descripción del criterio.',
+                'tipo.required' => 'Selecciona el tipo de habilidad.',
+                'tipo.in' => 'Selecciona un tipo de habilidad: cognitiva, social o emocional.',
+                'activo.required' => 'Indica si el criterio está activo.',
+                'obligatorio.required' => 'Indica si el criterio es obligatorio.',
+            ],
+            'fields' => [
+                [
+                    'name' => 'codigo',
+                    'label' => 'Código',
+                    'type' => 'text',
+                    'list' => true,
+                    'unique' => true,
+                    'rules' => ['required', 'string', 'max:20'],
+                ],
+                [
+                    'name' => 'descripcion',
+                    'label' => 'Descripción',
+                    'type' => 'textarea',
+                    'list' => true,
+                    'rules' => ['required', 'string', 'max:500'],
+                ],
+                [
+                    'name' => 'tipo',
+                    'label' => 'Tipo de habilidad',
+                    'type' => 'select',
+                    'list' => true,
+                    'options' => array_map(
+                        fn (TipoCriterioComportamiento $tipo): array => [
+                            'id' => $tipo->value,
+                            'label' => $tipo->label(),
+                        ],
+                        TipoCriterioComportamiento::cases(),
+                    ),
+                    'rules' => ['required', 'string', 'in:cognitiva,social,emocional'],
+                ],
+                [
+                    'name' => 'activo',
+                    'label' => 'Activo',
+                    'type' => 'boolean',
+                    'list' => true,
+                    'rules' => ['required', 'boolean'],
+                ],
+                [
+                    'name' => 'obligatorio',
+                    'label' => 'Obligatorio',
                     'type' => 'boolean',
                     'list' => true,
                     'rules' => ['required', 'boolean'],

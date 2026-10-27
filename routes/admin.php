@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\ConfiguracionAsignaturasController;
 use App\Http\Controllers\Admin\ConfiguracionAsistenteController;
 use App\Http\Controllers\Admin\ConfiguracionDecimalesController;
+use App\Http\Controllers\Admin\CriterioComportamientoController;
 use App\Http\Controllers\Admin\EquivalenciaController;
 use App\Http\Controllers\Admin\EstablecimientoFiguraProfesionalController;
 use App\Http\Controllers\Admin\EstablecimientoPeriodoConfiguracionGradoController;
@@ -60,9 +61,12 @@ Route::middleware(['auth', 'verified', 'role:Admin'])
         Route::post('tipos-insumos/{tipoInsumo}/detalles', [TipoInsumoController::class, 'storeDetalle'])->name('tipos-insumos.detalles.store')->whereNumber('tipoInsumo');
         Route::patch('tipos-insumos/{tipoInsumo}/detalles/{detalle}', [TipoInsumoController::class, 'updateDetalle'])->name('tipos-insumos.detalles.update')->scopeBindings()->whereNumber('tipoInsumo')->whereNumber('detalle');
         Route::delete('tipos-insumos/{tipoInsumo}/detalles/{detalle}', [TipoInsumoController::class, 'destroyDetalle'])->name('tipos-insumos.detalles.destroy')->scopeBindings()->whereNumber('tipoInsumo')->whereNumber('detalle');
+        Route::get('criterios-comportamiento', [CriterioComportamientoController::class, 'edit'])->name('criterios-comportamiento.edit');
+        Route::put('criterios-comportamiento', [CriterioComportamientoController::class, 'update'])->name('criterios-comportamiento.update');
         Route::get('tablas-equivalencias', [EquivalenciaController::class, 'index'])->name('tablas-equivalencias.index');
         Route::get('tablas-equivalencias/crear', [EquivalenciaController::class, 'create'])->name('tablas-equivalencias.create');
         Route::post('tablas-equivalencias', [EquivalenciaController::class, 'store'])->name('tablas-equivalencias.store');
+        Route::post('tablas-equivalencias/comportamiento', [EquivalenciaController::class, 'storeComportamiento'])->name('tablas-equivalencias.comportamiento.store');
         Route::get('tablas-equivalencias/{equivalencia}/editar', [EquivalenciaController::class, 'edit'])->name('tablas-equivalencias.edit')->whereNumber('equivalencia');
         Route::patch('tablas-equivalencias/{equivalencia}', [EquivalenciaController::class, 'update'])->name('tablas-equivalencias.update')->whereNumber('equivalencia');
         Route::delete('tablas-equivalencias/{equivalencia}', [EquivalenciaController::class, 'destroy'])->name('tablas-equivalencias.destroy')->whereNumber('equivalencia');

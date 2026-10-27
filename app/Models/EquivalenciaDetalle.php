@@ -11,11 +11,16 @@ class EquivalenciaDetalle extends Model
 
     public $timestamps = false;
 
-    protected $fillable = ['nombre', 'descripcion', 'valor', 'minimo', 'maximo', 'activo'];
+    protected $fillable = ['equivalencia_id', 'nombre', 'descripcion', 'valor', 'minimo', 'maximo', 'activo', 'exige_observacion'];
 
     protected function casts(): array
     {
-        return ['activo' => 'boolean', 'minimo' => 'decimal:2', 'maximo' => 'decimal:2'];
+        return [
+            'activo' => 'boolean',
+            'exige_observacion' => 'boolean',
+            'minimo' => 'decimal:2',
+            'maximo' => 'decimal:2',
+        ];
     }
 
     /** @return BelongsTo<Equivalencia, $this> */

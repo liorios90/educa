@@ -24,6 +24,7 @@ class DatabaseSeeder extends Seeder
             EstructuraEducativaSeeder::class,
             CurriculoEducativoSeeder::class,
             ModalidadJornadaSeeder::class,
+            CriterioComportamientoSeeder::class,
         ]);
 
         User::factory()->create([

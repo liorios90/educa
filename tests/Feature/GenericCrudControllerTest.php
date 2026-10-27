@@ -1,8 +1,10 @@
 <?php
 
 use App\Enums\Role;
+use App\Models\Establecimiento;
 use App\Models\NavigationItem;
 use App\Models\Sys_Circuito;
+use App\Models\Sys_CriterioComportamiento;
 use App\Models\Sys_Distrito;
 use App\Models\Sys_Funcion;
 use App\Models\Sys_Jornada;
@@ -470,5 +472,128 @@ it('seeds geographic catalogs under catalogos and omits establecimientos', funct
         ->assertSee(route('sistemas.crud.circuitos.index'), false)
         ->assertSee(route('sistemas.crud.funciones.index'), false)
         ->assertSee(route('sistemas.crud.tipos-contratos.index'), false)
-        ->assertDontSee('Establecimientos');
+        ->assertSee('Criterios de comportamiento')
+        ->assertSee(route('sistemas.crud.criterios-comportamiento.index'), false)
+        ->assertDontSee('tracking-tight text-slate-900">Establecimientos', false);
+});
+
+describe('criterios de comportamiento', function () {
+    it('lists the official skills with their type', function () {
+        $user = assignRole(User::factory()->create(), Role::Sistemas);
+
+        $this->actingAs($user)
+            ->get(route('sistemas.crud.criterios-comportamiento.index'))
+            ->assertOk()
+            ->assertSee('COG-01')
+            ->assertSee('Autoconocimiento')
+            ->assertSee('Cognitiva')
+            ->assertSee('Nuevo criterio');
+    });
+
+    it('creates a behavior criterion for the authenticated user', function () {
+        $actor = assignRole(User::factory()->create(['name' => 'Ana Sistemas']), Role::Sistemas);
+
+        $this->actingAs($actor)
+            ->post(route('sistemas.crud.criterios-comportamiento.store'), [
+                'codigo' => 'COG-99',
+                'descripcion' => 'Habilidad de prueba para el catálogo.',
+                'tipo' => 'cognitiva',
+                'activo' => '1',
+                'obligatorio' => '0',
+                'usuario' => 'intruso',
+            ])
+            ->assertRedirect(route('sistemas.crud.criterios-comportamiento.index'))
+            ->assertSessionHas('status', 'crud-created');
+
+        $this->assertDatabaseHas('sys_criterios_comportamiento', [
+            'codigo' => 'COG-99',
+            'tipo' => 'cognitiva',
+            'activo' => 1,
+            'obligatorio' => 0,
+            'usuario' => 'Ana Sistemas',
+        ]);
+    });
+
+    it('rejects an empty behavior criterion', function () {
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+
+        $this->actingAs($actor)
+            ->from(route('sistemas.crud.criterios-comportamiento.create'))
+            ->post(route('sistemas.crud.criterios-comportamiento.store'), [])
+            ->assertRedirect(route('sistemas.crud.criterios-comportamiento.create'))
+            ->assertSessionHasErrors([
+                'codigo' => 'Escribe el código del criterio.',
+                'descripcion' => 'Escribe la descripción del criterio.',
+                'tipo' => 'Selecciona el tipo de habilidad.',
+                'activo' => 'Indica si el criterio está activo.',
+                'obligatorio' => 'Indica si el criterio es obligatorio.',
+            ]);
+    });
+
+    it('rejects a behavior criterion with an unknown type', function () {
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+
+        $this->actingAs($actor)
+            ->from(route('sistemas.crud.criterios-comportamiento.create'))
+            ->post(route('sistemas.crud.criterios-comportamiento.store'), [
+                'codigo' => 'COG-98',
+                'descripcion' => 'Tipo fuera del lineamiento.',
+                'tipo' => 'fisica',
+                'activo' => '1',
+                'obligatorio' => '0',
+            ])
+            ->assertRedirect(route('sistemas.crud.criterios-comportamiento.create'))
+            ->assertSessionHasErrors([
+                'tipo' => 'Selecciona un tipo de habilidad: cognitiva, social o emocional.',
+            ]);
+
+        $this->assertDatabaseMissing('sys_criterios_comportamiento', ['codigo' => 'COG-98']);
+    });
+
+    it('rejects a duplicate behavior criterion code', function () {
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+
+        $this->actingAs($actor)
+            ->from(route('sistemas.crud.criterios-comportamiento.create'))
+            ->post(route('sistemas.crud.criterios-comportamiento.store'), [
+                'codigo' => 'COG-01',
+                'descripcion' => 'Duplicado del autoconocimiento.',
+                'tipo' => 'cognitiva',
+                'activo' => '1',
+                'obligatorio' => '1',
+            ])
+            ->assertRedirect(route('sistemas.crud.criterios-comportamiento.create'))
+            ->assertSessionHasErrors([
+                'codigo' => 'Ese código ya existe en el catálogo.',
+            ]);
+    });
+
+    it('rejects deleting a behavior criterion already chosen by a period', function () {
+        $user = assignRole(User::factory()->create(), Role::Sistemas);
+        $criterio = Sys_CriterioComportamiento::query()->where('codigo', 'COG-01')->firstOrFail();
+        $periodo = periodoActivoDe(ofertaDe(Establecimiento::factory()->create()));
+        $periodo->criteriosComportamiento()->attach($criterio->id);
+
+        $this->actingAs($user)
+            ->from(route('sistemas.crud.criterios-comportamiento.index'))
+            ->delete(route('sistemas.crud.criterios-comportamiento.destroy', $criterio))
+            ->assertRedirect(route('sistemas.crud.criterios-comportamiento.index'))
+            ->assertSessionHasErrors([
+                'criterio' => 'Este criterio ya está elegido en un periodo. Desactívalo en lugar de eliminarlo.',
+            ]);
+
+        $this->assertModelExists($criterio);
+    });
+
+    it('deletes a behavior criterion that no period uses', function () {
+        $user = assignRole(User::factory()->create(), Role::Sistemas);
+        $criterio = Sys_CriterioComportamiento::factory()->create();
+
+        $this->actingAs($user)
+            ->delete(route('sistemas.crud.criterios-comportamiento.destroy', $criterio))
+            ->assertRedirect(route('sistemas.crud.criterios-comportamiento.index'))
+            ->assertSessionHas('status', 'crud-deleted');
+
+        $this->assertModelMissing($criterio);
+    });
 });

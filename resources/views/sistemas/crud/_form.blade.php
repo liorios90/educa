@@ -5,6 +5,12 @@
 
 <div class="space-y-6">
     @foreach ($definition->fields as $field)
+        @php
+            $current = old($field->name, $record?->getAttribute($field->name));
+            if ($current instanceof \BackedEnum) {
+                $current = $current->value;
+            }
+        @endphp
         @if ($field->type === 'boolean')
             <label class="flex items-center gap-2 text-sm text-slate-700">
                 <input type="hidden" name="{{ $field->name }}" value="0">
@@ -14,7 +20,7 @@
                     name="{{ $field->name }}"
                     value="1"
                     class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500"
-                    @checked(old($field->name, $record?->getAttribute($field->name)))
+                    @checked($current)
                 >
                 {{ $field->label }}
             </label>
@@ -26,7 +32,7 @@
                     name="{{ $field->name }}"
                     rows="3"
                     class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                >{{ old($field->name, $record?->getAttribute($field->name)) }}</textarea>
+                >{{ $current }}</textarea>
                 <x-input-error class="mt-2" :messages="$errors->get($field->name)" />
             </div>
         @elseif ($field->type === 'select')
@@ -41,7 +47,7 @@
                     @foreach ($options[$field->name] ?? [] as $option)
                         <option
                             value="{{ $option['id'] }}"
-                            @selected((string) old($field->name, $record?->getAttribute($field->name)) === (string) $option['id'])
+                            @selected((string) $current === (string) $option['id'])
                         >
                             {{ $option['label'] }}
                         </option>
@@ -57,7 +63,7 @@
                     class="mt-1 block w-full"
                     :type="$field->type === 'integer' ? 'number' : 'text'"
                     :name="$field->name"
-                    :value="old($field->name, $record?->getAttribute($field->name))"
+                    :value="$current"
                     :autofocus="$loop->first"
                 />
                 <x-input-error class="mt-2" :messages="$errors->get($field->name)" />

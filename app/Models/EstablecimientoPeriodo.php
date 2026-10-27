@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class EstablecimientoPeriodo extends Model
@@ -104,6 +105,19 @@ class EstablecimientoPeriodo extends Model
     {
         return $this->hasMany(EstablecimientoPeriodoCiclo::class, 'establecimiento_periodo_id')
             ->orderBy('orden');
+    }
+
+    /**
+     * @return BelongsToMany<Sys_CriterioComportamiento, $this>
+     */
+    public function criteriosComportamiento(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Sys_CriterioComportamiento::class,
+            'establecimiento_periodo_criterios_comportamiento',
+            'establecimiento_periodo_id',
+            'criterio_comportamiento_id',
+        )->withTimestamps();
     }
 
     #[Scope]

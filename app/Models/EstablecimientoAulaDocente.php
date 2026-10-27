@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\ModoAsistencia;
 use Database\Factories\EstablecimientoAulaDocenteFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -21,7 +22,18 @@ class EstablecimientoAulaDocente extends Model
         'establecimiento_aula_id',
         'establecimiento_asignatura_id',
         'empleado_id',
+        'modo_asistencia',
     ];
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'modo_asistencia' => ModoAsistencia::class,
+        ];
+    }
 
     protected static function newFactory(): EstablecimientoAulaDocenteFactory
     {

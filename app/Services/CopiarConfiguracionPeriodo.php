@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Enums\UsoEquivalencia;
+use App\Models\Equivalencia;
 use App\Models\EstablecimientoAulaAsignaturaCiclo;
 use App\Models\EstablecimientoAulaDocente;
 use App\Models\EstablecimientoPeriodo;
@@ -108,6 +110,22 @@ class CopiarConfiguracionPeriodo
                     'created_at' => now(),
                     'updated_at' => now(),
                 ]);
+            }
+        }
+
+        foreach (Equivalencia::query()
+            ->where('establecimiento_periodo_id', $origen->id)
+            ->where('uso', UsoEquivalencia::Comportamiento)
+            ->with('detalles')
+            ->get() as $equivalenciaOrigen) {
+            $equivalenciaDestino = $equivalenciaOrigen->replicate();
+            $equivalenciaDestino->establecimiento_periodo_id = $destino->id;
+            $equivalenciaDestino->save();
+
+            foreach ($equivalenciaOrigen->detalles as $detalleOrigen) {
+                $detalleDestino = $detalleOrigen->replicate();
+                $detalleDestino->equivalencia_id = $equivalenciaDestino->id;
+                $detalleDestino->save();
             }
         }
 

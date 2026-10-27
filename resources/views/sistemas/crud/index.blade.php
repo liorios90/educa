@@ -5,7 +5,7 @@
                 {{ $definition->title }}
             </h2>
             <a href="{{ route($definition->routeName('create')) }}" class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800">
-                Nueva {{ $definition->singular }}
+                {{ $definition->newLabel ?? 'Nueva '.$definition->singular }}
             </a>
         </div>
     </x-slot>
@@ -22,6 +22,10 @@
 
             @if (session('status') === 'crud-deleted')
                 <p class="mb-4 text-sm font-medium text-green-700">Registro eliminado correctamente.</p>
+            @endif
+
+            @if ($errors->any())
+                <p class="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{{ $errors->first() }}</p>
             @endif
 
             <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">

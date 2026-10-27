@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AsistenciaDiariaController;
 use App\Http\Controllers\CalificarCierresController;
 use App\Http\Controllers\CalificarInsumosController;
 use App\Http\Controllers\DashboardController;
@@ -32,6 +33,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/calificar/editar', [CalificarInsumosController::class, 'editar'])->name('calificar.editar');
             Route::get('/mejoras-calificaciones', [MejoraCalificacionController::class, 'index'])->name('mejora-calificaciones.index');
             Route::post('/mejoras-calificaciones', [MejoraCalificacionController::class, 'store'])->name('mejora-calificaciones.store');
+            Route::get('/asistencia', [AsistenciaDiariaController::class, 'index'])->name('asistencia.index');
+            Route::post('/asistencia', [AsistenciaDiariaController::class, 'store'])->name('asistencia.store');
+            Route::post('/asistencia/registro', [AsistenciaDiariaController::class, 'registrar'])->name('asistencia.registrar');
             Route::post('/calificar/actividades', [CalificarInsumosController::class, 'storeActividad'])->name('calificar.actividades.store');
             Route::put('/calificar/actividades/{actividad}', [CalificarInsumosController::class, 'updateActividad'])->name('calificar.actividades.update');
             foreach (['examenes', 'proyectos', 'examenes-finales', 'proyectos-finales'] as $tipoCierre) {

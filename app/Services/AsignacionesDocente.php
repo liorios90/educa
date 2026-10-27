@@ -2,8 +2,10 @@
 
 namespace App\Services;
 
+use App\Auth\ContextoAsistencia;
 use App\Auth\DocenteContexto;
 use App\Enums\EsquemaCiclo;
+use App\Enums\ModoAsistencia;
 use App\Enums\TipoCalificacion;
 use App\Enums\TipoCierreEvaluacion;
 use App\Models\Alumno;
@@ -45,6 +47,7 @@ class AsignacionesDocente
                 'malla.asignatura',
                 'malla.asignaturaPropia',
                 'aula.establecimientoGrado.grado',
+                'aula.establecimientoGrado.subnivel',
                 'aula.periodo.ciclos',
             ])
             ->whereIn('empleado_id', $empleadoIds)
@@ -64,7 +67,8 @@ class AsignacionesDocente
      *     ciclo_label: string,
      *     materias: list<array{id: int, nombre: string, insumos: list<array{id: int, etiqueta: string}>}>,
      *     ciclos: list<array{id: int, nombre: string}>,
-     *     parciales: list<array{numero: int, nombre: string}>
+     *     parciales: list<array{numero: int, nombre: string}>,
+     *     modo: string
      * }>
      */
     public function aulasSelector(User $user): array
@@ -118,6 +122,9 @@ class AsignacionesDocente
                             'nombre' => $this->etiquetaParcial($numero),
                         ])
                         ->all();
+                $modoGuardado = $grupo->first(
+                    fn (EstablecimientoAulaDocente $asignacion): bool => $asignacion->modo_asistencia instanceof ModoAsistencia,
+                )?->modo_asistencia;
 
                 return [
                     'id' => (int) $aula->id,
@@ -126,6 +133,7 @@ class AsignacionesDocente
                     'materias' => $materias,
                     'ciclos' => $ciclos,
                     'parciales' => $parciales,
+                    'modo' => ($modoGuardado ?? ModoAsistencia::predeterminado($aula->establecimientoGrado?->subnivel?->nombre))->value,
                 ];
             })
             ->filter()
@@ -160,6 +168,60 @@ class AsignacionesDocente
         }
 
         return new DocenteContexto($asignacion->aula, $asignacion->malla, $ciclo, $parcialNumero);
+    }
+
+    public function contextoAsistencia(
+        User $user,
+        int $aulaId,
+        ModoAsistencia $modo,
+        ?int $asignaturaId,
+        ?int $cicloId,
+        ?int $parcialNumero,
+    ): ?ContextoAsistencia {
+        $aula = $this->forUser($user)->first(
+            fn (EstablecimientoAulaDocente $asignacion): bool => (int) $asignacion->establecimiento_aula_id === $aulaId,
+        )?->aula;
+
+        if ($aula === null) {
+            return null;
+        }
+
+        if ($modo->esJornada()) {
+            return new ContextoAsistencia($aula, $modo);
+        }
+
+        if ($asignaturaId === null || $cicloId === null || $parcialNumero === null) {
+            return null;
+        }
+
+        $contexto = $this->contexto($user, $aulaId, $asignaturaId, $cicloId, $parcialNumero);
+
+        if ($contexto === null) {
+            return null;
+        }
+
+        return new ContextoAsistencia(
+            $contexto->aula,
+            $modo,
+            $contexto->asignatura,
+            $contexto->ciclo,
+            $contexto->parcialNumero,
+        );
+    }
+
+    public function recordarModoAsistencia(User $user, int $aulaId, ModoAsistencia $modo): void
+    {
+        $user->loadMissing('persona.empleados');
+        $empleadoIds = $user->persona?->empleados->pluck('id')->all() ?? [];
+
+        if ($empleadoIds === []) {
+            return;
+        }
+
+        EstablecimientoAulaDocente::query()
+            ->where('establecimiento_aula_id', $aulaId)
+            ->whereIn('empleado_id', $empleadoIds)
+            ->update(['modo_asistencia' => $modo->value]);
     }
 
     public function contextoCierre(
@@ -408,6 +470,14 @@ class AsignacionesDocente
     public function alumnos(DocenteContexto $contexto): Collection
     {
         return $this->alumnosDe($contexto->aula, $contexto->asignatura);
+    }
+
+    /**
+     * @return Collection<int, Alumno>
+     */
+    public function alumnosDelAula(EstablecimientoAula $aula): Collection
+    {
+        return $this->alumnosPorIds($this->alumnoIdsMatriculadosEnAula((int) $aula->id));
     }
 
     /**

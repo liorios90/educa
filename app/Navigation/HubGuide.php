@@ -56,6 +56,11 @@ final class HubGuide
             'description' => 'Tipo de relación laboral: nombramiento, contrato ocasional u otro.',
             'icon' => 'briefcase',
         ],
+        'sistemas.crud.criterios-comportamiento.index' => [
+            'section' => 'Evaluación',
+            'description' => 'Habilidades socioemocionales con las que se describe el comportamiento, según el Acuerdo Ministerial 082-A.',
+            'icon' => 'academic-cap',
+        ],
         'sistemas.estructura' => [
             'section' => 'Oferta educativa',
             'description' => 'Niveles, subniveles y grados con los que se organiza la institución.',
@@ -66,6 +71,21 @@ final class HubGuide
             'description' => 'Áreas curriculares y asignaturas que se dictan en la institución.',
             'icon' => 'book-open',
         ],
+        'Docente.calificar.index' => [
+            'section' => 'Registro de clase',
+            'description' => 'Califica un insumo nuevo del parcial: tarea, lección, actividad o proyecto.',
+            'icon' => 'book-open',
+        ],
+        'Docente.calificar.editar' => [
+            'section' => 'Registro de clase',
+            'description' => 'Corrige las calificaciones de un insumo ya registrado.',
+            'icon' => 'folder',
+        ],
+        'Docente.asistencia.index' => [
+            'section' => 'Registro de clase',
+            'description' => 'Registra la asistencia una vez al día o en cada asignatura.',
+            'icon' => 'calendar-days',
+        ],
     ];
 
     private const SECTION_ORDER = [
@@ -73,6 +93,8 @@ final class HubGuide
         'Ubicación de la institución',
         'Personal de la institución',
         'Oferta educativa',
+        'Evaluación',
+        'Registro de clase',
         'Otras opciones',
     ];
 
@@ -81,6 +103,7 @@ final class HubGuide
         return match ($label) {
             'Catálogos' => 'Listados oficiales que usa secretaría, rectorado y sistemas para matrícula, personal y reportes. Elija un catálogo para consultarlo o actualizarlo.',
             'Estructura' => 'Organice la oferta educativa de la institución: niveles, grados, áreas y asignaturas.',
+            'Insumos' => 'Califica los insumos del parcial y registra la asistencia del aula, una vez al día o por asignatura.',
             default => 'Seleccione una opción para continuar.',
         };
     }

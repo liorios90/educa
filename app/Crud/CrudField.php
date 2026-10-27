@@ -9,6 +9,7 @@ readonly class CrudField
     /**
      * @param  list<mixed>  $rules
      * @param  class-string<Model>|null  $relatedModel
+     * @param  list<array{id: string, label: string}>  $options
      */
     public function __construct(
         public string $name,
@@ -20,5 +21,6 @@ readonly class CrudField
         public ?string $relatedModel = null,
         public string $optionLabel = 'nombre',
         public ?string $relation = null,
+        public array $options = [],
     ) {}
 }

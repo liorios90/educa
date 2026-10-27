@@ -1,7 +1,11 @@
 <?php
 
 use App\Enums\Role;
+use App\Enums\UsoEquivalencia;
+use App\Models\Equivalencia;
+use App\Models\EquivalenciaDetalle;
 use App\Models\Establecimiento;
+use App\Models\EstablecimientoComportamiento;
 use App\Models\User;
 
 it('redirects guests to the login page', function () {
@@ -85,6 +89,7 @@ it('keeps equivalence tables scoped to the active period', function () {
         ->post(route('Admin.tablas-equivalencias.store'), [
             'nombre' => 'Tabla del periodo activo',
             'descripcion' => 'MINEDUC',
+            'uso' => 'asignatura',
             'activo' => '1',
         ])
         ->assertRedirect(route('Admin.tablas-equivalencias.index'));
@@ -108,4 +113,138 @@ it('keeps equivalence tables scoped to the active period', function () {
         ->withSession($sesion)
         ->get(route('Admin.tablas-equivalencias.edit', $ajena))
         ->assertNotFound();
+});
+
+it('creates the reglamento behavior scale once for the active period', function () {
+    $establecimiento = Establecimiento::factory()->create();
+    $admin = adminOf($establecimiento);
+    $oferta = ofertaDe($establecimiento);
+    $periodo = periodoActivoDe($oferta);
+
+    $this->actingAs($admin)
+        ->withSession(activeContextSession($oferta, $periodo))
+        ->post(route('Admin.tablas-equivalencias.comportamiento.store'))
+        ->assertRedirect();
+
+    $escala = Equivalencia::query()->where('uso', UsoEquivalencia::Comportamiento)->first();
+
+    expect($escala)->not->toBeNull()
+        ->and($escala->detalles)->toHaveCount(5)
+        ->and($escala->detalles->firstWhere('valor', 'C')?->exige_observacion)->toBeTrue()
+        ->and($escala->detalles->firstWhere('valor', 'A')?->exige_observacion)->toBeFalse();
+
+    $this->post(route('Admin.tablas-equivalencias.comportamiento.store'))
+        ->assertRedirect(route('Admin.tablas-equivalencias.detalles.index', $escala));
+
+    expect(Equivalencia::query()->where('uso', UsoEquivalencia::Comportamiento)->count())->toBe(1);
+});
+
+it('stores a behavior letter without a numeric range', function () {
+    $establecimiento = Establecimiento::factory()->create();
+    $admin = adminOf($establecimiento);
+    $oferta = ofertaDe($establecimiento);
+    $periodo = periodoActivoDe($oferta);
+    $equivalencia = equivalenciaDe($periodo, [
+        'nombre' => 'Escala institucional',
+        'uso' => UsoEquivalencia::Comportamiento,
+    ]);
+
+    $this->actingAs($admin)
+        ->withSession(activeContextSession($oferta, $periodo))
+        ->from(route('Admin.tablas-equivalencias.detalles.index', $equivalencia))
+        ->post(route('Admin.tablas-equivalencias.detalles.store', $equivalencia), [
+            'nombre' => 'Muy bueno',
+            'valor' => 'MB',
+            'exige_observacion' => '1',
+            'activo' => '1',
+        ])
+        ->assertRedirect(route('Admin.tablas-equivalencias.detalles.index', $equivalencia));
+
+    $this->assertDatabaseHas('equivalencias_detalles', [
+        'equivalencia_id' => $equivalencia->id,
+        'valor' => 'MB',
+        'exige_observacion' => true,
+        'minimo' => null,
+        'maximo' => null,
+    ]);
+});
+
+it('rejects a behavior letter without a code', function () {
+    $establecimiento = Establecimiento::factory()->create();
+    $admin = adminOf($establecimiento);
+    $oferta = ofertaDe($establecimiento);
+    $periodo = periodoActivoDe($oferta);
+    $equivalencia = equivalenciaDe($periodo, ['uso' => UsoEquivalencia::Comportamiento]);
+
+    $this->actingAs($admin)
+        ->withSession(activeContextSession($oferta, $periodo))
+        ->from(route('Admin.tablas-equivalencias.detalles.index', $equivalencia))
+        ->post(route('Admin.tablas-equivalencias.detalles.store', $equivalencia), [
+            'nombre' => 'Muy bueno',
+            'exige_observacion' => '0',
+            'activo' => '1',
+        ])
+        ->assertRedirect(route('Admin.tablas-equivalencias.detalles.index', $equivalencia))
+        ->assertSessionHasErrors(['valor' => 'Escribe la letra o el código de la calificación.']);
+});
+
+it('rejects a second behavior table in the same period', function () {
+    $establecimiento = Establecimiento::factory()->create();
+    $admin = adminOf($establecimiento);
+    $oferta = ofertaDe($establecimiento);
+    $periodo = periodoActivoDe($oferta);
+    equivalenciaDe($periodo, ['uso' => UsoEquivalencia::Comportamiento, 'nombre' => 'Comportamiento']);
+
+    $this->actingAs($admin)
+        ->withSession(activeContextSession($oferta, $periodo))
+        ->from(route('Admin.tablas-equivalencias.index'))
+        ->post(route('Admin.tablas-equivalencias.store'), [
+            'nombre' => 'Otra escala',
+            'uso' => 'comportamiento',
+            'activo' => '1',
+        ])
+        ->assertRedirect(route('Admin.tablas-equivalencias.index'))
+        ->assertSessionHasErrors(['uso' => 'Este periodo ya tiene una tabla de comportamiento.']);
+});
+
+it('hides subject assignment for a behavior table', function () {
+    $establecimiento = Establecimiento::factory()->create();
+    $admin = adminOf($establecimiento);
+    $oferta = ofertaDe($establecimiento);
+    $periodo = periodoActivoDe($oferta);
+    $equivalencia = equivalenciaDe($periodo, ['uso' => UsoEquivalencia::Comportamiento]);
+
+    $this->actingAs($admin)
+        ->withSession(activeContextSession($oferta, $periodo))
+        ->get(route('Admin.tablas-equivalencias.asignaturas.index', $equivalencia))
+        ->assertNotFound();
+});
+
+it('keeps a behavior letter that students already received', function () {
+    $establecimiento = Establecimiento::factory()->create();
+    $admin = adminOf($establecimiento);
+    $oferta = ofertaDe($establecimiento);
+    $periodo = periodoActivoDe($oferta);
+    $equivalencia = equivalenciaDe($periodo, ['uso' => UsoEquivalencia::Comportamiento]);
+    $detalle = EquivalenciaDetalle::query()->create([
+        'equivalencia_id' => $equivalencia->id,
+        'nombre' => 'Satisfactorio',
+        'valor' => 'B',
+        'activo' => true,
+        'exige_observacion' => false,
+    ]);
+    EstablecimientoComportamiento::factory()->create([
+        'equivalencia_detalle_id' => $detalle->id,
+    ]);
+
+    $this->actingAs($admin)
+        ->withSession(activeContextSession($oferta, $periodo))
+        ->from(route('Admin.tablas-equivalencias.detalles.index', $equivalencia))
+        ->delete(route('Admin.tablas-equivalencias.detalles.destroy', [$equivalencia, $detalle]))
+        ->assertRedirect(route('Admin.tablas-equivalencias.detalles.index', $equivalencia))
+        ->assertSessionHasErrors([
+            'detalle' => 'Esta calificación ya fue usada en un aula. Desactívala en lugar de eliminarla.',
+        ]);
+
+    $this->assertModelExists($detalle);
 });

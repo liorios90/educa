@@ -44,6 +44,7 @@ class NavigationSeeder extends Seeder
         $insumos = $this->ensureItem('Insumos', 'navigation.hub', 'academic-cap', 3, false, [$docente->id], isGroup: true);
         $this->ensureItem('Nuevo Insumo', 'Docente.calificar.index', 'book-open', 1, false, [$docente->id], parentId: $insumos->id);
         $this->ensureItem('Editar Insumo', 'Docente.calificar.editar', 'folder', 2, false, [$docente->id], parentId: $insumos->id);
+        $this->ensureItem('Asistencia diaria', 'Docente.asistencia.index', 'calendar-days', 3, false, [$docente->id], parentId: $insumos->id);
 
         $this->ensureItem('Exámenes', 'Docente.examenes.index', 'clipboard-document-list', 4, false, [$docente->id]);
         $this->ensureItem('Proyectos', 'Docente.proyectos.index', 'academic-cap', 5, false, [$docente->id]);
@@ -63,6 +64,7 @@ class NavigationSeeder extends Seeder
         $this->ensureItem('Provincias', 'sistemas.crud.provincias.index', 'cog', 7, false, [$sistemas->id], parentId: $catalogos->id);
         $this->ensureItem('Funciones', 'sistemas.crud.funciones.index', 'cog', 8, false, [$sistemas->id], parentId: $catalogos->id);
         $this->ensureItem('Tipos de contrato', 'sistemas.crud.tipos-contratos.index', 'cog', 9, false, [$sistemas->id], parentId: $catalogos->id);
+        $this->ensureItem('Criterios de comportamiento', 'sistemas.crud.criterios-comportamiento.index', 'academic-cap', 10, false, [$sistemas->id], parentId: $catalogos->id);
 
         $this->ensureItem('Libreta', 'secretaria.libreta.index', 'table-cells', 4, false, [$secretaria->id]);
         $this->ensureItem('Asistente', 'secretaria.asistente', 'wrench-screwdriver', 5, false, [$secretaria->id]);
@@ -85,6 +87,7 @@ class NavigationSeeder extends Seeder
         $this->ensureItem('Tablas de Equivalencias', 'Admin.tablas-equivalencias.index', 'table-cells', 5, false, [$admin->id], parentId: $configuracion->id);
         $this->ensureItem('Asistente', 'Admin.asistente', 'sparkles', 6, false, [$admin->id], parentId: $configuracion->id);
         $this->ensureItem('Decimales', 'Admin.decimales', 'chart-bar', 7, false, [$admin->id], parentId: $configuracion->id);
+        $this->ensureItem('Criterios de comportamiento', 'Admin.criterios-comportamiento.edit', 'academic-cap', 8, false, [$admin->id], parentId: $configuracion->id);
 
         $this->ensureItem('Reportes', 'reports.index', 'home', 8, true, []);
         $this->ensureItem('Establecimientos', 'sistemas.establecimientos', 'building-library', 8, false, [$sistemas->id]);

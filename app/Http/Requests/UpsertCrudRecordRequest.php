@@ -24,4 +24,14 @@ class UpsertCrudRecordRequest extends FormRequest
 
         return $definition->validationRules($record !== null ? (int) $record : null);
     }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        $registry = $this->container->make(CrudRegistry::class);
+
+        return $registry->get($registry->slugFromRouteName($this->route()?->getName()))->messages;
+    }
 }

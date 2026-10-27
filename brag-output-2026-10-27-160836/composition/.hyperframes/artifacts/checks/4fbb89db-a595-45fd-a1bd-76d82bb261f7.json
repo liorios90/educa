@@ -1,0 +1,514 @@
+{
+  "ok": true,
+  "strict": false,
+  "browserSkipped": false,
+  "lint": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 4,
+    "infoCount": 0,
+    "findings": [
+      {
+        "code": "nested_structure_needs_subcomposition",
+        "severity": "warning",
+        "message": "<div id=\"scene-one\"> is a timeline element that contains nested <div>. The timeline shows one row per top-level element, and the root composition is built only from sub-compositions.",
+        "selector": "#scene-one",
+        "dataAttributes": {},
+        "sourceFile": "C:\\laragon2\\www\\educa3\\brag-output-2026-10-27-160836\\composition\\index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Move <div id=\"scene-one\"> and its contents into a sub-composition file and mount it with data-composition-src."
+      },
+      {
+        "code": "nested_structure_needs_subcomposition",
+        "severity": "warning",
+        "message": "<div id=\"scene-two\"> is a timeline element that contains nested <div>. The timeline shows one row per top-level element, and the root composition is built only from sub-compositions.",
+        "selector": "#scene-two",
+        "dataAttributes": {},
+        "sourceFile": "C:\\laragon2\\www\\educa3\\brag-output-2026-10-27-160836\\composition\\index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Move <div id=\"scene-two\"> and its contents into a sub-composition file and mount it with data-composition-src."
+      },
+      {
+        "code": "nested_structure_needs_subcomposition",
+        "severity": "warning",
+        "message": "<div id=\"scene-three\"> is a timeline element that contains nested <div>. The timeline shows one row per top-level element, and the root composition is built only from sub-compositions.",
+        "selector": "#scene-three",
+        "dataAttributes": {},
+        "sourceFile": "C:\\laragon2\\www\\educa3\\brag-output-2026-10-27-160836\\composition\\index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Move <div id=\"scene-three\"> and its contents into a sub-composition file and mount it with data-composition-src."
+      },
+      {
+        "code": "nested_structure_needs_subcomposition",
+        "severity": "warning",
+        "message": "<div id=\"scene-four\"> is a timeline element that contains nested <div>. The timeline shows one row per top-level element, and the root composition is built only from sub-compositions.",
+        "selector": "#scene-four",
+        "dataAttributes": {},
+        "sourceFile": "C:\\laragon2\\www\\educa3\\brag-output-2026-10-27-160836\\composition\\index.html",
+        "bbox": {
+          "x": 0,
+          "y": 0,
+          "width": 0,
+          "height": 0
+        },
+        "time": 0,
+        "fixHint": "Move <div id=\"scene-four\"> and its contents into a sub-composition file and mount it with data-composition-src."
+      }
+    ],
+    "filesScanned": 1
+  },
+  "runtime": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 0,
+    "findings": []
+  },
+  "layout": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 0,
+    "findings": [],
+    "duration": 20,
+    "samples": [
+      1.111,
+      3.333,
+      5.556,
+      7.778,
+      10,
+      12.222,
+      14.444,
+      16.667,
+      18.889
+    ],
+    "transitionSamples": [],
+    "transitionSamplesDropped": 0,
+    "tolerance": 2,
+    "totalIssueCount": 0,
+    "truncated": false
+  },
+  "motion": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 0,
+    "findings": [],
+    "enabled": false,
+    "samples": 0
+  },
+  "contrast": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 0,
+    "findings": [],
+    "enabled": true,
+    "samples": [
+      1.111,
+      5.556,
+      10,
+      14.444,
+      18.889
+    ],
+    "checked": 65,
+    "passed": 65
+  },
+  "craft": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 1,
+    "infoCount": 0,
+    "findings": [
+      {
+        "code": "text_below_floor",
+        "severity": "warning",
+        "message": "Type floor is 28 px (2.6% of the 1080 px short side, what a phone can read) and 41 text elements stay under it for 0.5 s or more, the smallest \"4 estudiantes · datos de demostración\" at 15 px: set reading text to at least 28 px, or put data-layout-ignore on text that is texture rather than reading; see references/look.md.",
+        "text": "4 estudiantes · datos de demostración",
+        "selector": "#grade-panel > div:nth-of-type(2) > div:nth-of-type(3) > span:nth-of-type(1)",
+        "dataAttributes": {},
+        "sourceFile": "index.html",
+        "bbox": {
+          "x": 662.07,
+          "y": 671.07,
+          "width": 269.7,
+          "height": 18.88
+        },
+        "time": 9.25,
+        "times": [
+          4,
+          4,
+          4.5,
+          4.5,
+          4.75,
+          4.75,
+          4.875,
+          4.875,
+          5,
+          5,
+          9.25,
+          9.25,
+          9.25,
+          9.25,
+          9.25,
+          9.25,
+          9.25,
+          9.25,
+          9.875,
+          9.875,
+          10.25,
+          10.25,
+          10.25,
+          10.25,
+          10.25,
+          10.25,
+          10.25,
+          10.25,
+          10.25,
+          10.25,
+          10.25,
+          10.25,
+          10.25,
+          10.25,
+          10.25,
+          10.25,
+          10.25,
+          10.25,
+          10.25,
+          10.25,
+          11.625
+        ],
+        "fontPx": 14.91,
+        "floorPx": 28,
+        "seconds": 6.75,
+        "elements": [
+          {
+            "selector": "#grade-panel > div:nth-of-type(2) > div:nth-of-type(3) > span:nth-of-type(1)",
+            "text": "4 estudiantes · datos de demostración",
+            "fontPx": 14.91,
+            "time": 9.25,
+            "seconds": 6.75
+          },
+          {
+            "selector": "div.pill",
+            "text": "Seguimiento académico",
+            "fontPx": 15,
+            "time": 9.25,
+            "seconds": 6.75
+          },
+          {
+            "selector": "#grade-table > div:nth-of-type(1) > span:nth-of-type(1)",
+            "text": "Estudiante",
+            "fontPx": 15,
+            "time": 10.25,
+            "seconds": 5.75
+          },
+          {
+            "selector": "#grade-table > div:nth-of-type(1) > span:nth-of-type(2)",
+            "text": "Actividad 1",
+            "fontPx": 15,
+            "time": 10.25,
+            "seconds": 5.75
+          },
+          {
+            "selector": "#grade-table > div:nth-of-type(1) > span:nth-of-type(3)",
+            "text": "Actividad 2",
+            "fontPx": 15,
+            "time": 10.25,
+            "seconds": 5.75
+          },
+          {
+            "selector": "#grade-table > div:nth-of-type(1) > span:nth-of-type(4)",
+            "text": "Promedio",
+            "fontPx": 15,
+            "time": 10.25,
+            "seconds": 5.75
+          },
+          {
+            "selector": "#save-button",
+            "text": "Registrar calificaciones",
+            "fontPx": 15.7,
+            "time": 11.625,
+            "seconds": 4.375
+          },
+          {
+            "selector": "#grade-panel > div:nth-of-type(1) > div:nth-of-type(2)",
+            "text": "Docente",
+            "fontPx": 15.91,
+            "time": 9.25,
+            "seconds": 6.75
+          },
+          {
+            "selector": "#grade-panel > div:nth-of-type(1) > div:nth-of-type(2) > span:nth-of-type(1)",
+            "text": "María G.",
+            "fontPx": 15.91,
+            "time": 9.25,
+            "seconds": 6.75
+          },
+          {
+            "selector": "#grade-select > div:nth-of-type(1)",
+            "text": "Aula · 8.º A ⌄",
+            "fontPx": 16,
+            "time": 9.875,
+            "seconds": 6.125
+          },
+          {
+            "selector": "#grade-select > div:nth-of-type(2)",
+            "text": "Matemática ⌄",
+            "fontPx": 16,
+            "time": 9.875,
+            "seconds": 6.125
+          },
+          {
+            "selector": "#s2-panel > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1)",
+            "text": "Un espacio para aprender",
+            "fontPx": 16.87,
+            "time": 4,
+            "seconds": 4.875
+          },
+          {
+            "selector": "#grade-panel > div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(2)",
+            "text": "Periodo académico · 2026",
+            "fontPx": 16.9,
+            "time": 9.25,
+            "seconds": 6.75
+          },
+          {
+            "selector": "#module1 > div:nth-of-type(3)",
+            "text": "Organiza el día escolar.",
+            "fontPx": 17,
+            "time": 4.5,
+            "seconds": 4.375
+          },
+          {
+            "selector": "#module2 > div:nth-of-type(3)",
+            "text": "Acompaña cada proceso.",
+            "fontPx": 17,
+            "time": 4.75,
+            "seconds": 4.125
+          },
+          {
+            "selector": "#module3 > div:nth-of-type(3)",
+            "text": "Familias y equipos, más cerca.",
+            "fontPx": 17,
+            "time": 4.875,
+            "seconds": 4
+          },
+          {
+            "selector": "#module4 > div:nth-of-type(3)",
+            "text": "Periodos para cada institución.",
+            "fontPx": 17,
+            "time": 5,
+            "seconds": 3.875
+          },
+          {
+            "selector": "#s2-eye",
+            "text": "Un mismo espacio",
+            "fontPx": 18,
+            "time": 4,
+            "seconds": 4.875
+          },
+          {
+            "selector": "#s3-caption > div:nth-of-type(1)",
+            "text": "Del aula al seguimiento",
+            "fontPx": 18,
+            "time": 9.25,
+            "seconds": 6.75
+          },
+          {
+            "selector": "#grade-table > div:nth-of-type(2) > span:nth-of-type(1)",
+            "text": "Ana R.",
+            "fontPx": 19,
+            "time": 10.25,
+            "seconds": 5.75
+          },
+          {
+            "selector": "#grade-table > div:nth-of-type(2) > span:nth-of-type(2)",
+            "text": "9,0",
+            "fontPx": 19,
+            "time": 10.25,
+            "seconds": 5.75
+          },
+          {
+            "selector": "#grade-table > div:nth-of-type(2) > span:nth-of-type(3)",
+            "text": "9,4",
+            "fontPx": 19,
+            "time": 10.25,
+            "seconds": 5.75
+          },
+          {
+            "selector": "#grade-table > div:nth-of-type(2) > strong:nth-of-type(1)",
+            "text": "9,2",
+            "fontPx": 19,
+            "time": 10.25,
+            "seconds": 5.75
+          },
+          {
+            "selector": "#grade-table > div:nth-of-type(3) > span:nth-of-type(1)",
+            "text": "Luis M.",
+            "fontPx": 19,
+            "time": 10.25,
+            "seconds": 5.75
+          },
+          {
+            "selector": "#grade-table > div:nth-of-type(3) > span:nth-of-type(2)",
+            "text": "8,5",
+            "fontPx": 19,
+            "time": 10.25,
+            "seconds": 5.75
+          },
+          {
+            "selector": "#grade-table > div:nth-of-type(3) > span:nth-of-type(3)",
+            "text": "8,9",
+            "fontPx": 19,
+            "time": 10.25,
+            "seconds": 5.75
+          },
+          {
+            "selector": "#grade-table > div:nth-of-type(3) > strong:nth-of-type(1)",
+            "text": "8,7",
+            "fontPx": 19,
+            "time": 10.25,
+            "seconds": 5.75
+          },
+          {
+            "selector": "#grade-table > div:nth-of-type(4) > span:nth-of-type(1)",
+            "text": "Camila P.",
+            "fontPx": 19,
+            "time": 10.25,
+            "seconds": 5.75
+          },
+          {
+            "selector": "#grade-table > div:nth-of-type(4) > span:nth-of-type(2)",
+            "text": "9,6",
+            "fontPx": 19,
+            "time": 10.25,
+            "seconds": 5.75
+          },
+          {
+            "selector": "#grade-table > div:nth-of-type(4) > span:nth-of-type(3)",
+            "text": "9,2",
+            "fontPx": 19,
+            "time": 10.25,
+            "seconds": 5.75
+          },
+          {
+            "selector": "#grade-table > div:nth-of-type(4) > strong:nth-of-type(1)",
+            "text": "9,4",
+            "fontPx": 19,
+            "time": 10.25,
+            "seconds": 5.75
+          },
+          {
+            "selector": "#grade-table > div:nth-of-type(5) > span:nth-of-type(1)",
+            "text": "Diego V.",
+            "fontPx": 19,
+            "time": 10.25,
+            "seconds": 5.75
+          },
+          {
+            "selector": "#grade-table > div:nth-of-type(5) > span:nth-of-type(2)",
+            "text": "8,8",
+            "fontPx": 19,
+            "time": 10.25,
+            "seconds": 5.75
+          },
+          {
+            "selector": "#grade-table > div:nth-of-type(5) > span:nth-of-type(3)",
+            "text": "9,1",
+            "fontPx": 19,
+            "time": 10.25,
+            "seconds": 5.75
+          },
+          {
+            "selector": "#grade-table > div:nth-of-type(5) > strong:nth-of-type(1)",
+            "text": "9,0",
+            "fontPx": 19,
+            "time": 10.25,
+            "seconds": 5.75
+          },
+          {
+            "selector": "span.brand-name",
+            "text": "Educa",
+            "fontPx": 22.86,
+            "time": 9.25,
+            "seconds": 6.75
+          },
+          {
+            "selector": "#s3-caption > div:nth-of-type(3)",
+            "text": "Registrar y acompañar el aprendizaje desde un mismo flujo.",
+            "fontPx": 24,
+            "time": 9.25,
+            "seconds": 6.75
+          },
+          {
+            "selector": "#module1 > div:nth-of-type(2)",
+            "text": "Gestión académica",
+            "fontPx": 25,
+            "time": 4.5,
+            "seconds": 4.375
+          },
+          {
+            "selector": "#module2 > div:nth-of-type(2)",
+            "text": "Aula y aprendizaje",
+            "fontPx": 25,
+            "time": 4.75,
+            "seconds": 4.125
+          },
+          {
+            "selector": "#module3 > div:nth-of-type(2)",
+            "text": "Comunicación",
+            "fontPx": 25,
+            "time": 4.875,
+            "seconds": 4
+          },
+          {
+            "selector": "#module4 > div:nth-of-type(2)",
+            "text": "Calendario escolar",
+            "fontPx": 25,
+            "time": 5,
+            "seconds": 3.875
+          }
+        ]
+      }
+    ],
+    "enabled": true,
+    "step": 0.125,
+    "samples": 160
+  },
+  "audio": {
+    "ok": true,
+    "errorCount": 0,
+    "warningCount": 0,
+    "infoCount": 0,
+    "findings": []
+  },
+  "hdr": {
+    "autoPromotion": null,
+    "inspection": "available"
+  },
+  "snapshots": {
+    "enabled": false,
+    "files": [],
+    "times": [],
+    "findingFiles": []
+  }
+}

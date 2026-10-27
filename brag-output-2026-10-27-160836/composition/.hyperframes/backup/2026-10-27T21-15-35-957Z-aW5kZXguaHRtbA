@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="es" data-resolution="landscape" data-composition-variables='[{"id":"ground","type":"color","label":"Fondo","default":"#f8faf8"},{"id":"accent","type":"color","label":"Verde Educa","default":"#047857"},{"id":"ink","type":"color","label":"Texto","default":"#0f172a"}]'>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      :root { --ground:#f8faf8; --ink:#0f172a; --muted:#64748b; --accent:#047857; --teal:#0f766e; --amber:#d97706; --indigo:#4f46e5; --font-display:Outfit,Inter,sans-serif; --font-body:Inter,sans-serif; }
+      * { box-sizing:border-box; }
+      html,body { margin:0; width:1920px; height:1080px; overflow:hidden; background:var(--ground); color:var(--ink); font-family:var(--font-body); }
+      #root { position:relative; width:1920px; height:1080px; overflow:hidden; background:var(--ground); }
+      .scene { position:absolute; inset:0; overflow:hidden; }
+      .wash { position:absolute; inset:0; background:radial-gradient(ellipse at 55% 48%,#ffffff 0%,#f8faf8 72%); }
+      .mark { display:grid; grid-template-columns:1fr 1fr; gap:8px; width:84px; height:84px; }
+      .piece { position:relative; border-radius:23px; }
+      .piece.one{background:#047857;border-radius:24px 24px 8px 24px}.piece.two{background:#0f766e;border-radius:24px 24px 24px 8px}.piece.three{background:#d97706;border-radius:24px 8px 24px 24px}.piece.four{background:#4f46e5;border-radius:8px 24px 24px 24px}
+      .brand-name{font:600 28px var(--font-display);letter-spacing:-.04em;color:#0f172a}
+      .eyebrow{font-size:18px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:#047857}
+      .title{font:500 76px/1.08 var(--font-display);letter-spacing:-.055em;color:#0f172a}
+      .copy{font:400 28px/1.55 var(--font-body);color:#64748b}
+      .panel{background:rgba(255,255,255,.92);border:1px solid #e2e8f0;border-radius:30px;box-shadow:0 32px 90px rgba(15,23,42,.08),0 8px 24px rgba(15,23,42,.04)}
+      .module{background:#fff;border:1px solid #e5e7eb;border-radius:22px;box-shadow:0 5px 16px rgba(15,23,42,.035)}
+      .table-cell{height:64px;display:flex;align-items:center;padding:0 20px;border-bottom:1px solid #eef2f0;font-size:19px;color:#334155}
+      .pill{display:inline-flex;align-items:center;border-radius:999px;padding:9px 15px;background:#ecfdf5;color:#047857;font-size:15px;font-weight:600}
+    </style>
+  </head>
+  <body>
+    <div data-hf-id="hf-at0g" id="root" data-composition-id="main" data-start="0" data-duration="20" data-width="1920" data-height="1080">
+      <div data-hf-id="hf-lc54" id="scene-one" class="clip scene" data-start="0" data-duration="3.5" data-track-index="1" data-hidden="">
+        <div data-hf-id="hf-7h0d" class="wash"></div>
+        <div data-hf-id="hf-6an1" id="one-content" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:38px">
+          <div data-hf-id="hf-oqxc" class="mark" id="hero-mark" data-hold style="width:132px;height:132px;gap:12px"><span data-hf-id="hf-drl1" class="piece one"></span><span data-hf-id="hf-2gff" class="piece two"></span><span data-hf-id="hf-72k9" class="piece three"></span><span data-hf-id="hf-w7u7" class="piece four"></span></div>
+          <div data-hf-id="hf-c3n9" id="hook" style="font:500 72px/1.15 var(--font-display);letter-spacing:-.045em;text-align:center;color:#0f172a">Una escuela. Muchas conexiones.</div>
+        </div>
+      </div>
+
+      <div data-hf-id="hf-acxb" id="scene-two" class="clip scene" data-start="3.5" data-duration="5.3" data-track-index="2">
+        <div data-hf-id="hf-8ttd" class="wash"></div>
+        <div data-hf-id="hf-10mw" style="position:absolute;left:190px;top:155px;width:540px">
+          <div data-hf-id="hf-qzio" id="s2-eye" class="eyebrow">Un mismo espacio</div>
+          <div data-hf-id="hf-jbsv" id="s2-title" class="title" style="margin-top:24px">Cada parte,<br data-hf-id="hf-x5px">en su lugar.</div>
+          <div data-hf-id="hf-ppfw" id="s2-copy" class="copy" style="margin-top:24px;max-width:500px">Gestión académica, aula, comunicación y calendario. Una comunidad conectada alrededor del aprendizaje.</div>
+        </div>
+        <div data-hf-id="hf-fxho" id="s2-panel" class="panel" data-hold style="position:absolute;left:820px;top:126px;width:910px;height:720px;padding:40px">
+          <div data-hf-id="hf-nwb1" style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #e2e8f0;padding-bottom:25px">
+            <div data-hf-id="hf-yeow"><div data-hf-id="hf-oskz" style="font-size:17px;font-weight:600;letter-spacing:.13em;color:#047857;text-transform:uppercase">Un espacio para aprender</div><div data-hf-id="hf-dseq" style="font:500 34px var(--font-display);letter-spacing:-.035em;margin-top:9px">Todo en un mismo lugar</div></div>
+            <div data-hf-id="hf-n0sw" class="mark" style="width:50px;height:50px;gap:4px"><span data-hf-id="hf-kkbk" class="piece one" style="border-radius:14px 14px 5px 14px"></span><span data-hf-id="hf-crpo" class="piece two" style="border-radius:14px 14px 14px 5px"></span><span data-hf-id="hf-530q" class="piece three" style="border-radius:14px 5px 14px 14px"></span><span data-hf-id="hf-3d82" class="piece four" style="border-radius:5px 14px 14px 14px"></span></div>
+          </div>
+          <div data-hf-id="hf-teb7" style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:25px">
+            <div data-hf-id="hf-vn69" id="module1" class="module" style="height:210px;padding:26px"><div data-hf-id="hf-69ac" style="width:48px;height:48px;border-radius:15px;background:#ecfdf5;color:#047857;display:grid;place-items:center;font-size:23px">⌂</div><div data-hf-id="hf-cr0w" style="font:500 25px var(--font-display);margin-top:19px">Gestión académica</div><div data-hf-id="hf-tl75" style="font-size:17px;color:#64748b;margin-top:7px">Organiza el día escolar.</div></div>
+            <div data-hf-id="hf-wzn6" id="module2" class="module" style="height:210px;padding:26px"><div data-hf-id="hf-ntf4" style="width:48px;height:48px;border-radius:15px;background:#fffbeb;color:#b45309;display:grid;place-items:center;font-size:23px">▤</div><div data-hf-id="hf-j77k" style="font:500 25px var(--font-display);margin-top:19px">Aula y aprendizaje</div><div data-hf-id="hf-hxfl" style="font-size:17px;color:#64748b;margin-top:7px">Acompaña cada proceso.</div></div>
+            <div data-hf-id="hf-ajw7" id="module3" class="module" style="height:210px;padding:26px"><div data-hf-id="hf-ncxr" style="width:48px;height:48px;border-radius:15px;background:#f0f9ff;color:#0369a1;display:grid;place-items:center;font-size:23px">◎</div><div data-hf-id="hf-lhvv" style="font:500 25px var(--font-display);margin-top:19px">Comunicación</div><div data-hf-id="hf-vfb8" style="font-size:17px;color:#64748b;margin-top:7px">Familias y equipos, más cerca.</div></div>
+            <div data-hf-id="hf-9k0g" id="module4" class="module" style="height:210px;padding:26px"><div data-hf-id="hf-gyks" style="width:48px;height:48px;border-radius:15px;background:#eef2ff;color:#4f46e5;display:grid;place-items:center;font-size:23px">▦</div><div data-hf-id="hf-0lu0" style="font:500 25px var(--font-display);margin-top:19px">Calendario escolar</div><div data-hf-id="hf-9gtv" style="font-size:17px;color:#64748b;margin-top:7px">Periodos para cada institución.</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div data-hf-id="hf-u1q1" id="scene-three" class="clip scene" data-start="8.8" data-duration="7.2" data-track-index="3">
+        <div data-hf-id="hf-a0qg" class="wash"></div>
+        <div data-hf-id="hf-8lol" id="s3-caption" style="position:absolute;left:170px;top:170px;width:370px">
+          <div data-hf-id="hf-urij" class="eyebrow">Del aula al seguimiento</div>
+          <div data-hf-id="hf-y9aw" class="title" style="font-size:60px;margin-top:25px">Cada avance,<br data-hf-id="hf-rsrt">más claro.</div>
+          <div data-hf-id="hf-3em5" class="copy" style="font-size:24px;margin-top:24px">Registrar y acompañar el aprendizaje desde un mismo flujo.</div>
+          <div data-hf-id="hf-xexo" class="pill" style="margin-top:28px">Seguimiento académico</div>
+        </div>
+        <div data-hf-id="hf-xzuy" id="grade-panel" class="panel" data-hold style="position:absolute;left:620px;top:90px;width:1120px;height:840px;overflow:hidden">
+          <div data-hf-id="hf-9b62" style="height:92px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;padding:0 36px">
+            <div data-hf-id="hf-kow4" style="display:flex;align-items:center;gap:18px"><div data-hf-id="hf-rwq4" class="mark" style="width:42px;height:42px;gap:4px"><span data-hf-id="hf-uqhl" class="piece one" style="border-radius:12px 12px 4px 12px"></span><span data-hf-id="hf-9v4v" class="piece two" style="border-radius:12px 12px 12px 4px"></span><span data-hf-id="hf-7po5" class="piece three" style="border-radius:12px 4px 12px 12px"></span><span data-hf-id="hf-48ar" class="piece four" style="border-radius:4px 12px 12px 12px"></span></div><span data-hf-id="hf-2quu" class="brand-name" style="font-size:23px">Educa</span></div>
+            <div data-hf-id="hf-kmkn" style="font-size:16px;color:#64748b">Docente <span data-hf-id="hf-vs07" style="margin-left:18px;color:#0f172a;font-weight:600">María G.</span></div>
+          </div>
+          <div data-hf-id="hf-wiim" style="padding:32px 38px">
+            <div data-hf-id="hf-lqbq" style="display:flex;justify-content:space-between;align-items:end">
+              <div data-hf-id="hf-y7yw"><div data-hf-id="hf-0xyn" style="font:500 35px var(--font-display);letter-spacing:-.04em">Calificar insumos</div><div data-hf-id="hf-q2la" style="font-size:17px;color:#64748b;margin-top:6px">Periodo académico · 2026</div></div>
+              <div data-hf-id="hf-fxaw" id="grade-select" style="display:flex;gap:12px"><div data-hf-id="hf-rzy0" style="border:1px solid #cbd5e1;border-radius:13px;padding:14px 18px;font-size:16px;color:#334155">Aula · 8.º A　⌄</div><div data-hf-id="hf-hzpv" style="border:1px solid #cbd5e1;border-radius:13px;padding:14px 18px;font-size:16px;color:#334155">Matemática　⌄</div></div>
+            </div>
+            <div data-hf-id="hf-ofbr" id="grade-table" style="margin-top:29px;border:1px solid #e2e8f0;border-radius:17px;overflow:hidden">
+              <div data-hf-id="hf-xdtp" style="height:54px;background:#f8fafc;display:grid;grid-template-columns:2.1fr 1fr 1fr 1fr;align-items:center;padding:0 20px;color:#64748b;font-size:15px;font-weight:600"><span data-hf-id="hf-oonp">Estudiante</span><span data-hf-id="hf-fb7b">Actividad 1</span><span data-hf-id="hf-ewwa">Actividad 2</span><span data-hf-id="hf-h1vm">Promedio</span></div>
+              <div data-hf-id="hf-p2td" class="table-cell" style="display:grid;grid-template-columns:2.1fr 1fr 1fr 1fr"><span data-hf-id="hf-bm3b">Ana R.</span><span data-hf-id="hf-q05w">9,0</span><span data-hf-id="hf-rle0">9,4</span><strong data-hf-id="hf-ytbp" style="color:#047857">9,2</strong></div>
+              <div data-hf-id="hf-yxed" class="table-cell" style="display:grid;grid-template-columns:2.1fr 1fr 1fr 1fr"><span data-hf-id="hf-zcsl">Luis M.</span><span data-hf-id="hf-m3og">8,5</span><span data-hf-id="hf-hc04">8,9</span><strong data-hf-id="hf-f32p" style="color:#047857">8,7</strong></div>
+              <div data-hf-id="hf-04bg" class="table-cell" style="display:grid;grid-template-columns:2.1fr 1fr 1fr 1fr"><span data-hf-id="hf-ten2">Camila P.</span><span data-hf-id="hf-qsry">9,6</span><span data-hf-id="hf-p7ju">9,2</span><strong data-hf-id="hf-175v" style="color:#047857">9,4</strong></div>
+              <div data-hf-id="hf-dlic" class="table-cell" style="display:grid;grid-template-columns:2.1fr 1fr 1fr 1fr;border-bottom:0"><span data-hf-id="hf-a4nl">Diego V.</span><span data-hf-id="hf-gxp3">8,8</span><span data-hf-id="hf-pluv">9,1</span><strong data-hf-id="hf-zlxr" style="color:#047857">9,0</strong></div>
+            </div>
+            <div data-hf-id="hf-bbjq" style="display:flex;justify-content:space-between;align-items:center;margin-top:23px"><span data-hf-id="hf-9eh9" style="font-size:15px;color:#64748b">4 estudiantes · datos de demostración</span><div data-hf-id="hf-g5rs" id="save-button" style="background:#047857;color:white;border-radius:13px;padding:15px 24px;font-size:16px;font-weight:600">Registrar calificaciones</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div data-hf-id="hf-o4cq" id="scene-four" class="clip scene" data-start="16" data-duration="4" data-track-index="4">
+        <div data-hf-id="hf-9mff" class="wash"></div>
+        <div data-hf-id="hf-4jz3" id="outro-content" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:24px">
+          <div data-hf-id="hf-menk" class="mark" id="outro-mark"><span data-hf-id="hf-pmwp" class="piece one"></span><span data-hf-id="hf-63yj" class="piece two"></span><span data-hf-id="hf-nte5" class="piece three"></span><span data-hf-id="hf-utan" class="piece four"></span></div>
+          <div data-hf-id="hf-6u1s" id="outro-name" class="brand-name" style="font-size:54px">Educa</div>
+          <div data-hf-id="hf-unf4" id="outro-line" style="font:400 34px var(--font-display);letter-spacing:-.025em;color:#475569">La vida escolar, más conectada.</div>
+        </div>
+      </div>
+      <audio data-hf-id="hf-lata" id="voiceover" class="clip" data-start="0" data-duration="17.2" data-track-index="10" data-volume="1" src="assets/voiceover.wav"></audio>
+      <audio data-hf-id="hf-32ls" id="bg-music" class="clip" data-start="0" data-duration="20" data-track-index="9" data-volume="0.16" data-fade-in="1.2" data-fade-out="2.2" src="assets/music/happy-beats-business-moves-vol-12-by-ende-dot-app.mp3"></audio>
+      <audio data-hf-id="hf-u839" id="sfx-mark" class="clip" data-start="0.92" data-duration="0.4" data-track-index="11" data-volume="0.58" src="assets/sfx/interface/drop_001.ogg"></audio>
+      <audio data-hf-id="hf-ns1h" id="sfx-select" class="clip" data-start="9.68" data-duration="0.2" data-track-index="12" data-volume="0.42" src="assets/sfx/interface/click_003.ogg"></audio>
+      <audio data-hf-id="hf-n94a" id="sfx-outro" class="clip" data-start="16.48" data-duration="0.4" data-track-index="13" data-volume="0.5" src="assets/sfx/interface/bong_001.ogg"></audio>
+    </div>
+    <script>
+      const tl = gsap.timeline({ paused: true });
+      tl.fromTo(["#s2-eye", "#s2-title", "#s2-copy"], { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.65, stagger: 0.16, ease: "power2.out" }, 3.85);
+      tl.fromTo("#s2-panel", { opacity: 0, scale: 0.975, x: 18 }, { opacity: 1, scale: 1, x: 0, duration: 0.85, ease: "power2.out" }, 3.72);
+      tl.fromTo(["#module1", "#module2", "#module3", "#module4"], { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.5, stagger: 0.15, ease: "power2.out" }, 4.38);
+      tl.fromTo("#s3-caption", { opacity: 0, x: -20 }, { opacity: 1, x: 0, duration: 0.8, ease: "power2.out" }, 9.05);
+      tl.fromTo("#grade-panel", { opacity: 0, y: 24, scale: 0.985 }, { opacity: 1, y: 0, scale: 1, duration: 0.8, ease: "power2.out" }, 9.02);
+      tl.fromTo("#grade-select", { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.45, ease: "power2.out" }, 9.72);
+      tl.fromTo("#grade-table", { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.6, ease: "power2.out" }, 10.05);
+      tl.fromTo("#save-button", { opacity: 0, scale: 0.96 }, { opacity: 1, scale: 1, duration: 0.45, ease: "power2.out" }, 11.5);
+      tl.to("#save-button", { scale: 1.02, duration: 0.55, yoyo: true, repeat: 1, ease: "sine.inOut" }, 13.2);
+      tl.fromTo("#outro-mark .piece", { opacity: 0, scale: 0.65, y: 12 }, { opacity: 1, scale: 1, y: 0, duration: 0.48, stagger: 0.08, ease: "power2.out" }, 16.14);
+      tl.fromTo("#outro-name", { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }, 16.6);
+      tl.fromTo("#outro-line", { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.55, ease: "power2.out" }, 17.0);
+      window.__timelines["main"] = tl;
+      tl.seek(0);
+    </script>
+  </body>
+</html>

@@ -23,6 +23,7 @@ class NavigationSeeder extends Seeder
         $docente = Role::findOrCreate(RoleName::Docente->value, 'web');
 
         $this->ensureItem('Inicio', 'dashboard', 'home', 1, true, []);
+        $this->ensureItem('Notificaciones', 'notificaciones.index', 'envelope', 1, true, []);
         $this->ensureItem('Matrícula', 'matriculas.index', 'clipboard-document-list', 1, false, [$padre->id]);
         $this->ensureItem('Notas', 'notas.index', 'table-cells', 2, false, [$padre->id, $alumno->id]);
 

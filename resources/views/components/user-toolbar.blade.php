@@ -8,12 +8,25 @@
         @if ($periodoLabel)
             <p class="truncate text-[11px] text-slate-500">{{ $periodoLabel }}</p>
         @endif
-        @if ($docenteContextoLabel)
-            <p class="truncate text-[11px] text-slate-500">{{ $docenteContextoLabel }}</p>
-        @endif
     </div>
 
     <div class="flex items-center gap-0.5">
+        <a
+            href="{{ route('notificaciones.index') }}"
+            class="relative inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-indigo-700"
+            title="Notificaciones"
+        >
+            <span class="sr-only">Notificaciones</span>
+            <svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" />
+            </svg>
+            @if ($notificacionesNoLeidas > 0)
+                <span class="absolute right-0.5 top-0.5 min-w-[1rem] rounded-full bg-indigo-600 px-1 text-center text-[10px] font-semibold leading-4 text-white" aria-label="{{ $notificacionesNoLeidas }} sin leer">
+                    {{ $notificacionesNoLeidas }}
+                </span>
+            @endif
+        </a>
+
         <a
             href="{{ route('profile.edit') }}"
             class="inline-flex h-9 w-9 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-indigo-700"

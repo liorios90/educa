@@ -75,7 +75,12 @@
                     </div>
                 </div>
             @else
-                <x-sidebar-link :href="$item->url()" :active="$item->isActive()" :icon="$item->icon">
+                <x-sidebar-link
+                    :href="$item->url()"
+                    :active="$item->isActive()"
+                    :icon="$item->icon"
+                    :badge="$item->route === 'notificaciones.index' ? $notificacionesNoLeidas : null"
+                >
                     {{ $item->label }}
                 </x-sidebar-link>
             @endif

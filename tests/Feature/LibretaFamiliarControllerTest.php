@@ -1,43 +1,9 @@
 <?php
 
 use App\Enums\Role;
-use App\Models\Alumno;
 use App\Models\Establecimiento;
-use App\Models\Padre;
-use App\Models\Persona;
 use App\Models\User;
 use Database\Seeders\NavigationSeeder;
-
-function cuentaAlumnoDe(Alumno $alumno, Establecimiento $establecimiento): User
-{
-    $user = assignRole(User::factory()->create([
-        'name' => 'Alumno Vega',
-        'establecimiento_id' => $establecimiento->id,
-    ]), Role::Alumno);
-
-    $alumno->persona->update(['user_id' => $user->id]);
-
-    return $user;
-}
-
-function cuentaPadreDe(Establecimiento $establecimiento, Alumno ...$alumnos): User
-{
-    $user = assignRole(User::factory()->create([
-        'name' => 'Padre Vega',
-        'establecimiento_id' => $establecimiento->id,
-    ]), Role::Padre);
-    $persona = Persona::factory()->create([
-        'user_id' => $user->id,
-        'establecimiento_id' => $establecimiento->id,
-    ]);
-    $padre = Padre::factory()->create(['persona_id' => $persona->id]);
-
-    foreach ($alumnos as $alumno) {
-        $alumno->update(['padre_id' => $padre->id]);
-    }
-
-    return $user;
-}
 
 it('redirects guests from the family gradebook to the login page', function () {
     $this->get(route('notas.index'))

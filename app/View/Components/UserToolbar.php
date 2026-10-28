@@ -8,6 +8,7 @@ use App\Auth\ActivePeriodo;
 use App\Auth\ActiveRole;
 use App\Enums\Role;
 use App\Models\User;
+use App\Services\BandejaNotificaciones;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\Component;
 use Illuminate\View\View;
@@ -19,6 +20,7 @@ class UserToolbar extends Component
         private ActiveOferta $activeOferta,
         private ActivePeriodo $activePeriodo,
         private ActiveDocenteContexto $activeDocenteContexto,
+        private BandejaNotificaciones $bandeja,
     ) {}
 
     public function render(): View
@@ -37,19 +39,16 @@ class UserToolbar extends Component
 
         $oferta = $this->activeOferta->get($user);
         $periodo = $this->activePeriodo->get($user);
-        $docenteContexto = $this->activeDocenteContexto->appliesTo($user)
-            ? $this->activeDocenteContexto->get($user)
-            : null;
 
         return view('components.user-toolbar', [
             'user' => $user,
             'roleLabel' => $roleLabel,
             'ofertaLabel' => $oferta?->etiqueta(),
             'periodoLabel' => $periodo?->nombre,
-            'docenteContextoLabel' => $docenteContexto?->etiqueta(),
             'canSwitchRole' => $user->roles->count() > 1,
             'canSwitchOferta' => $this->activeOferta->canSwitch($user),
             'canSwitchDocenteContexto' => $this->activeDocenteContexto->appliesTo($user),
+            'notificacionesNoLeidas' => $this->bandeja->noLeidas($user),
         ]);
     }
 }

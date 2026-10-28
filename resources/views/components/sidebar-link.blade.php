@@ -3,6 +3,7 @@
     'active' => false,
     'icon' => 'dot',
     'nested' => false,
+    'badge' => null,
 ])
 
 @php
@@ -14,5 +15,10 @@
 
 <a href="{{ $href }}" {{ $attributes->merge(['class' => 'group flex items-center gap-3 rounded-xl '.$padding.' text-sm font-medium transition '.$classes]) }}>
     <x-sidebar-icon :name="$icon" class="{{ $active ? 'text-indigo-300' : 'text-slate-400 group-hover:text-slate-200' }}" />
-    <span>{{ $slot }}</span>
+    <span class="min-w-0 flex-1 truncate">{{ $slot }}</span>
+    @if (is_numeric($badge) && (int) $badge > 0)
+        <span class="rounded-full bg-indigo-500 px-2 py-0.5 text-[11px] font-semibold text-white" aria-label="{{ (int) $badge }} sin leer">
+            {{ (int) $badge }}
+        </span>
+    @endif
 </a>

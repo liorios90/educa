@@ -333,6 +333,17 @@ describe('store', function () {
             ->assertSessionHas(ActiveDocenteContexto::PARCIAL_KEY, 1);
     });
 
+    it('does not show the classroom subject cycle and partial in the top bar', function () {
+        $escenario = escenarioCalificarInsumos();
+        guardarContextoCalificar($escenario);
+        $etiqueta = $escenario['aula']->etiqueta().' · '.$escenario['malla']->nombre().' · '.$escenario['ciclo']->nombre.' · Parcial 1';
+
+        $this->actingAs($escenario['docente'])
+            ->get(route('dashboard'))
+            ->assertDontSee($etiqueta)
+            ->assertSee('Cambiar aula, materia y parcial');
+    });
+
     it('returns to the edit page when the context is saved from there', function () {
         $escenario = escenarioCalificarInsumos();
 

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Enums\Role;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -49,5 +50,38 @@ class User extends Authenticatable
     public function persona(): HasOne
     {
         return $this->hasOne(Persona::class);
+    }
+
+    public function nombreVisible(): string
+    {
+        $this->loadMissing('persona');
+        $nombre = trim(($this->persona?->apellidos ?? '').' '.($this->persona?->nombres ?? ''));
+
+        return $nombre !== '' ? $nombre : $this->name;
+    }
+
+    public function etiquetaRol(): string
+    {
+        $this->loadMissing('roles');
+
+        $etiquetas = collect([
+            Role::Docente,
+            Role::Padre,
+            Role::Alumno,
+            Role::Admin,
+            Role::Secretaria,
+            Role::Sistemas,
+            Role::Empleado,
+        ])
+            ->filter(fn (Role $rol): bool => $this->hasRole($rol))
+            ->map(fn (Role $rol): string => $rol->label())
+            ->implode(', ');
+
+        return $etiquetas !== '' ? $etiquetas : 'Usuario';
+    }
+
+    public function etiquetaConRol(): string
+    {
+        return $this->nombreVisible().' ('.$this->etiquetaRol().')';
     }
 }

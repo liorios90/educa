@@ -11,6 +11,7 @@ use App\Http\Controllers\HorarioDocenteController;
 use App\Http\Controllers\LibretaFamiliarController;
 use App\Http\Controllers\MejoraCalificacionController;
 use App\Http\Controllers\NavigationHubController;
+use App\Http\Controllers\NotificacionController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReportRunController;
 use App\Http\Controllers\SecretariaController;
@@ -24,6 +25,15 @@ Route::view('/cookies', 'cookies')->name('cookies');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
+    Route::get('/notificaciones', [NotificacionController::class, 'index'])->name('notificaciones.index');
+    Route::get('/notificaciones/crear', [NotificacionController::class, 'create'])->name('notificaciones.create');
+    Route::post('/notificaciones', [NotificacionController::class, 'store'])
+        ->middleware('throttle:20,1')
+        ->name('notificaciones.store');
+    Route::get('/notificaciones/{notificacion}', [NotificacionController::class, 'show'])->name('notificaciones.show');
+    Route::post('/notificaciones/{notificacion}/responder', [NotificacionController::class, 'responder'])
+        ->middleware('throttle:20,1')
+        ->name('notificaciones.responder');
 
     Route::middleware('role:Docente')
         ->prefix('docente')

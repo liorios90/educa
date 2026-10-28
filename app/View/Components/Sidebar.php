@@ -6,6 +6,7 @@ use App\Auth\ActiveRole;
 use App\Enums\Role;
 use App\Models\User;
 use App\Navigation\Navigation;
+use App\Services\BandejaNotificaciones;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\Component;
 use Illuminate\View\View;
@@ -15,6 +16,7 @@ class Sidebar extends Component
     public function __construct(
         private Navigation $navigation,
         private ActiveRole $activeRole,
+        private BandejaNotificaciones $bandeja,
     ) {}
 
     public function render(): View
@@ -30,6 +32,7 @@ class Sidebar extends Component
             'items' => $this->navigation->itemsFor($user),
             'establecimiento' => $showSchoolBranding ? $user->establecimiento : null,
             'isSistemas' => $activeRole === Role::Sistemas,
+            'notificacionesNoLeidas' => $this->bandeja->noLeidas($user),
         ]);
     }
 }

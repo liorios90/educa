@@ -16,7 +16,7 @@ class EscalaComportamiento
             ->where('establecimiento_periodo_id', $periodoId)
             ->where('uso', UsoEquivalencia::Comportamiento)
             ->where('activo', true)
-            ->with(['detalles' => fn ($query) => $query->where('activo', true)->orderBy('id')])
+            ->with(['detalles' => fn ($query) => $query->where('activo', true)->orderByRaw('jerarquia is null')->orderByDesc('jerarquia')->orderBy('id')])
             ->first();
     }
 
@@ -26,7 +26,7 @@ class EscalaComportamiento
             $equivalencia = Equivalencia::query()->create([
                 'establecimiento_periodo_id' => $periodo->id,
                 'nombre' => 'Comportamiento',
-                'descripcion' => 'Escala del Reglamento General a la LOEI. Puedes cambiar las letras, los nombres y qué calificaciones exigen observación.',
+                'descripcion' => 'Escala de frecuencia del Ministerio de Educación. El valor jerárquico más alto es el mejor cumplimiento.',
                 'uso' => UsoEquivalencia::Comportamiento,
                 'activo' => true,
             ]);
@@ -36,12 +36,13 @@ class EscalaComportamiento
                     'nombre' => $escala->label(),
                     'descripcion' => $escala->descripcion(),
                     'valor' => $escala->value,
+                    'jerarquia' => $escala->jerarquia(),
                     'activo' => true,
                     'exige_observacion' => $escala->exigeObservacion(),
                 ]);
             }
 
-            return $equivalencia->load(['detalles' => fn ($query) => $query->orderBy('id')]);
+            return $equivalencia->load(['detalles' => fn ($query) => $query->orderByDesc('jerarquia')->orderBy('id')]);
         });
     }
 }

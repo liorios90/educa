@@ -26,7 +26,15 @@ class UpsertEquivalenciaDetalleRequest extends FormRequest
 
         return [
             'nombre' => ['required', 'string', 'max:255'],
-            'descripcion' => ['nullable', 'string'],
+            'descripcion' => [$comportamiento ? 'required' : 'nullable', 'string'],
+            'jerarquia' => [
+                $comportamiento ? 'required' : 'prohibited',
+                'integer',
+                'between:1,99',
+                Rule::unique('equivalencias_detalles', 'jerarquia')
+                    ->where(fn ($query) => $query->where('equivalencia_id', $this->equivalencia()->id))
+                    ->ignore($this->route('detalle')),
+            ],
             'valor' => [
                 $comportamiento ? 'required' : 'nullable',
                 'string',
@@ -58,8 +66,12 @@ class UpsertEquivalenciaDetalleRequest extends FormRequest
     {
         return [
             'nombre.required' => 'Escribe el nombre del detalle.',
-            'valor.required' => 'Escribe la letra o el código de la calificación.',
-            'valor.unique' => 'Esa letra ya está en la tabla.',
+            'descripcion.required' => 'Escribe la descripción de la calificación.',
+            'jerarquia.required' => 'Escribe el valor jerárquico. El más alto corresponde al mejor cumplimiento.',
+            'jerarquia.unique' => 'Ese valor jerárquico ya está en la tabla.',
+            'jerarquia.prohibited' => 'Solo la tabla de comportamiento usa un valor jerárquico.',
+            'valor.required' => 'Escribe el código de la calificación.',
+            'valor.unique' => 'Ese código ya está en la tabla.',
             'minimo.prohibited' => 'La tabla de comportamiento no usa rangos numéricos.',
             'maximo.prohibited' => 'La tabla de comportamiento no usa rangos numéricos.',
             'maximo.gte' => 'El mínimo no puede ser mayor que el máximo.',
@@ -67,7 +79,7 @@ class UpsertEquivalenciaDetalleRequest extends FormRequest
     }
 
     /**
-     * @return array{nombre: string, descripcion: ?string, valor: ?string, minimo: ?string, maximo: ?string, activo: bool, exige_observacion: bool}
+     * @return array{nombre: string, descripcion: ?string, valor: ?string, jerarquia: ?int, minimo: ?string, maximo: ?string, activo: bool, exige_observacion: bool}
      */
     public function detalle(): array
     {
@@ -77,6 +89,7 @@ class UpsertEquivalenciaDetalleRequest extends FormRequest
             'nombre' => $data['nombre'],
             'descripcion' => $data['descripcion'] ?? null,
             'valor' => $data['valor'] ?? null,
+            'jerarquia' => isset($data['jerarquia']) ? (int) $data['jerarquia'] : null,
             'minimo' => $data['minimo'] ?? null,
             'maximo' => $data['maximo'] ?? null,
             'activo' => (bool) $data['activo'],

@@ -21,7 +21,9 @@ class EstablecimientoComportamiento extends Model
         'establecimiento_id',
         'alumno_id',
         'establecimiento_aula_id',
+        'establecimiento_asignatura_id',
         'establecimiento_periodo_ciclo_id',
+        'criterio_comportamiento_id',
         'equivalencia_detalle_id',
         'observacion',
     ];
@@ -71,6 +73,22 @@ class EstablecimientoComportamiento extends Model
     public function aula(): BelongsTo
     {
         return $this->belongsTo(EstablecimientoAula::class, 'establecimiento_aula_id');
+    }
+
+    /**
+     * @return BelongsTo<EstablecimientoAsignatura, $this>
+     */
+    public function asignatura(): BelongsTo
+    {
+        return $this->belongsTo(EstablecimientoAsignatura::class, 'establecimiento_asignatura_id');
+    }
+
+    /**
+     * @return BelongsTo<Sys_CriterioComportamiento, $this>
+     */
+    public function criterio(): BelongsTo
+    {
+        return $this->belongsTo(Sys_CriterioComportamiento::class, 'criterio_comportamiento_id');
     }
 
     /**

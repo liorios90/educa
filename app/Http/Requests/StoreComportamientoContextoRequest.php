@@ -27,6 +27,7 @@ class StoreComportamientoContextoRequest extends FormRequest
     {
         return [
             'establecimiento_aula_id' => ['required', 'integer'],
+            'establecimiento_asignatura_id' => ['required', 'integer'],
             'establecimiento_periodo_ciclo_id' => ['required', 'integer'],
         ];
     }
@@ -38,6 +39,7 @@ class StoreComportamientoContextoRequest extends FormRequest
     {
         return [
             'establecimiento_aula_id.required' => 'Selecciona un aula.',
+            'establecimiento_asignatura_id.required' => 'Selecciona una asignatura.',
             'establecimiento_periodo_ciclo_id.required' => 'Selecciona un quimestre o trimestre.',
         ];
     }
@@ -62,6 +64,7 @@ class StoreComportamientoContextoRequest extends FormRequest
                 $contexto = $this->asignaciones()->contextoComportamiento(
                     $user,
                     (int) $this->input('establecimiento_aula_id'),
+                    (int) $this->input('establecimiento_asignatura_id'),
                     (int) $this->input('establecimiento_periodo_ciclo_id'),
                 );
 

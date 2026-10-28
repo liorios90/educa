@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use App\Auth\ContextoComportamiento;
 use App\Enums\Role;
 use App\Models\EquivalenciaDetalle;
+use App\Models\EstablecimientoPeriodo;
 use App\Services\AsignacionesDocente;
 use App\Services\EscalaComportamiento;
 use Illuminate\Contracts\Validation\ValidationRule;
@@ -30,11 +31,13 @@ class StoreComportamientoRequest extends FormRequest
     {
         return [
             'establecimiento_aula_id' => ['required', 'integer'],
+            'establecimiento_asignatura_id' => ['required', 'integer'],
             'establecimiento_periodo_ciclo_id' => ['required', 'integer'],
             'comportamientos' => ['required', 'array'],
             'comportamientos.*' => ['array'],
-            'comportamientos.*.calificacion' => ['required', 'integer'],
-            'comportamientos.*.observacion' => ['nullable', 'string', 'max:500'],
+            'comportamientos.*.*' => ['array'],
+            'comportamientos.*.*.calificacion' => ['required', 'integer'],
+            'comportamientos.*.*.observacion' => ['nullable', 'string', 'max:500'],
         ];
     }
 
@@ -45,11 +48,12 @@ class StoreComportamientoRequest extends FormRequest
     {
         return [
             'establecimiento_aula_id.required' => 'Selecciona un aula.',
+            'establecimiento_asignatura_id.required' => 'Selecciona una asignatura.',
             'establecimiento_periodo_ciclo_id.required' => 'Selecciona un quimestre o trimestre.',
             'comportamientos.required' => 'Registra el comportamiento de cada estudiante.',
-            'comportamientos.*.calificacion.required' => 'Selecciona la calificación de comportamiento.',
-            'comportamientos.*.calificacion.integer' => 'Selecciona una calificación de la escala del periodo.',
-            'comportamientos.*.observacion.max' => 'La observación no puede pasar de 500 caracteres.',
+            'comportamientos.*.*.calificacion.required' => 'Selecciona la calificación de comportamiento.',
+            'comportamientos.*.*.calificacion.integer' => 'Selecciona una calificación de la escala del periodo.',
+            'comportamientos.*.*.observacion.max' => 'La observación no puede pasar de 500 caracteres.',
         ];
     }
 
@@ -73,6 +77,7 @@ class StoreComportamientoRequest extends FormRequest
                 $contexto = $this->asignaciones()->contextoComportamiento(
                     $user,
                     (int) $this->input('establecimiento_aula_id'),
+                    (int) $this->input('establecimiento_asignatura_id'),
                     (int) $this->input('establecimiento_periodo_ciclo_id'),
                 );
 
@@ -96,19 +101,21 @@ class StoreComportamientoRequest extends FormRequest
     }
 
     /**
-     * @return array<int, array{equivalencia_detalle_id: int, observacion: ?string}>
+     * @return array<int, array<int, array{equivalencia_detalle_id: int, observacion: ?string}>>
      */
     public function filas(): array
     {
         $filas = [];
 
-        foreach ($this->validated('comportamientos') as $alumnoId => $fila) {
-            $observacion = $fila['observacion'] ?? null;
+        foreach ($this->validated('comportamientos') as $alumnoId => $indicadores) {
+            foreach ($indicadores as $criterioId => $fila) {
+                $observacion = $fila['observacion'] ?? null;
 
-            $filas[(int) $alumnoId] = [
-                'equivalencia_detalle_id' => (int) $fila['calificacion'],
-                'observacion' => is_string($observacion) && trim($observacion) !== '' ? trim($observacion) : null,
-            ];
+                $filas[(int) $alumnoId][(int) $criterioId] = [
+                    'equivalencia_detalle_id' => (int) $fila['calificacion'],
+                    'observacion' => is_string($observacion) && trim($observacion) !== '' ? trim($observacion) : null,
+                ];
+            }
         }
 
         return $filas;
@@ -135,34 +142,61 @@ class StoreComportamientoRequest extends FormRequest
             return;
         }
 
+        $indicadores = $this->indicadoresDelPeriodo((int) $contexto->aula->establecimiento_periodo_id);
+
+        if ($indicadores->isEmpty()) {
+            $validator->errors()->add('comportamientos', 'El periodo no tiene indicadores de comportamiento. El administrador los elige en Criterios de comportamiento.');
+
+            return;
+        }
+
         $enviados = [];
 
-        foreach ($this->input('comportamientos', []) as $alumnoId => $fila) {
-            if ((string) (int) $alumnoId !== (string) $alumnoId) {
+        foreach ($this->input('comportamientos', []) as $alumnoId => $criterios) {
+            if ((string) (int) $alumnoId !== (string) $alumnoId || ! is_array($criterios)) {
                 $validator->errors()->add('comportamientos', 'La lista de estudiantes no coincide con el aula. Vuelve a cargar el comportamiento.');
 
                 return;
             }
 
             $enviados[] = (int) $alumnoId;
-            $calificacion = is_array($fila) ? ($fila['calificacion'] ?? null) : null;
-            $observacion = is_array($fila) ? trim((string) ($fila['observacion'] ?? '')) : '';
-            $detalle = is_numeric($calificacion) ? $detalles->get((int) $calificacion) : null;
+            $criteriosEnviados = [];
 
-            if (! $detalle instanceof EquivalenciaDetalle) {
-                $validator->errors()->add(
-                    'comportamientos.'.$alumnoId.'.calificacion',
-                    'Selecciona una calificación de la escala del periodo.',
-                );
+            foreach ($criterios as $criterioId => $fila) {
+                if ((string) (int) $criterioId !== (string) $criterioId || ! is_array($fila)) {
+                    $validator->errors()->add('comportamientos', 'La lista de indicadores no coincide con el periodo. Vuelve a cargar el comportamiento.');
 
-                continue;
+                    return;
+                }
+
+                $criteriosEnviados[] = (int) $criterioId;
+                $calificacion = $fila['calificacion'] ?? null;
+                $observacion = trim((string) ($fila['observacion'] ?? ''));
+                $detalle = is_numeric($calificacion) ? $detalles->get((int) $calificacion) : null;
+
+                if (! $detalle instanceof EquivalenciaDetalle) {
+                    $validator->errors()->add(
+                        'comportamientos.'.$alumnoId.'.'.$criterioId.'.calificacion',
+                        'Selecciona una calificación de la escala del periodo.',
+                    );
+
+                    continue;
+                }
+
+                if ($detalle->exige_observacion && $observacion === '') {
+                    $validator->errors()->add(
+                        'comportamientos.'.$alumnoId.'.'.$criterioId.'.observacion',
+                        'Describe en qué situaciones no se observa la habilidad.',
+                    );
+                }
             }
 
-            if ($detalle->exige_observacion && $observacion === '') {
-                $validator->errors()->add(
-                    'comportamientos.'.$alumnoId.'.observacion',
-                    'Describe el incumplimiento de los compromisos de convivencia.',
-                );
+            $criteriosEnviados = collect($criteriosEnviados)->sort()->values();
+
+            if ($indicadores->all() !== $criteriosEnviados->all()) {
+                $validator->errors()->add('comportamientos', 'La lista de indicadores no coincide con el periodo. Vuelve a cargar el comportamiento.');
+
+                return;
             }
         }
 
@@ -182,6 +216,20 @@ class StoreComportamientoRequest extends FormRequest
             ->delPeriodo($periodoId)
             ?->detalles
             ->keyBy(fn (EquivalenciaDetalle $detalle): int => (int) $detalle->id) ?? collect();
+    }
+
+    /**
+     * @return Collection<int, int>
+     */
+    private function indicadoresDelPeriodo(int $periodoId): Collection
+    {
+        return EstablecimientoPeriodo::query()
+            ->find($periodoId)
+            ?->criteriosComportamiento()
+            ->pluck('sys_criterios_comportamiento.id')
+            ->map(fn (mixed $id): int => (int) $id)
+            ->sort()
+            ->values() ?? collect();
     }
 
     private function asignaciones(): AsignacionesDocente

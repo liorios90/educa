@@ -86,6 +86,11 @@ final class HubGuide
             'description' => 'Registra la asistencia una vez al día o en cada asignatura.',
             'icon' => 'calendar-days',
         ],
+        'Docente.comportamiento.index' => [
+            'section' => 'Registro de clase',
+            'description' => 'Califica cada indicador del periodo con la escala de comportamiento. No modifica el promedio de las asignaturas.',
+            'icon' => 'shield-check',
+        ],
     ];
 
     private const SECTION_ORDER = [
@@ -103,7 +108,7 @@ final class HubGuide
         return match ($label) {
             'Catálogos' => 'Listados oficiales que usa secretaría, rectorado y sistemas para matrícula, personal y reportes. Elija un catálogo para consultarlo o actualizarlo.',
             'Estructura' => 'Organice la oferta educativa de la institución: niveles, grados, áreas y asignaturas.',
-            'Insumos' => 'Califica los insumos del parcial y registra la asistencia del aula, una vez al día o por asignatura.',
+            'Insumos' => 'Califica los insumos del parcial, la asistencia del aula y el comportamiento por indicador.',
             default => 'Seleccione una opción para continuar.',
         };
     }

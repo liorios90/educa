@@ -117,7 +117,9 @@ class EquivalenciaController extends Controller
     public function detalles(Equivalencia $equivalencia): View
     {
         $this->asegurarDelPeriodo($equivalencia);
-        $equivalencia->load(['detalles' => fn ($query) => $query->orderBy('id')]);
+        $equivalencia->load(['detalles' => fn ($query) => $equivalencia->esComportamiento()
+            ? $query->orderByRaw('jerarquia is null')->orderByDesc('jerarquia')->orderBy('id')
+            : $query->orderBy('id')]);
 
         return view('admin.tablas-equivalencias.detalles', compact('equivalencia'));
     }

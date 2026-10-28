@@ -4,38 +4,45 @@ namespace App\Enums;
 
 enum CalificacionComportamiento: string
 {
-    case MuySatisfactorio = 'A';
-    case Satisfactorio = 'B';
-    case PocoSatisfactorio = 'C';
-    case Mejorable = 'D';
-    case Insatisfactorio = 'E';
+    case Siempre = 'S';
+    case Frecuentemente = 'F';
+    case Ocasionalmente = 'O';
+    case Nunca = 'N';
 
     public function label(): string
     {
         return match ($this) {
-            self::MuySatisfactorio => 'Muy satisfactorio',
-            self::Satisfactorio => 'Satisfactorio',
-            self::PocoSatisfactorio => 'Poco satisfactorio',
-            self::Mejorable => 'Mejorable',
-            self::Insatisfactorio => 'Insatisfactorio',
+            self::Siempre => 'Siempre',
+            self::Frecuentemente => 'Frecuentemente',
+            self::Ocasionalmente => 'Ocasionalmente',
+            self::Nunca => 'Nunca',
         };
     }
 
     public function descripcion(): string
     {
         return match ($this) {
-            self::MuySatisfactorio => 'Lidera el cumplimiento de los compromisos establecidos para la sana convivencia social.',
-            self::Satisfactorio => 'Cumple con los compromisos establecidos para la sana convivencia social.',
-            self::PocoSatisfactorio => 'Falla ocasionalmente en el cumplimiento de los compromisos establecidos para la sana convivencia social.',
-            self::Mejorable => 'Falla reiteradamente en el cumplimiento de los compromisos establecidos para la sana convivencia social.',
-            self::Insatisfactorio => 'No cumple con los compromisos establecidos para la sana convivencia social.',
+            self::Siempre => 'Demuestra la habilidad en todas las situaciones observadas.',
+            self::Frecuentemente => 'Demuestra la habilidad en la mayoría de las situaciones observadas.',
+            self::Ocasionalmente => 'Demuestra la habilidad solo en algunas situaciones observadas.',
+            self::Nunca => 'No demuestra la habilidad en las situaciones observadas.',
+        };
+    }
+
+    public function jerarquia(): int
+    {
+        return match ($this) {
+            self::Siempre => 4,
+            self::Frecuentemente => 3,
+            self::Ocasionalmente => 2,
+            self::Nunca => 1,
         };
     }
 
     public function exigeObservacion(): bool
     {
         return match ($this) {
-            self::PocoSatisfactorio, self::Mejorable, self::Insatisfactorio => true,
+            self::Ocasionalmente, self::Nunca => true,
             default => false,
         };
     }

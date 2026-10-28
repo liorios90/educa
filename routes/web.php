@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AsistenciaDiariaController;
 use App\Http\Controllers\CalificarCierresController;
+use App\Http\Controllers\ComportamientoController;
 use App\Http\Controllers\CalificarInsumosController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DiagnosticoEstudianteController;
@@ -36,6 +37,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/asistencia', [AsistenciaDiariaController::class, 'index'])->name('asistencia.index');
             Route::post('/asistencia', [AsistenciaDiariaController::class, 'store'])->name('asistencia.store');
             Route::post('/asistencia/registro', [AsistenciaDiariaController::class, 'registrar'])->name('asistencia.registrar');
+            Route::get('/comportamiento', [ComportamientoController::class, 'index'])->name('comportamiento.index');
+            Route::post('/comportamiento', [ComportamientoController::class, 'store'])->name('comportamiento.store');
+            Route::post('/comportamiento/registro', [ComportamientoController::class, 'registrar'])->name('comportamiento.registrar');
             Route::post('/calificar/actividades', [CalificarInsumosController::class, 'storeActividad'])->name('calificar.actividades.store');
             Route::put('/calificar/actividades/{actividad}', [CalificarInsumosController::class, 'updateActividad'])->name('calificar.actividades.update');
             foreach (['examenes', 'proyectos', 'examenes-finales', 'proyectos-finales'] as $tipoCierre) {

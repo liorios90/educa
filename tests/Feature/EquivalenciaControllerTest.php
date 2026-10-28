@@ -129,9 +129,12 @@ it('creates the reglamento behavior scale once for the active period', function 
     $escala = Equivalencia::query()->where('uso', UsoEquivalencia::Comportamiento)->first();
 
     expect($escala)->not->toBeNull()
-        ->and($escala->detalles)->toHaveCount(5)
-        ->and($escala->detalles->firstWhere('valor', 'C')?->exige_observacion)->toBeTrue()
-        ->and($escala->detalles->firstWhere('valor', 'A')?->exige_observacion)->toBeFalse();
+        ->and($escala->detalles)->toHaveCount(4)
+        ->and($escala->detalles->firstWhere('valor', 'O')?->exige_observacion)->toBeTrue()
+        ->and($escala->detalles->firstWhere('valor', 'S')?->exige_observacion)->toBeFalse()
+        ->and($escala->detalles->firstWhere('valor', 'S')?->jerarquia)->toBe(4)
+        ->and($escala->detalles->firstWhere('nombre', 'Siempre'))->not->toBeNull()
+        ->and($escala->detalles->firstWhere('valor', 'N')?->jerarquia)->toBe(1);
 
     $this->post(route('Admin.tablas-equivalencias.comportamiento.store'))
         ->assertRedirect(route('Admin.tablas-equivalencias.detalles.index', $escala));
@@ -154,7 +157,9 @@ it('stores a behavior letter without a numeric range', function () {
         ->from(route('Admin.tablas-equivalencias.detalles.index', $equivalencia))
         ->post(route('Admin.tablas-equivalencias.detalles.store', $equivalencia), [
             'nombre' => 'Muy bueno',
+            'descripcion' => 'Cumple de forma destacada los indicadores de la asignatura.',
             'valor' => 'MB',
+            'jerarquia' => '6',
             'exige_observacion' => '1',
             'activo' => '1',
         ])
@@ -163,6 +168,7 @@ it('stores a behavior letter without a numeric range', function () {
     $this->assertDatabaseHas('equivalencias_detalles', [
         'equivalencia_id' => $equivalencia->id,
         'valor' => 'MB',
+        'jerarquia' => 6,
         'exige_observacion' => true,
         'minimo' => null,
         'maximo' => null,
@@ -185,7 +191,59 @@ it('rejects a behavior letter without a code', function () {
             'activo' => '1',
         ])
         ->assertRedirect(route('Admin.tablas-equivalencias.detalles.index', $equivalencia))
-        ->assertSessionHasErrors(['valor' => 'Escribe la letra o el código de la calificación.']);
+        ->assertSessionHasErrors(['valor' => 'Escribe el código de la calificación.']);
+});
+
+it('rejects a behavior grade without a hierarchical value', function () {
+    $establecimiento = Establecimiento::factory()->create();
+    $admin = adminOf($establecimiento);
+    $oferta = ofertaDe($establecimiento);
+    $periodo = periodoActivoDe($oferta);
+    $equivalencia = equivalenciaDe($periodo, ['uso' => UsoEquivalencia::Comportamiento]);
+
+    $this->actingAs($admin)
+        ->withSession(activeContextSession($oferta, $periodo))
+        ->from(route('Admin.tablas-equivalencias.detalles.index', $equivalencia))
+        ->post(route('Admin.tablas-equivalencias.detalles.store', $equivalencia), [
+            'nombre' => 'Muy bueno',
+            'descripcion' => 'Cumple los indicadores.',
+            'valor' => 'MB',
+            'exige_observacion' => '0',
+            'activo' => '1',
+        ])
+        ->assertRedirect(route('Admin.tablas-equivalencias.detalles.index', $equivalencia))
+        ->assertSessionHasErrors(['jerarquia' => 'Escribe el valor jerárquico. El más alto corresponde al mejor cumplimiento.']);
+});
+
+it('rejects two behavior grades with the same hierarchical value', function () {
+    $establecimiento = Establecimiento::factory()->create();
+    $admin = adminOf($establecimiento);
+    $oferta = ofertaDe($establecimiento);
+    $periodo = periodoActivoDe($oferta);
+    $equivalencia = equivalenciaDe($periodo, ['uso' => UsoEquivalencia::Comportamiento]);
+    EquivalenciaDetalle::query()->create([
+        'equivalencia_id' => $equivalencia->id,
+        'nombre' => 'Satisfactorio',
+        'descripcion' => 'Cumple los indicadores.',
+        'valor' => 'B',
+        'jerarquia' => 4,
+        'activo' => true,
+        'exige_observacion' => false,
+    ]);
+
+    $this->actingAs($admin)
+        ->withSession(activeContextSession($oferta, $periodo))
+        ->from(route('Admin.tablas-equivalencias.detalles.index', $equivalencia))
+        ->post(route('Admin.tablas-equivalencias.detalles.store', $equivalencia), [
+            'nombre' => 'Otro satisfactorio',
+            'descripcion' => 'También cumple los indicadores.',
+            'valor' => 'B2',
+            'jerarquia' => '4',
+            'exige_observacion' => '0',
+            'activo' => '1',
+        ])
+        ->assertRedirect(route('Admin.tablas-equivalencias.detalles.index', $equivalencia))
+        ->assertSessionHasErrors(['jerarquia' => 'Ese valor jerárquico ya está en la tabla.']);
 });
 
 it('rejects a second behavior table in the same period', function () {

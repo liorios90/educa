@@ -7,8 +7,10 @@ use App\Models\Alumno;
 use App\Models\Equivalencia;
 use App\Models\EquivalenciaDetalle;
 use App\Models\Establecimiento;
+use App\Models\EstablecimientoAsignatura;
 use App\Models\EstablecimientoAula;
 use App\Models\EstablecimientoComportamiento;
+use App\Models\Sys_CriterioComportamiento;
 use App\Models\EstablecimientoPeriodo;
 use App\Models\EstablecimientoPeriodoCiclo;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -29,7 +31,9 @@ class EstablecimientoComportamientoFactory extends Factory
             'establecimiento_id' => Establecimiento::factory(),
             'alumno_id' => Alumno::factory(),
             'establecimiento_aula_id' => EstablecimientoAula::factory(),
+            'establecimiento_asignatura_id' => EstablecimientoAsignatura::factory(),
             'establecimiento_periodo_ciclo_id' => EstablecimientoPeriodoCiclo::factory(),
+            'criterio_comportamiento_id' => Sys_CriterioComportamiento::factory(),
             'equivalencia_detalle_id' => function (): int {
                 $periodo = EstablecimientoPeriodo::factory()->create();
                 $equivalencia = Equivalencia::query()->create([

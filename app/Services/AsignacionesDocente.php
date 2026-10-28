@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Auth\ContextoAsistencia;
+use App\Auth\ContextoComportamiento;
 use App\Auth\DocenteContexto;
 use App\Enums\EsquemaCiclo;
 use App\Enums\ModoAsistencia;
@@ -168,6 +169,17 @@ class AsignacionesDocente
         }
 
         return new DocenteContexto($asignacion->aula, $asignacion->malla, $ciclo, $parcialNumero);
+    }
+
+    public function contextoComportamiento(User $user, int $aulaId, int $asignaturaId, int $cicloId): ?ContextoComportamiento
+    {
+        $contexto = $this->contexto($user, $aulaId, $asignaturaId, $cicloId, 0);
+
+        if ($contexto === null) {
+            return null;
+        }
+
+        return new ContextoComportamiento($contexto->aula, $contexto->asignatura, $contexto->ciclo);
     }
 
     public function contextoAsistencia(

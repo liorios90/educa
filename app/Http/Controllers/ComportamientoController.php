@@ -33,7 +33,7 @@ class ComportamientoController extends Controller
             'registro' => $actual === null ? null : $this->registro->presentar($actual, $alumnos),
             'seleccion' => [
                 'aula' => old('establecimiento_aula_id', $actual?->aula->id),
-                'asignatura' => '',
+                'asignatura' => old('establecimiento_asignatura_id', $actual?->asignatura->id),
                 'ciclo' => old('establecimiento_periodo_ciclo_id', $actual?->ciclo->id),
                 'parcial' => '',
             ],

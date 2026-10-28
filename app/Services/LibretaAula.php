@@ -92,6 +92,30 @@ class LibretaAula
     }
 
     /**
+     * @return array{
+     *     ciclo_label: string,
+     *     materias: list<array<string, mixed>>
+     * }
+     */
+    public function paraAlumno(EstablecimientoAula $aula, int $alumnoId): array
+    {
+        $libreta = $this->paraAula($aula);
+        $libreta['materias'] = array_values(array_filter(
+            array_map(function (array $materia) use ($alumnoId): array {
+                $materia['filas'] = array_values(array_filter(
+                    $materia['filas'],
+                    fn (array $fila): bool => (int) $fila['alumno_id'] === $alumnoId,
+                ));
+
+                return $materia;
+            }, $libreta['materias']),
+            fn (array $materia): bool => $materia['filas'] !== [],
+        ));
+
+        return $libreta;
+    }
+
+    /**
      * @param  Collection<int, EstablecimientoPeriodoCiclo>  $ciclos
      * @param  Collection<int, EstablecimientoInsumoActividad>  $actividades
      * @param  Collection<int, EstablecimientoCierreActividad>  $cierres
@@ -282,6 +306,7 @@ class LibretaAula
             }
 
             return [
+                'alumno_id' => (int) $alumno->id,
                 'alumno' => $nombreAlumno,
                 'celdas' => $celdas,
                 'anclas' => $anclas,

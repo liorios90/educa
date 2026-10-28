@@ -19,10 +19,12 @@ class NavigationSeeder extends Seeder
         $secretaria = Role::findOrCreate(RoleName::Secretaria->value, 'web');
         $sistemas = Role::findOrCreate(RoleName::Sistemas->value, 'web');
         $padre = Role::findOrCreate(RoleName::Padre->value, 'web');
+        $alumno = Role::findOrCreate(RoleName::Alumno->value, 'web');
         $docente = Role::findOrCreate(RoleName::Docente->value, 'web');
 
         $this->ensureItem('Inicio', 'dashboard', 'home', 1, true, []);
         $this->ensureItem('Matrícula', 'matriculas.index', 'clipboard-document-list', 1, false, [$padre->id]);
+        $this->ensureItem('Notas', 'notas.index', 'table-cells', 2, false, [$padre->id, $alumno->id]);
 
         $mantenimiento = $this->ensureItem('Matenimiento', 'navigation.hub', 'wrench-screwdriver', 2, false, [$admin->id, $secretaria->id], isGroup: true, groupDisplay: NavigationGroupDisplay::Sidebar);
         $this->ensureItem('Padres', 'Admin.padres', 'users', 1, false, [$admin->id, $secretaria->id], parentId: $mantenimiento->id);

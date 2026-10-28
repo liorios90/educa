@@ -2,12 +2,13 @@
 
 use App\Http\Controllers\AsistenciaDiariaController;
 use App\Http\Controllers\CalificarCierresController;
-use App\Http\Controllers\ComportamientoController;
 use App\Http\Controllers\CalificarInsumosController;
+use App\Http\Controllers\ComportamientoController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DiagnosticoEstudianteController;
 use App\Http\Controllers\EnrollmentSubmissionController;
 use App\Http\Controllers\HorarioDocenteController;
+use App\Http\Controllers\LibretaFamiliarController;
 use App\Http\Controllers\MejoraCalificacionController;
 use App\Http\Controllers\NavigationHubController;
 use App\Http\Controllers\ProfileController;
@@ -82,6 +83,10 @@ Route::middleware('auth')->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
+
+Route::middleware(['auth', 'verified', 'role:Padre|Alumno'])
+    ->get('/notas', [LibretaFamiliarController::class, 'index'])
+    ->name('notas.index');
 
 Route::middleware(['auth', 'verified', 'role:Padre'])
     ->prefix('matriculas')

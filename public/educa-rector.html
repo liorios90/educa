@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="es">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Educa — Una hoja para el rectorado</title>
+        <link rel="preconnect" href="https://fonts.bunny.net">
+        <link href="https://fonts.bunny.net/css?family=plus-jakarta-sans:400,500,600,700,800&display=swap" rel="stylesheet">
+        <style>
+            :root {
+                --ink: #0f172a;
+                --muted: #475569;
+                --line: #e2e8f0;
+                --paper: #ffffff;
+                --tint: #f8faf8;
+                --accent: #064e3b;
+                --accent-soft: #ecfdf5;
+            }
+
+            * { box-sizing: border-box; }
+
+            html, body {
+                margin: 0;
+                background: #e8eee9;
+                color: var(--ink);
+                font-family: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+            }
+
+            .toolbar {
+                display: flex;
+                justify-content: center;
+                gap: 12px;
+                padding: 16px;
+            }
+
+            .toolbar button {
+                border: 0;
+                border-radius: 999px;
+                background: var(--accent);
+                color: #fff;
+                font: 600 14px/1 "Plus Jakarta Sans", sans-serif;
+                padding: 10px 18px;
+                cursor: pointer;
+            }
+
+            .sheet {
+                width: min(210mm, calc(100vw - 32px));
+                max-width: 210mm;
+                min-height: 297mm;
+                margin: 0 auto 24px;
+                padding: 12mm 13mm 11mm;
+                background: var(--paper);
+                display: flex;
+                flex-direction: column;
+                gap: 9mm;
+            }
+
+            header {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-end;
+                gap: 16px;
+                padding-bottom: 6mm;
+                border-bottom: 2px solid var(--accent);
+            }
+
+            .brand {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+
+            .mark {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 2px;
+                width: 28px;
+                height: 28px;
+                padding: 5px;
+                border-radius: 8px;
+                background: var(--accent);
+            }
+
+            .mark span { display: block; }
+            .mark span:nth-child(1) { background: #d1fae5; border-radius: 4px 0 4px 0; }
+            .mark span:nth-child(2) { background: #5eead4; border-radius: 0 4px 0 4px; }
+            .mark span:nth-child(3) { background: #fcd34d; border-radius: 0 4px 0 4px; }
+            .mark span:nth-child(4) { background: #fff; border-radius: 4px 0 4px 0; }
+
+            .brand strong {
+                font-size: 22px;
+                letter-spacing: -0.03em;
+            }
+
+            .kicker {
+                margin: 0;
+                flex: 0 0 auto;
+                font-size: 10px;
+                font-weight: 700;
+                letter-spacing: 0.14em;
+                text-transform: uppercase;
+                color: var(--accent);
+                text-align: right;
+                white-space: nowrap;
+            }
+
+            h1 {
+                margin: 0;
+                font-size: 22px;
+                line-height: 1.2;
+                letter-spacing: -0.03em;
+            }
+
+            .lead {
+                margin: 2mm 0 0;
+                font-size: 12.5px;
+                line-height: 1.45;
+                color: var(--muted);
+                max-width: 170mm;
+            }
+
+            .grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 5mm 6mm;
+                flex: 1;
+            }
+
+            section {
+                padding: 4.5mm 5mm 4mm;
+                background: var(--tint);
+                border: 1px solid var(--line);
+                border-radius: 8px;
+            }
+
+            section h2 {
+                margin: 0 0 3mm;
+                font-size: 12px;
+                letter-spacing: 0.04em;
+                text-transform: uppercase;
+                color: var(--accent);
+            }
+
+            section p.hook {
+                margin: 0 0 3mm;
+                font-size: 12px;
+                font-weight: 700;
+                line-height: 1.35;
+            }
+
+            ul {
+                margin: 0;
+                padding: 0 0 0 3.5mm;
+                font-size: 11px;
+                line-height: 1.42;
+                color: var(--ink);
+            }
+
+            li + li { margin-top: 1.6mm; }
+
+            .close {
+                padding: 5mm 6mm;
+                background: var(--accent);
+                color: #ecfdf5;
+                border-radius: 8px;
+            }
+
+            .close p {
+                margin: 0;
+                font-size: 13.5px;
+                font-weight: 700;
+                line-height: 1.35;
+                color: #fff;
+            }
+
+            .roles {
+                margin: 3mm 0 0;
+                font-size: 11px;
+                letter-spacing: 0.02em;
+            }
+
+            footer {
+                display: flex;
+                justify-content: space-between;
+                gap: 12px;
+                font-size: 9.5px;
+                color: var(--muted);
+                border-top: 1px solid var(--line);
+                padding-top: 3mm;
+            }
+
+            @media print {
+                @page { size: A4; margin: 0; }
+
+                html, body {
+                    background: #fff;
+                }
+
+                .toolbar { display: none; }
+
+                .sheet {
+                    width: 210mm;
+                    height: 297mm;
+                    min-height: 297mm;
+                    margin: 0;
+                    padding: 12mm 13mm 11mm;
+                    box-shadow: none;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="toolbar">
+            <button type="button" onclick="window.print()">Imprimir o guardar PDF</button>
+        </div>
+
+        <article class="sheet">
+            <header>
+                <div class="brand">
+                    <span class="mark" aria-hidden="true">
+                        <span></span><span></span><span></span><span></span>
+                    </span>
+                    <strong>Educa</strong>
+                </div>
+                <p class="kicker">Hoja para el rectorado</p>
+            </header>
+
+            <div>
+                <h1>Usted fija la regla. El colegio entero la usa.</h1>
+                <p class="lead">
+                    Educa configura el año lectivo como lo decide el colegio —quimestres o trimestres, insumos, examen y proyecto—
+                    y a partir de ahí el docente califica, pasa lista y registra comportamiento. Secretaría, padres y estudiantes
+                    ven la misma libreta.
+                </p>
+            </div>
+
+            <div class="grid">
+                <section>
+                    <h2>Control de notas</h2>
+                    <p class="hook">Una sola libreta institucional. No tres planillas.</p>
+                    <ul>
+                        <li>Secretaría abre el aula y ve insumos, ponderación, examen, proyecto y promedio de ciclo y periodo.</li>
+                        <li>El padre y el alumno ven el mismo cálculo, no un archivo paralelo.</li>
+                        <li>El colegio define el esquema, los pesos por periodo, grado o aula, y los decimales (aproximar o truncar).</li>
+                        <li>Escala nacional 0–10 e IB 1–7; evaluación cualitativa cuando corresponde.</li>
+                        <li>Mejoras de nota según Acuerdos 2024-00031-A y 2026-00082-A, con topes y sin bajar la nota original.</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h2>Control de asistencia</h2>
+                    <p class="hook">La lista del día queda amarrada al horario, no al cuaderno.</p>
+                    <ul>
+                        <li>El docente pasa lista en el mismo flujo de clase: una vez al día o por asignatura, según el nivel.</li>
+                        <li>Estados claros: presente, atraso, falta injustificada y falta justificada.</li>
+                        <li>La justificación exige un motivo válido: certificado médico, calamidad doméstica, representación del plantel o citación de autoridad.</li>
+                        <li>No se registra un día futuro, fuera del año lectivo o sin clase en el horario.</li>
+                        <li>En optativas y grupos flotantes aparece quien está inscrito, no todo el paralelo.</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h2>El docente en clase</h2>
+                    <p class="hook">Registra su aula. No administra el colegio.</p>
+                    <ul>
+                        <li>Elige aula, materia, ciclo y parcial una vez, y desde ahí califica, edita, pasa lista y registra comportamiento.</li>
+                        <li>Examen, proyecto y finales solo aparecen si el periodo los tiene configurados.</li>
+                        <li>Comportamiento con la escala del periodo, separado del promedio académico, según el Acuerdo 082-A.</li>
+                        <li>Ve su horario; no lo edita. Rectorado arma la grilla.</li>
+                        <li>Escribe a sus alumnos, a esos padres y a colegas del mismo colegio.</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h2>Fácil de usar</h2>
+                    <p class="hook">Cada persona aprende su rol, no el sistema entero.</p>
+                    <ul>
+                        <li>El menú cambia con el rol activo: administrador, secretaría, docente, padre o alumno.</li>
+                        <li>Si alguien tiene dos roles, elige con cuál entra.</li>
+                        <li>Se puede copiar la configuración de un periodo a otro: aulas, docentes y ponderaciones.</li>
+                        <li>El padre con varios hijos elige de quién ver las notas.</li>
+                        <li>Notificaciones internas en la misma barra del perfil, con respuesta en un paso.</li>
+                    </ul>
+                </section>
+            </div>
+
+            <div class="close">
+                <p>La nota que discute con el padre es la misma que configuró rectorado y registró el docente.</p>
+                <p class="roles">Directivos · Secretaría · Docentes · Estudiantes · Familias</p>
+            </div>
+
+            <footer>
+                <span>Educa — una escuela conectada</span>
+                <span>Una página. Una regla de juego para el año lectivo.</span>
+            </footer>
+        </article>
+    </body>
+</html>

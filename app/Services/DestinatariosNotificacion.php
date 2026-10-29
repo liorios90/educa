@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Auth\ActiveRole;
 use App\Enums\Role;
 use App\Models\Alumno;
+use App\Models\Empleado;
+use App\Models\EstablecimientoAula;
 use App\Models\EstablecimientoAulaDocente;
 use App\Models\EstablecimientoMatricula;
 use App\Models\Padre;
@@ -26,7 +28,7 @@ class DestinatariosNotificacion
     public function para(User $user): Collection
     {
         $destinatarios = $this->usuariosPermitidos($user);
-        $this->cargarHijosDePadres($destinatarios);
+        $this->cargarDatosDeEtiqueta($destinatarios);
 
         return $destinatarios
             ->map(fn (User $destinatario): array => [
@@ -243,23 +245,34 @@ class DestinatariosNotificacion
     /**
      * @param  Collection<int, User>  $destinatarios
      */
-    private function cargarHijosDePadres(Collection $destinatarios): void
+    private function cargarDatosDeEtiqueta(Collection $destinatarios): void
     {
         if ($destinatarios->isEmpty()) {
             return;
         }
 
         (new EloquentCollection($destinatarios->all()))
-            ->load(['persona.padres.alumnos.persona']);
+            ->load([
+                'persona.padres.alumnos.persona',
+                'persona.empleados.asignaciones.aula.establecimientoGrado.grado',
+                'persona.empleados.asignaciones.aula.periodo',
+            ]);
     }
 
     private function etiquetaDestinatario(User $destinatario, User $actor): string
     {
         $hijos = $this->nombresHijosDe($destinatario, $actor);
+        $aulas = $this->aulasDe($destinatario, $actor);
         $partes = [];
 
         foreach ([Role::Docente, Role::Padre, Role::Alumno, Role::Admin, Role::Secretaria, Role::Sistemas, Role::Empleado] as $rol) {
             if (! $destinatario->hasRole($rol)) {
+                continue;
+            }
+
+            if ($rol === Role::Docente && $aulas !== []) {
+                $partes[] = 'Docente de '.implode(', ', $aulas);
+
                 continue;
             }
 
@@ -273,6 +286,38 @@ class DestinatariosNotificacion
         }
 
         return $partes !== [] ? implode(', ', $partes) : 'Usuario';
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function aulasDe(User $destinatario, User $actor): array
+    {
+        if (! $destinatario->hasRole(Role::Docente)) {
+            return [];
+        }
+
+        $asignaciones = $destinatario->persona?->empleados
+            ?->flatMap(fn (Empleado $empleado): Collection => $empleado->asignaciones)
+            ?? collect();
+
+        return $asignaciones
+            ->map(fn (EstablecimientoAulaDocente $asignacion): ?EstablecimientoAula => $asignacion->aula)
+            ->filter()
+            ->filter(function (EstablecimientoAula $aula) use ($actor): bool {
+                if ($actor->establecimiento_id !== null && (int) $aula->establecimiento_id !== (int) $actor->establecimiento_id) {
+                    return false;
+                }
+
+                return $aula->periodo?->activo === true;
+            })
+            ->unique('id')
+            ->map(fn (EstablecimientoAula $aula): string => $aula->etiqueta())
+            ->filter(fn (string $etiqueta): bool => $etiqueta !== '')
+            ->unique()
+            ->sort(SORT_NATURAL | SORT_FLAG_CASE)
+            ->values()
+            ->all();
     }
 
     /**

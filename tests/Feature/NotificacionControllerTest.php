@@ -124,7 +124,7 @@ it('lets a student write only to the teachers of their classes', function () {
     $this->actingAs($escenario['cuentaAlumno'])
         ->get(route('notificaciones.create'))
         ->assertOk()
-        ->assertSee('Perez Ana (Docente)')
+        ->assertSee('Perez Ana (Docente de 8vo Básica A)')
         ->assertDontSee('Colega Bruno')
         ->assertDontSee('Castro Ana')
         ->assertDontSee('Herrera Carlos')
@@ -179,7 +179,7 @@ it('lets a parent write only to the teachers of their children', function () {
     $this->actingAs($escenario['padre'])
         ->get(route('notificaciones.create'))
         ->assertOk()
-        ->assertSee('Perez Ana (Docente)')
+        ->assertSee('Perez Ana (Docente de 8vo Básica A)')
         ->assertDontSee('Colega Bruno')
         ->assertDontSee('Castro Luis')
         ->assertDontSee('Ajeno Marta');
@@ -209,12 +209,14 @@ it('lets a teacher write to their students, those parents and other teachers', f
         ->get(route('notificaciones.create'))
         ->assertOk()
         ->assertSee('Buscar y seleccionar varios')
-        ->assertSee('Puedes marcar varios y filtrar por nombre, rol o alumno en la misma lista.')
+        ->assertSee('Puedes marcar varios y filtrar por nombre, rol, aula o alumno en la misma lista.')
         ->assertSee('Herrera Ana (Alumno)')
         ->assertSee('Herrera Carlos (Padre de Herrera Ana)')
         ->assertSee('Castro Ana (Alumno)')
         ->assertSee('Castro Luis (Padre de Castro Ana)')
-        ->assertSee('Colega Bruno (Docente)')
+        ->assertSee('Colega Bruno (Docente de 8vo Básica B)')
+        ->assertSee('font-semibold text-slate-800', false)
+        ->assertSee('x-text="opcion.nombre"', false)
         ->assertDontSee('Ortiz Eva')
         ->assertDontSee('Ajeno Marta');
 });
@@ -226,7 +228,7 @@ it('shows every assigned role next to each recipient name', function () {
     $this->actingAs($escenario['docente'])
         ->get(route('notificaciones.create'))
         ->assertOk()
-        ->assertSee('Colega Bruno (Docente, Padre)');
+        ->assertSee('Colega Bruno (Docente de 8vo Básica B, Padre)');
 });
 
 it('lists every child next to a parent recipient', function () {
@@ -275,8 +277,8 @@ it('lets an administrator write to teachers and parents but not students', funct
     $this->actingAs($escenario['admin'])
         ->get(route('notificaciones.create'))
         ->assertOk()
-        ->assertSee('Perez Ana (Docente)')
-        ->assertSee('Colega Bruno (Docente)')
+        ->assertSee('Perez Ana (Docente de 8vo Básica A)')
+        ->assertSee('Colega Bruno (Docente de 8vo Básica B)')
         ->assertSee('Herrera Carlos (Padre de Herrera Ana)')
         ->assertSee('Castro Luis (Padre de Castro Ana)')
         ->assertDontSee('Herrera Ana (Alumno)')

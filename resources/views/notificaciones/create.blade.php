@@ -21,6 +21,8 @@
                         $opcionesDestinatarios = $destinatarios
                             ->map(fn (array $destinatario): array => [
                                 'id' => (int) $destinatario['id'],
+                                'nombre' => $destinatario['nombre'],
+                                'rol' => $destinatario['rol'],
                                 'etiqueta' => $destinatario['nombre'].' ('.$destinatario['rol'].')',
                             ])
                             ->values()
@@ -75,8 +77,11 @@
                         <div class="rounded-lg border border-slate-300 bg-white px-2 py-1 shadow-sm" x-on:click="abierto = true" x-on:click.outside="abierto = false">
                             <div class="flex flex-wrap items-center gap-1">
                                 <template x-for="opcion in elegidos()" :key="'elegido-'+opcion.id">
-                                    <span class="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-700">
-                                        <span x-text="opcion.etiqueta"></span>
+                                    <span class="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-700">
+                                        <span>
+                                            <span class="font-semibold text-slate-800" x-text="opcion.nombre"></span>
+                                            <span class="font-normal text-slate-500" x-text="' (' + opcion.rol + ')'"></span>
+                                        </span>
                                         <button type="button" class="text-slate-500 hover:text-slate-800" x-on:click="quitar(opcion.id)" aria-label="Quitar">&times;</button>
                                         <input type="hidden" name="destinatarios[]" :value="opcion.id">
                                     </span>
@@ -104,16 +109,18 @@
                                 <template x-for="opcion in disponibles()" :key="opcion.id">
                                     <button
                                         type="button"
-                                        class="block w-full px-2 py-1.5 text-left text-sm text-slate-700 hover:bg-slate-50"
+                                        class="block w-full px-2 py-1.5 text-left text-sm hover:bg-slate-50"
                                         role="option"
                                         x-on:click="agregar(opcion.id)"
-                                        x-text="opcion.etiqueta"
-                                    ></button>
+                                    >
+                                        <span class="font-semibold text-slate-800" x-text="opcion.nombre"></span>
+                                        <span class="font-normal text-slate-500" x-text="' (' + opcion.rol + ')'"></span>
+                                    </button>
                                 </template>
                                 <p class="px-2 py-2 text-sm text-slate-500" x-show="disponibles().length === 0">No hay destinatarios para mostrar.</p>
                             </div>
                         </div>
-                        <p class="text-xs text-slate-500">Puedes marcar varios y filtrar por nombre, rol o alumno en la misma lista.</p>
+                        <p class="text-xs text-slate-500">Puedes marcar varios y filtrar por nombre, rol, aula o alumno en la misma lista.</p>
                         <x-input-error class="mt-2" :messages="$errors->get('destinatarios')" />
                     </div>
 

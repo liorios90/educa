@@ -530,6 +530,34 @@ function actividadLibreta(
     return $actividad;
 }
 
+function actividadLibretaSinNota(
+    array $escenario,
+    TipoInsumoDetalle $detalle,
+    string $nombre,
+    ?Alumno $alumno = null,
+    string $nota = '',
+): EstablecimientoInsumoActividad {
+    $actividad = EstablecimientoInsumoActividad::factory()->create([
+        'establecimiento_aula_id' => $escenario['aula']->id,
+        'establecimiento_asignatura_id' => $escenario['malla']->id,
+        'establecimiento_periodo_ciclo_id' => $escenario['ciclo']->id,
+        'parcial_numero' => 1,
+        'tipo_insumo_detalle_id' => $detalle->id,
+        'empleado_id' => $escenario['empleado']->id,
+        'nombre' => $nombre,
+    ]);
+
+    if ($alumno instanceof Alumno) {
+        EstablecimientoInsumoActividadCalificacion::factory()->create([
+            'establecimiento_insumo_actividad_id' => $actividad->id,
+            'alumno_id' => $alumno->id,
+            'nota' => $nota,
+        ]);
+    }
+
+    return $actividad;
+}
+
 function alumnoDelEstablecimiento(Establecimiento $establecimiento, string $apellidos): Alumno
 {
     $persona = Persona::factory()->create([

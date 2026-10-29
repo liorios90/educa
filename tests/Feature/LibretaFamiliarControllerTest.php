@@ -45,6 +45,22 @@ it('lets a student see only their own grades', function () {
         ->assertDontSee('4.00');
 });
 
+it('does not include a blank insumo in the student gradebook average', function () {
+    $escenario = escenarioLibreta();
+    $alumno = alumnoDelEstablecimiento($escenario['establecimiento'], 'Naranjo');
+    matricularAlumnoLibreta($escenario['aula'], $alumno);
+    ['detalle' => $detalle] = asignarTipoInsumoLibreta($escenario);
+    actividadLibreta($escenario, $detalle, $alumno, 'Tarea 1', '8.00');
+    actividadLibretaSinNota($escenario, $detalle, 'Tarea en blanco');
+    $cuenta = cuentaAlumnoDe($alumno, $escenario['establecimiento']);
+
+    $this->actingAs($cuenta)
+        ->get(route('notas.index'))
+        ->assertSee('>8.00</a>', false)
+        ->assertSee('5.60')
+        ->assertDontSee('4.00');
+});
+
 it('lets a parent see the grades of a single linked child', function () {
     $escenario = escenarioLibreta();
     $alumno = alumnoDelEstablecimiento($escenario['establecimiento'], 'Espinoza');
@@ -61,6 +77,26 @@ it('lets a parent see the grades of a single linked child', function () {
         ->assertSee('7.00')
         ->assertDontSee('Selecciona el hijo cuyas notas quieres ver')
         ->assertDontSee('Cambiar de hijo');
+});
+
+it('does not include a blank insumo in the parent gradebook average', function () {
+    $escenario = escenarioLibreta();
+    $alumno = alumnoDelEstablecimiento($escenario['establecimiento'], 'Paredes');
+    matricularAlumnoLibreta($escenario['aula'], $alumno);
+    ['detalles' => $detalles] = asignarTipoInsumoLibreta($escenario, [
+        ['nombre' => 'Tarea', 'porcentaje' => '50.00'],
+        ['nombre' => 'Lección', 'porcentaje' => '50.00'],
+    ]);
+    actividadLibreta($escenario, $detalles[0], $alumno, 'Tarea 1', '10.00');
+    actividadLibretaSinNota($escenario, $detalles[1], 'Lección sin nota', $alumno, '');
+    $padre = cuentaPadreDe($escenario['establecimiento'], $alumno);
+
+    $this->actingAs($padre)
+        ->get(route('notas.index'))
+        ->assertSee('>10.00</a>', false)
+        ->assertSee('7.00')
+        ->assertDontSee('5.00')
+        ->assertDontSee('3.50');
 });
 
 it('lets a parent choose among several children', function () {

@@ -407,10 +407,7 @@ class LibretaAula
                 /** @var EstablecimientoInsumoActividad $primera */
                 $primera = $grupo->first();
                 $detalle = $primera->detalle;
-                $notas = $grupo
-                    ->map(fn (EstablecimientoInsumoActividad $actividad): ?float => $this->notaNumerica($actividad->calificaciones, $alumnoId))
-                    ->filter(fn (?float $nota): bool => $nota !== null)
-                    ->values();
+                $notas = $this->notasIngresadas($grupo, $alumnoId);
                 $promedio = $notas->isEmpty()
                     ? null
                     : $notas->sum() / $notas->count();
@@ -462,10 +459,7 @@ class LibretaAula
         $simples = [];
 
         foreach ($actividades->groupBy('tipo_insumo_detalle_id') as $grupo) {
-            $notas = $grupo
-                ->map(fn (EstablecimientoInsumoActividad $actividad): ?float => $this->notaNumerica($actividad->calificaciones, $alumnoId))
-                ->filter(fn (?float $nota): bool => $nota !== null)
-                ->values();
+            $notas = $this->notasIngresadas($grupo, $alumnoId);
 
             if ($notas->isEmpty()) {
                 continue;
@@ -533,15 +527,31 @@ class LibretaAula
         return $this->notaNumerica($actividad->calificaciones, $alumnoId);
     }
 
+    /**
+     * @param  Collection<int, EstablecimientoInsumoActividad>  $actividades
+     * @return Collection<int, float>
+     */
+    private function notasIngresadas(Collection $actividades, int $alumnoId): Collection
+    {
+        return $actividades
+            ->map(fn (EstablecimientoInsumoActividad $actividad): ?float => $this->notaNumerica($actividad->calificaciones, $alumnoId))
+            ->filter(fn (?float $nota): bool => $nota !== null)
+            ->values();
+    }
+
     private function notaDe(Collection $calificaciones, int $alumnoId): string
     {
-        $calificacion = $calificaciones->firstWhere('alumno_id', $alumnoId);
+        $calificacion = $calificaciones->first(
+            fn (object $fila): bool => (int) $fila->alumno_id === $alumnoId,
+        );
 
-        if ($calificacion === null || trim((string) $calificacion->nota) === '') {
+        if ($calificacion === null) {
             return '—';
         }
 
-        return (string) ($calificacion->mejora?->nota_final ?? $calificacion->nota);
+        $texto = trim((string) ($calificacion->mejora?->nota_final ?? $calificacion->nota));
+
+        return $texto === '' ? '—' : $texto;
     }
 
     private function notaNumerica(Collection $calificaciones, int $alumnoId): ?float

@@ -36,7 +36,7 @@
                             Ver
                         </button>
                     </div>
-                    <p class="mt-2 text-xs text-slate-500">Insumos (100 %) es el promedio de las notas ingresadas. Pond. es ese valor por el porcentaje de insumos configurado en la asignatura, o en el grado, o en el periodo.</p>
+                    <p class="mt-2 text-xs text-slate-500">Insumos (100 %) es el promedio de las notas ingresadas: las actividades o tipos en blanco no entran. Pond. es ese valor por el porcentaje de insumos configurado en la asignatura, o en el grado, o en el periodo.</p>
                 </form>
 
                 @if ($aula && $libreta !== null)

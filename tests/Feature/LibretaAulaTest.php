@@ -191,6 +191,48 @@ it('applies the school decimal mode to the pond calculation', function (ModoDeci
     'truncate' => [ModoDecimal::Truncar, '5.25'],
 ]);
 
+it('does not include a blank insumo activity in the average', function () {
+    $escenario = escenarioLibreta();
+    $alumno = alumnoDelEstablecimiento($escenario['establecimiento'], 'Naranjo');
+    matricularAlumnoLibreta($escenario['aula'], $alumno);
+    ['detalle' => $detalle] = asignarTipoInsumoLibreta($escenario);
+    actividadLibreta($escenario, $detalle, $alumno, 'Tarea 1', '8.00');
+    actividadLibretaSinNota($escenario, $detalle, 'Tarea en blanco');
+    actividadLibretaSinNota($escenario, $detalle, 'Tarea vacía', $alumno, '');
+
+    $this->actingAs($escenario['secretaria'])
+        ->withSession(sesionLibreta($escenario))
+        ->get(route('secretaria.libreta.index', [
+            'establecimiento_aula_id' => $escenario['aula']->id,
+        ]))
+        ->assertSee('>8.00</a>', false)
+        ->assertSee('5.60')
+        ->assertDontSee('4.00')
+        ->assertDontSee('2.80');
+});
+
+it('does not include an insumo type without notes in the weighted average', function () {
+    $escenario = escenarioLibreta();
+    $alumno = alumnoDelEstablecimiento($escenario['establecimiento'], 'Paredes');
+    matricularAlumnoLibreta($escenario['aula'], $alumno);
+    ['detalles' => $detalles] = asignarTipoInsumoLibreta($escenario, [
+        ['nombre' => 'Tarea', 'porcentaje' => '50.00'],
+        ['nombre' => 'Lección', 'porcentaje' => '50.00'],
+    ]);
+    actividadLibreta($escenario, $detalles[0], $alumno, 'Tarea 1', '10.00');
+    actividadLibretaSinNota($escenario, $detalles[1], 'Lección sin nota');
+
+    $this->actingAs($escenario['secretaria'])
+        ->withSession(sesionLibreta($escenario))
+        ->get(route('secretaria.libreta.index', [
+            'establecimiento_aula_id' => $escenario['aula']->id,
+        ]))
+        ->assertSee('>10.00</a>', false)
+        ->assertSee('7.00')
+        ->assertDontSee('5.00')
+        ->assertDontSee('3.50');
+});
+
 it('does not show a classroom from another school', function () {
     $escenario = escenarioLibreta();
     $ajeno = escenarioLibreta(['grado' => '9no Básica']);

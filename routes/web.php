@@ -15,6 +15,8 @@ use App\Http\Controllers\NotificacionController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReportRunController;
 use App\Http\Controllers\SecretariaController;
+use App\Http\Controllers\TareaAlumnoController;
+use App\Http\Controllers\TareaDocenteController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -69,6 +71,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('/diagnostico/grafico', [DiagnosticoEstudianteController::class, 'grafico'])->name('diagnostico.grafico');
             Route::post('/diagnostico/estudiantes', [DiagnosticoEstudianteController::class, 'store'])->name('diagnostico.store');
             Route::post('/diagnostico/grupo', [DiagnosticoEstudianteController::class, 'grupo'])->name('diagnostico.grupo');
+            Route::get('/tareas', [TareaDocenteController::class, 'index'])->name('tareas.index');
+            Route::post('/tareas/contexto', [TareaDocenteController::class, 'storeContexto'])->name('tareas.contexto');
+            Route::get('/tareas/crear', [TareaDocenteController::class, 'create'])->name('tareas.create');
+            Route::post('/tareas', [TareaDocenteController::class, 'store'])->name('tareas.store');
+            Route::get('/tareas/{tarea}', [TareaDocenteController::class, 'show'])->name('tareas.show');
+            Route::get('/tareas/{tarea}/entregas', [TareaDocenteController::class, 'entregas'])->name('tareas.entregas');
+            Route::get('/tareas/{tarea}/editar', [TareaDocenteController::class, 'edit'])->name('tareas.edit');
+            Route::put('/tareas/{tarea}', [TareaDocenteController::class, 'update'])->name('tareas.update');
+            Route::delete('/tareas/{tarea}', [TareaDocenteController::class, 'destroy'])->name('tareas.destroy');
+            Route::post('/tareas/{tarea}/calificar', [TareaDocenteController::class, 'calificar'])->name('tareas.calificar');
+            Route::get('/tareas/{tarea}/archivo', [TareaDocenteController::class, 'archivo'])->name('tareas.archivo');
+            Route::get('/tareas/{tarea}/archivos/{archivo}', [TareaDocenteController::class, 'archivoEntrega'])->name('tareas.archivo-entrega');
         });
 
     Route::get('/menu/{navigationItem}', [NavigationHubController::class, 'show'])->name('navigation.hub');
@@ -97,6 +111,17 @@ Route::middleware('auth')->group(function () {
 Route::middleware(['auth', 'verified', 'role:Padre|Alumno'])
     ->get('/notas', [LibretaFamiliarController::class, 'index'])
     ->name('notas.index');
+
+Route::middleware(['auth', 'verified', 'role:Alumno'])
+    ->prefix('mis-tareas')
+    ->name('alumno.tareas.')
+    ->group(function () {
+        Route::get('/', [TareaAlumnoController::class, 'index'])->name('index');
+        Route::get('/{tarea}', [TareaAlumnoController::class, 'show'])->name('show');
+        Route::post('/{tarea}/entregar', [TareaAlumnoController::class, 'entregar'])->name('entregar');
+        Route::get('/{tarea}/archivo', [TareaAlumnoController::class, 'archivo'])->name('archivo');
+        Route::get('/{tarea}/archivos/{archivo}', [TareaAlumnoController::class, 'archivoEntrega'])->name('archivo-entrega');
+    });
 
 Route::middleware(['auth', 'verified', 'role:Padre'])
     ->prefix('matriculas')

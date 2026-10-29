@@ -561,6 +561,29 @@ class AsignacionesDocente
             ->all();
     }
 
+    /**
+     * @return list<array{id: int, etiqueta: string}>
+     */
+    public function insumosDe(int $aulaId, int $asignaturaId): array
+    {
+        $tipo = $this->tipoInsumoAsignado($aulaId, $asignaturaId);
+
+        if ($tipo === null) {
+            return [];
+        }
+
+        return $tipo->detalles()
+            ->where('activo', true)
+            ->orderBy('id')
+            ->get()
+            ->map(fn (TipoInsumoDetalle $detalle): array => [
+                'id' => (int) $detalle->id,
+                'etiqueta' => $this->etiquetaInsumo($detalle),
+            ])
+            ->values()
+            ->all();
+    }
+
     public function tipoInsumoAsignado(int $aulaId, int $asignaturaId): ?TipoInsumo
     {
         $tipoId = DB::table('establecimiento_aula_asignatura_tipo_insumos')

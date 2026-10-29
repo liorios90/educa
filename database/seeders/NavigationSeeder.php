@@ -26,6 +26,7 @@ class NavigationSeeder extends Seeder
         $this->ensureItem('Notificaciones', 'notificaciones.index', 'envelope', 1, true, []);
         $this->ensureItem('Matrícula', 'matriculas.index', 'clipboard-document-list', 1, false, [$padre->id]);
         $this->ensureItem('Notas', 'notas.index', 'table-cells', 2, false, [$padre->id, $alumno->id]);
+        $this->ensureItem('Tareas', 'alumno.tareas.index', 'clipboard-document-list', 3, false, [$alumno->id]);
 
         $mantenimiento = $this->ensureItem('Matenimiento', 'navigation.hub', 'wrench-screwdriver', 2, false, [$admin->id, $secretaria->id], isGroup: true, groupDisplay: NavigationGroupDisplay::Sidebar);
         $this->ensureItem('Padres', 'Admin.padres', 'users', 1, false, [$admin->id, $secretaria->id], parentId: $mantenimiento->id);
@@ -48,7 +49,8 @@ class NavigationSeeder extends Seeder
         $this->ensureItem('Nuevo Insumo', 'Docente.calificar.index', 'book-open', 1, false, [$docente->id], parentId: $insumos->id);
         $this->ensureItem('Editar Insumo', 'Docente.calificar.editar', 'folder', 2, false, [$docente->id], parentId: $insumos->id);
         $this->ensureItem('Asistencia diaria', 'Docente.asistencia.index', 'calendar-days', 3, false, [$docente->id], parentId: $insumos->id);
-        $this->ensureItem('Comportamiento', 'Docente.comportamiento.index', 'shield-check', 4, false, [$docente->id], parentId: $insumos->id);
+        $this->ensureItem('Tareas', 'Docente.tareas.index', 'clipboard-document-list', 4, false, [$docente->id], parentId: $insumos->id);
+        $this->ensureItem('Comportamiento', 'Docente.comportamiento.index', 'shield-check', 5, false, [$docente->id], parentId: $insumos->id);
 
         $this->ensureItem('Exámenes', 'Docente.examenes.index', 'clipboard-document-list', 4, false, [$docente->id]);
         $this->ensureItem('Proyectos', 'Docente.proyectos.index', 'academic-cap', 5, false, [$docente->id]);

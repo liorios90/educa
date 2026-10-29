@@ -8,6 +8,9 @@
 
     <div class="py-8">
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            @if (session('error'))
+                <p class="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{{ session('error') }}</p>
+            @endif
             @if (session('status') === 'tarea-entregada')
                 <p class="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">Tu entrega se guardó.</p>
             @endif

@@ -18,6 +18,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Throwable;
 
 class TareasDocente
 {
@@ -102,42 +103,50 @@ class TareasDocente
         ?UploadedFile $archivo,
     ): EstablecimientoTarea {
         $empleadoId = $this->empleadoIdDeAsignacion($user, $contexto);
+        $archivosNuevos = [];
 
-        return DB::transaction(function () use (
-            $user,
-            $contexto,
-            $nombre,
-            $descripcion,
-            $fechaInicio,
-            $fechaFin,
-            $tipo,
-            $alumnoIds,
-            $contenidoTexto,
-            $contenidoUrl,
-            $archivo,
-            $empleadoId,
-        ): EstablecimientoTarea {
-            $tarea = EstablecimientoTarea::query()->create([
-                'establecimiento_id' => $user->establecimiento_id,
-                'empleado_id' => $empleadoId,
-                'establecimiento_aula_id' => $contexto->aula->id,
-                'establecimiento_asignatura_id' => $contexto->asignatura->id,
-                'establecimiento_periodo_ciclo_id' => $contexto->ciclo->id,
-                'parcial_numero' => $contexto->parcialNumero,
-                'nombre' => $nombre,
-                'descripcion' => HtmlSeguro::limpiar($descripcion),
-                'fecha_inicio' => $fechaInicio,
-                'fecha_fin' => $fechaFin,
-                'contenido_tipo' => $tipo,
-                'contenido_texto' => $tipo === TipoContenidoTarea::Texto ? $contenidoTexto : null,
-                'contenido_url' => $tipo === TipoContenidoTarea::Url ? $contenidoUrl : null,
-            ]);
+        try {
+            return DB::transaction(function () use (
+                $user,
+                $contexto,
+                $nombre,
+                $descripcion,
+                $fechaInicio,
+                $fechaFin,
+                $tipo,
+                $alumnoIds,
+                $contenidoTexto,
+                $contenidoUrl,
+                $archivo,
+                $empleadoId,
+                &$archivosNuevos,
+            ): EstablecimientoTarea {
+                $tarea = EstablecimientoTarea::query()->create([
+                    'establecimiento_id' => $user->establecimiento_id,
+                    'empleado_id' => $empleadoId,
+                    'establecimiento_aula_id' => $contexto->aula->id,
+                    'establecimiento_asignatura_id' => $contexto->asignatura->id,
+                    'establecimiento_periodo_ciclo_id' => $contexto->ciclo->id,
+                    'parcial_numero' => $contexto->parcialNumero,
+                    'nombre' => $nombre,
+                    'descripcion' => HtmlSeguro::limpiar($descripcion),
+                    'fecha_inicio' => $fechaInicio,
+                    'fecha_fin' => $fechaFin,
+                    'contenido_tipo' => $tipo,
+                    'contenido_texto' => $tipo === TipoContenidoTarea::Texto ? $contenidoTexto : null,
+                    'contenido_url' => $tipo === TipoContenidoTarea::Url ? $contenidoUrl : null,
+                ]);
 
-            $this->guardarContenidoArchivo($tarea, $tipo, $archivo);
-            $this->sincronizarDestinatarios($tarea, $alumnoIds);
+                $this->guardarContenidoArchivo($tarea, $tipo, $archivo, $archivosNuevos);
+                $this->sincronizarDestinatarios($tarea, $alumnoIds);
 
-            return $tarea->refresh();
-        });
+                return $tarea->refresh();
+            });
+        } catch (Throwable $e) {
+            $this->borrarArchivos($archivosNuevos);
+
+            throw $e;
+        }
     }
 
     /**
@@ -155,70 +164,94 @@ class TareasDocente
         ?string $contenidoUrl,
         ?UploadedFile $archivo,
     ): EstablecimientoTarea {
-        return DB::transaction(function () use (
-            $tarea,
-            $nombre,
-            $descripcion,
-            $fechaInicio,
-            $fechaFin,
-            $tipo,
-            $alumnoIds,
-            $contenidoTexto,
-            $contenidoUrl,
-            $archivo,
-        ): EstablecimientoTarea {
-            $tipoAnterior = $tarea->contenido_tipo;
-            $pathAnterior = $tarea->contenido_path;
+        $archivosNuevos = [];
+        $pathAnterior = $tarea->contenido_path;
+        $reemplazaArchivo = false;
 
-            $tarea->update([
-                'nombre' => $nombre,
-                'descripcion' => HtmlSeguro::limpiar($descripcion),
-                'fecha_inicio' => $fechaInicio,
-                'fecha_fin' => $fechaFin,
-                'contenido_tipo' => $tipo,
-                'contenido_texto' => $tipo === TipoContenidoTarea::Texto ? $contenidoTexto : null,
-                'contenido_url' => $tipo === TipoContenidoTarea::Url ? $contenidoUrl : null,
-            ]);
+        try {
+            $actualizada = DB::transaction(function () use (
+                $tarea,
+                $nombre,
+                $descripcion,
+                $fechaInicio,
+                $fechaFin,
+                $tipo,
+                $alumnoIds,
+                $contenidoTexto,
+                $contenidoUrl,
+                $archivo,
+                &$archivosNuevos,
+                &$reemplazaArchivo,
+            ): EstablecimientoTarea {
+                $tipoAnterior = $tarea->contenido_tipo;
 
-            if ($tipo->requiereArchivo()) {
-                if ($archivo !== null) {
-                    $this->borrarArchivo($pathAnterior);
-                    $this->guardarContenidoArchivo($tarea, $tipo, $archivo);
-                } elseif ($tipoAnterior !== $tipo) {
-                    $this->borrarArchivo($pathAnterior);
+                $tarea->update([
+                    'nombre' => $nombre,
+                    'descripcion' => HtmlSeguro::limpiar($descripcion),
+                    'fecha_inicio' => $fechaInicio,
+                    'fecha_fin' => $fechaFin,
+                    'contenido_tipo' => $tipo,
+                    'contenido_texto' => $tipo === TipoContenidoTarea::Texto ? $contenidoTexto : null,
+                    'contenido_url' => $tipo === TipoContenidoTarea::Url ? $contenidoUrl : null,
+                ]);
+
+                if ($tipo->requiereArchivo()) {
+                    if ($archivo !== null) {
+                        $this->guardarContenidoArchivo($tarea, $tipo, $archivo, $archivosNuevos);
+                        $reemplazaArchivo = true;
+                    } elseif ($tipoAnterior !== $tipo) {
+                        $tarea->update([
+                            'contenido_path' => null,
+                            'contenido_nombre' => null,
+                        ]);
+                        $reemplazaArchivo = true;
+                    }
+                } else {
                     $tarea->update([
                         'contenido_path' => null,
                         'contenido_nombre' => null,
                     ]);
+                    $reemplazaArchivo = true;
                 }
-            } else {
-                $this->borrarArchivo($pathAnterior);
-                $tarea->update([
-                    'contenido_path' => null,
-                    'contenido_nombre' => null,
-                ]);
-            }
 
-            $this->sincronizarDestinatarios($tarea, $alumnoIds);
+                $this->sincronizarDestinatarios($tarea, $alumnoIds);
 
-            return $tarea->refresh();
-        });
+                return $tarea->refresh();
+            });
+        } catch (Throwable $e) {
+            $this->borrarArchivos($archivosNuevos);
+
+            throw $e;
+        }
+
+        if ($reemplazaArchivo) {
+            $this->borrarArchivo($pathAnterior);
+        }
+
+        return $actualizada;
     }
 
     public function eliminar(EstablecimientoTarea $tarea): void
     {
-        DB::transaction(function () use ($tarea): void {
+        $paths = [];
+
+        DB::transaction(function () use ($tarea, &$paths): void {
             $tarea->load('entregas.archivos');
 
             foreach ($tarea->entregas as $entrega) {
                 foreach ($entrega->archivos as $archivo) {
-                    $this->borrarArchivo($archivo->path);
+                    $paths[] = $archivo->path;
                 }
             }
 
-            $this->borrarArchivo($tarea->contenido_path);
+            if ($tarea->contenido_path !== null) {
+                $paths[] = $tarea->contenido_path;
+            }
+
             $tarea->delete();
         });
+
+        $this->borrarArchivos($paths);
     }
 
     /**
@@ -301,18 +334,36 @@ class TareasDocente
         }
     }
 
-    private function guardarContenidoArchivo(EstablecimientoTarea $tarea, TipoContenidoTarea $tipo, ?UploadedFile $archivo): void
-    {
+    /**
+     * @param  list<string>  $archivosNuevos
+     */
+    private function guardarContenidoArchivo(
+        EstablecimientoTarea $tarea,
+        TipoContenidoTarea $tipo,
+        ?UploadedFile $archivo,
+        array &$archivosNuevos,
+    ): void {
         if (! $tipo->requiereArchivo() || $archivo === null) {
             return;
         }
 
         $path = $archivo->store('tareas/'.$tarea->id.'/contenido', 'local');
+        $archivosNuevos[] = $path;
 
         $tarea->update([
             'contenido_path' => $path,
             'contenido_nombre' => $archivo->getClientOriginalName(),
         ]);
+    }
+
+    /**
+     * @param  list<string>  $paths
+     */
+    private function borrarArchivos(array $paths): void
+    {
+        foreach ($paths as $path) {
+            $this->borrarArchivo($path);
+        }
     }
 
     private function borrarArchivo(?string $path): void

@@ -24,6 +24,7 @@ use App\Models\Sys_Asignatura;
 use App\Models\User;
 use App\Services\LibretaAula;
 use Database\Seeders\NavigationSeeder;
+use Illuminate\Support\Facades\Exceptions;
 
 /**
  * @return array{
@@ -315,6 +316,39 @@ describe('storeActividad', function () {
             'alumno_id' => $alumno->id,
             'nota' => '8.50',
         ]);
+    });
+
+    it('does not leave a partial exam when saving grades fails', function () {
+        $escenario = escenarioCalificarCierres();
+        $alumno = alumnoDelEstablecimiento($escenario['establecimiento'], 'Vargas');
+        matricularAlumnoCierre($escenario['aula'], $alumno);
+
+        Exceptions::fake();
+        EstablecimientoCierreActividadCalificacion::creating(function (): void {
+            throw new RuntimeException('falla de grabado');
+        });
+
+        try {
+            $this->actingAs($escenario['docente'])
+                ->from(route('Docente.examenes.index'))
+                ->post(route('Docente.examenes.actividades.store'), [
+                    'establecimiento_aula_id' => $escenario['aula']->id,
+                    'establecimiento_asignatura_id' => $escenario['malla']->id,
+                    'establecimiento_periodo_ciclo_id' => $escenario['ciclo']->id,
+                    'nombre' => 'Examen primer quimestre',
+                    'notas' => [
+                        $alumno->id => '8.50',
+                    ],
+                ])
+                ->assertRedirect(route('Docente.examenes.index'))
+                ->assertSessionHas('error', 'No se pudo grabar. No se guardó ningún cambio.');
+
+            Exceptions::assertReported(RuntimeException::class);
+            $this->assertDatabaseCount('establecimiento_cierre_actividades', 0);
+            $this->assertDatabaseCount('establecimiento_cierre_actividad_calificaciones', 0);
+        } finally {
+            EstablecimientoCierreActividadCalificacion::flushEventListeners();
+        }
     });
 
     it('rejects a project when the cycle does not have one configured', function () {

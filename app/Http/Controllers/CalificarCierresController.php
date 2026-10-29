@@ -13,6 +13,7 @@ use App\Models\EstablecimientoCierreActividad;
 use App\Models\EstablecimientoCierreActividadCalificacion;
 use App\Models\User;
 use App\Services\AsignacionesDocente;
+use App\Support\Grabado;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -47,49 +48,51 @@ class CalificarCierresController extends Controller
         $notas = $request->notas();
         $alumnoIds = $request->alumnoIds();
 
-        DB::transaction(function () use ($request, $contexto, $cierre, $notas, $alumnoIds): void {
-            $llaves = [
-                'establecimiento_aula_id' => $contexto->aula->id,
-                'establecimiento_asignatura_id' => $contexto->asignatura->id,
-                'tipo' => $cierre,
-            ];
-            $valores = [
-                'empleado_id' => $request->empleadoId(),
-                'nombre' => $request->nombre(),
-            ];
+        return Grabado::intentar(function () use ($request, $contexto, $cierre, $notas, $alumnoIds): RedirectResponse {
+            DB::transaction(function () use ($request, $contexto, $cierre, $notas, $alumnoIds): void {
+                $llaves = [
+                    'establecimiento_aula_id' => $contexto->aula->id,
+                    'establecimiento_asignatura_id' => $contexto->asignatura->id,
+                    'tipo' => $cierre,
+                ];
+                $valores = [
+                    'empleado_id' => $request->empleadoId(),
+                    'nombre' => $request->nombre(),
+                ];
 
-            if ($cierre->esFinal()) {
-                $valores['establecimiento_periodo_ciclo_id'] = $contexto->ciclo->id;
-            } else {
-                $llaves['establecimiento_periodo_ciclo_id'] = $contexto->ciclo->id;
-            }
+                if ($cierre->esFinal()) {
+                    $valores['establecimiento_periodo_ciclo_id'] = $contexto->ciclo->id;
+                } else {
+                    $llaves['establecimiento_periodo_ciclo_id'] = $contexto->ciclo->id;
+                }
 
-            $actividad = EstablecimientoCierreActividad::query()->updateOrCreate($llaves, $valores);
+                $actividad = EstablecimientoCierreActividad::query()->updateOrCreate($llaves, $valores);
 
-            if ($alumnoIds !== []) {
-                EstablecimientoCierreActividadCalificacion::query()
-                    ->where('establecimiento_cierre_actividad_id', $actividad->id)
-                    ->whereIn('alumno_id', $alumnoIds)
-                    ->whereNotIn('alumno_id', array_keys($notas) === [] ? [0] : array_keys($notas))
-                    ->delete();
-            }
+                if ($alumnoIds !== []) {
+                    EstablecimientoCierreActividadCalificacion::query()
+                        ->where('establecimiento_cierre_actividad_id', $actividad->id)
+                        ->whereIn('alumno_id', $alumnoIds)
+                        ->whereNotIn('alumno_id', array_keys($notas) === [] ? [0] : array_keys($notas))
+                        ->delete();
+                }
 
-            foreach ($notas as $alumnoId => $nota) {
-                EstablecimientoCierreActividadCalificacion::query()->updateOrCreate(
-                    [
-                        'establecimiento_cierre_actividad_id' => $actividad->id,
-                        'alumno_id' => $alumnoId,
-                    ],
-                    [
-                        'nota' => $nota,
-                    ],
-                );
-            }
+                foreach ($notas as $alumnoId => $nota) {
+                    EstablecimientoCierreActividadCalificacion::query()->updateOrCreate(
+                        [
+                            'establecimiento_cierre_actividad_id' => $actividad->id,
+                            'alumno_id' => $alumnoId,
+                        ],
+                        [
+                            'nota' => $nota,
+                        ],
+                    );
+                }
+            });
+
+            return redirect()
+                ->route($cierre->route('index'))
+                ->with('status', 'calificaciones-grabadas');
         });
-
-        return redirect()
-            ->route($cierre->route('index'))
-            ->with('status', 'calificaciones-grabadas');
     }
 
     /**

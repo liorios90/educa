@@ -17,6 +17,9 @@
 
     <div class="py-8">
         <div class="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+            @if (session('error'))
+                <p class="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">{{ session('error') }}</p>
+            @endif
             <form
                 method="POST"
                 action="{{ $tarea ? route('Docente.tareas.update', $tarea) : route('Docente.tareas.store') }}"

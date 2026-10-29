@@ -14,6 +14,7 @@ use App\Models\EstablecimientoAula;
 use App\Models\EstablecimientoAulaDocente;
 use App\Models\EstablecimientoGrado;
 use App\Models\EstablecimientoInsumoActividad;
+use App\Models\EstablecimientoInsumoActividadCalificacion;
 use App\Models\EstablecimientoMatricula;
 use App\Models\EstablecimientoPeriodoCiclo;
 use App\Models\EstablecimientoTarea;
@@ -29,6 +30,7 @@ use App\Models\User;
 use Database\Seeders\NavigationSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -715,6 +717,40 @@ describe('entregas', function () {
             'alumno_id' => $escenario['alumno']->id,
             'nota' => '8.50',
         ]);
+    });
+
+    it('does not leave a partial insumo when grading fails', function () {
+        $escenario = escenarioTareasDocente();
+        $insumo = asignarTipoInsumoTareas($escenario, 'cuantitativa', [
+            ['nombre' => 'Tarea', 'porcentaje' => '50.00'],
+        ]);
+        $tarea = registrarTareaDocente($escenario, [$escenario['alumno']->id, $escenario['companero']->id]);
+
+        Exceptions::fake();
+        EstablecimientoInsumoActividadCalificacion::creating(function (): void {
+            throw new RuntimeException('falla de grabado');
+        });
+
+        try {
+            $this->actingAs($escenario['docente'])
+                ->from(route('Docente.tareas.entregas', $tarea))
+                ->post(route('Docente.tareas.calificar', $tarea), [
+                    'tipo_insumo_detalle_id' => $insumo['detalles'][0]->id,
+                    'notas' => [
+                        $escenario['alumno']->id => '8.5',
+                        $escenario['companero']->id => '7',
+                    ],
+                ])
+                ->assertRedirect(route('Docente.tareas.entregas', $tarea))
+                ->assertSessionHas('error', 'No se pudo grabar. No se guardó ningún cambio.');
+
+            Exceptions::assertReported(RuntimeException::class);
+            expect($tarea->fresh()->estaCalificada())->toBeFalse();
+            $this->assertDatabaseCount('establecimiento_insumo_actividades', 0);
+            $this->assertDatabaseCount('establecimiento_insumo_actividad_calificaciones', 0);
+        } finally {
+            EstablecimientoInsumoActividadCalificacion::flushEventListeners();
+        }
     });
 
     it('returns 404 when the supply type belongs to another subject', function () {

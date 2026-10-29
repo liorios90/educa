@@ -8,6 +8,9 @@
 
     <div class="py-8">
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            @if (session('error'))
+                <p class="mb-4 text-sm font-medium text-red-700">{{ session('error') }}</p>
+            @endif
             @if (session('status') === 'calificaciones-grabadas')
                 <p class="mb-4 text-sm font-medium text-green-700">Calificaciones grabadas correctamente.</p>
             @endif

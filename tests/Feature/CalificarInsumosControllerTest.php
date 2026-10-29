@@ -27,6 +27,7 @@ use App\Models\TipoInsumoDetalle;
 use App\Models\User;
 use Database\Seeders\NavigationSeeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Exceptions;
 
 /**
  * @return array{
@@ -690,6 +691,49 @@ describe('storeActividad', function () {
             ->get(route('Docente.calificar.editar'))
             ->assertSee('Ensayo de arte')
             ->assertSee('Arte');
+    });
+
+    it('does not leave a partial activity when saving grades fails', function () {
+        $escenario = escenarioCalificarInsumos();
+        $tipoInsumo = tipoInsumoDe($escenario['periodo'], ['nombre' => 'Evaluación de aula']);
+        $detalle = $tipoInsumo->detalles()->create([
+            'nombre' => 'Arte',
+            'porcentaje' => '50.00',
+            'activo' => true,
+        ]);
+        DB::table('establecimiento_aula_asignatura_tipo_insumos')->insert([
+            'establecimiento_aula_id' => $escenario['aula']->id,
+            'establecimiento_asignatura_id' => $escenario['malla']->id,
+            'tipo_insumo_id' => $tipoInsumo->id,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        Exceptions::fake();
+        EstablecimientoInsumoActividad::created(function (): void {
+            throw new RuntimeException('falla de grabado');
+        });
+
+        try {
+            $this->actingAs($escenario['docente'])
+                ->from(route('Docente.calificar.index'))
+                ->post(route('Docente.calificar.actividades.store'), [
+                    'establecimiento_aula_id' => $escenario['aula']->id,
+                    'establecimiento_asignatura_id' => $escenario['malla']->id,
+                    'establecimiento_periodo_ciclo_id' => $escenario['ciclo']->id,
+                    'parcial_numero' => 1,
+                    'nombre' => 'Ensayo de arte',
+                    'tipo_insumo_detalle_id' => $detalle->id,
+                ])
+                ->assertRedirect(route('Docente.calificar.index'))
+                ->assertSessionHas('error', 'No se pudo grabar. No se guardó ningún cambio.');
+
+            Exceptions::assertReported(RuntimeException::class);
+            $this->assertDatabaseCount('establecimiento_insumo_actividades', 0);
+            $this->assertDatabaseCount('establecimiento_insumo_actividad_calificaciones', 0);
+        } finally {
+            EstablecimientoInsumoActividad::flushEventListeners();
+        }
     });
 
     it('returns 404 when the supply type belongs to another subject', function () {

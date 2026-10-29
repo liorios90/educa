@@ -9,6 +9,7 @@ use App\Models\EstablecimientoTareaEntrega;
 use App\Models\EstablecimientoTareaEntregaArchivo;
 use App\Models\User;
 use App\Services\LibretaFamiliar;
+use App\Support\Grabado;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
@@ -18,6 +19,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Throwable;
 
 class TareaAlumnoController extends Controller
 {
@@ -108,38 +110,51 @@ class TareaAlumnoController extends Controller
         $archivos = $request->file('archivos', []);
         $archivos = is_array($archivos) ? $archivos : [];
 
-        DB::transaction(function () use ($request, $tarea, $alumno, $archivos): void {
-            $entrega = EstablecimientoTareaEntrega::query()->updateOrCreate(
-                [
-                    'establecimiento_tarea_id' => $tarea->id,
-                    'alumno_id' => $alumno->id,
-                ],
-                [
-                    'mensaje' => $request->validated('mensaje'),
-                ],
-            );
+        return Grabado::intentar(function () use ($request, $tarea, $alumno, $archivos): RedirectResponse {
+            $archivosNuevos = [];
 
-            foreach ($archivos as $archivo) {
-                if (! $archivo instanceof UploadedFile) {
-                    continue;
+            try {
+                DB::transaction(function () use ($request, $tarea, $alumno, $archivos, &$archivosNuevos): void {
+                    $entrega = EstablecimientoTareaEntrega::query()->updateOrCreate(
+                        [
+                            'establecimiento_tarea_id' => $tarea->id,
+                            'alumno_id' => $alumno->id,
+                        ],
+                        [
+                            'mensaje' => $request->validated('mensaje'),
+                        ],
+                    );
+
+                    foreach ($archivos as $archivo) {
+                        if (! $archivo instanceof UploadedFile) {
+                            continue;
+                        }
+
+                        $path = $archivo->store('tareas/'.$tarea->id.'/entregas/'.$alumno->id, 'local');
+                        $archivosNuevos[] = $path;
+                        $entrega->archivos()->create([
+                            'path' => $path,
+                            'nombre_original' => $archivo->getClientOriginalName(),
+                            'mime' => (string) $archivo->getClientMimeType(),
+                            'size' => (int) $archivo->getSize(),
+                        ]);
+                    }
+                });
+            } catch (Throwable $e) {
+                foreach ($archivosNuevos as $path) {
+                    Storage::disk('local')->delete($path);
                 }
 
-                $path = $archivo->store('tareas/'.$tarea->id.'/entregas/'.$alumno->id, 'local');
-                $entrega->archivos()->create([
-                    'path' => $path,
-                    'nombre_original' => $archivo->getClientOriginalName(),
-                    'mime' => (string) $archivo->getClientMimeType(),
-                    'size' => (int) $archivo->getSize(),
-                ]);
+                throw $e;
             }
-        });
 
-        return redirect()
-            ->route('alumno.tareas.index', [
-                'mes' => $tarea->fecha_inicio->format('Y-m'),
-                'tarea' => $tarea->id,
-            ])
-            ->with('status', 'tarea-entregada');
+            return redirect()
+                ->route('alumno.tareas.index', [
+                    'mes' => $tarea->fecha_inicio->format('Y-m'),
+                    'tarea' => $tarea->id,
+                ])
+                ->with('status', 'tarea-entregada');
+        });
     }
 
     public function archivo(Request $request, EstablecimientoTarea $tarea): StreamedResponse

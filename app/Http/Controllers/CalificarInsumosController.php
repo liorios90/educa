@@ -13,6 +13,7 @@ use App\Models\EstablecimientoInsumoActividad;
 use App\Models\EstablecimientoInsumoActividadCalificacion;
 use App\Models\User;
 use App\Services\AsignacionesDocente;
+use App\Support\Grabado;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -84,29 +85,31 @@ class CalificarInsumosController extends Controller
         $contexto = $request->contexto();
         $this->contexto->set($contexto);
 
-        DB::transaction(function () use ($request, $contexto): void {
-            $actividad = EstablecimientoInsumoActividad::query()->create([
-                'establecimiento_aula_id' => $contexto->aula->id,
-                'establecimiento_asignatura_id' => $contexto->asignatura->id,
-                'establecimiento_periodo_ciclo_id' => $contexto->ciclo->id,
-                'parcial_numero' => $contexto->parcialNumero,
-                'tipo_insumo_detalle_id' => $request->detalle()->id,
-                'empleado_id' => $request->empleadoId(),
-                'nombre' => $request->nombre(),
-            ]);
-
-            foreach ($request->notas() as $alumnoId => $nota) {
-                EstablecimientoInsumoActividadCalificacion::query()->create([
-                    'establecimiento_insumo_actividad_id' => $actividad->id,
-                    'alumno_id' => $alumnoId,
-                    'nota' => $nota,
+        return Grabado::intentar(function () use ($request, $contexto): RedirectResponse {
+            DB::transaction(function () use ($request, $contexto): void {
+                $actividad = EstablecimientoInsumoActividad::query()->create([
+                    'establecimiento_aula_id' => $contexto->aula->id,
+                    'establecimiento_asignatura_id' => $contexto->asignatura->id,
+                    'establecimiento_periodo_ciclo_id' => $contexto->ciclo->id,
+                    'parcial_numero' => $contexto->parcialNumero,
+                    'tipo_insumo_detalle_id' => $request->detalle()->id,
+                    'empleado_id' => $request->empleadoId(),
+                    'nombre' => $request->nombre(),
                 ]);
-            }
-        });
 
-        return redirect()
-            ->route('Docente.calificar.index')
-            ->with('status', 'calificaciones-grabadas');
+                foreach ($request->notas() as $alumnoId => $nota) {
+                    EstablecimientoInsumoActividadCalificacion::query()->create([
+                        'establecimiento_insumo_actividad_id' => $actividad->id,
+                        'alumno_id' => $alumnoId,
+                        'nota' => $nota,
+                    ]);
+                }
+            });
+
+            return redirect()
+                ->route('Docente.calificar.index')
+                ->with('status', 'calificaciones-grabadas');
+        });
     }
 
     public function updateActividad(UpdateInsumoActividadRequest $request, EstablecimientoInsumoActividad $actividad): RedirectResponse
@@ -117,35 +120,37 @@ class CalificarInsumosController extends Controller
         $notas = $request->notas();
         $alumnoIds = $request->alumnoIds();
 
-        DB::transaction(function () use ($actividad, $notas, $alumnoIds, $request): void {
-            $actividad->update([
-                'nombre' => $request->nombre(),
-            ]);
+        return Grabado::intentar(function () use ($actividad, $notas, $alumnoIds, $request): RedirectResponse {
+            DB::transaction(function () use ($actividad, $notas, $alumnoIds, $request): void {
+                $actividad->update([
+                    'nombre' => $request->nombre(),
+                ]);
 
-            if ($alumnoIds !== []) {
-                EstablecimientoInsumoActividadCalificacion::query()
-                    ->where('establecimiento_insumo_actividad_id', $actividad->id)
-                    ->whereIn('alumno_id', $alumnoIds)
-                    ->whereNotIn('alumno_id', array_keys($notas) === [] ? [0] : array_keys($notas))
-                    ->delete();
-            }
+                if ($alumnoIds !== []) {
+                    EstablecimientoInsumoActividadCalificacion::query()
+                        ->where('establecimiento_insumo_actividad_id', $actividad->id)
+                        ->whereIn('alumno_id', $alumnoIds)
+                        ->whereNotIn('alumno_id', array_keys($notas) === [] ? [0] : array_keys($notas))
+                        ->delete();
+                }
 
-            foreach ($notas as $alumnoId => $nota) {
-                EstablecimientoInsumoActividadCalificacion::query()->updateOrCreate(
-                    [
-                        'establecimiento_insumo_actividad_id' => $actividad->id,
-                        'alumno_id' => $alumnoId,
-                    ],
-                    [
-                        'nota' => $nota,
-                    ],
-                );
-            }
+                foreach ($notas as $alumnoId => $nota) {
+                    EstablecimientoInsumoActividadCalificacion::query()->updateOrCreate(
+                        [
+                            'establecimiento_insumo_actividad_id' => $actividad->id,
+                            'alumno_id' => $alumnoId,
+                        ],
+                        [
+                            'nota' => $nota,
+                        ],
+                    );
+                }
+            });
+
+            return redirect()
+                ->route('Docente.calificar.editar', ['actividad' => $actividad->id])
+                ->with('status', 'calificaciones-grabadas');
         });
-
-        return redirect()
-            ->route('Docente.calificar.editar', ['actividad' => $actividad->id])
-            ->with('status', 'calificaciones-grabadas');
     }
 
     /**

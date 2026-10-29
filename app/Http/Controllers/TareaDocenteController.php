@@ -15,6 +15,7 @@ use App\Models\EstablecimientoTareaEntregaArchivo;
 use App\Models\User;
 use App\Services\AsignacionesDocente;
 use App\Services\TareasDocente;
+use App\Support\Grabado;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -80,23 +81,25 @@ class TareaDocenteController extends Controller
         $contexto = $request->contexto();
         $this->contexto->set($contexto);
 
-        $this->tareas->crear(
-            $user,
-            $contexto,
-            (string) $request->validated('nombre'),
-            (string) $request->validated('descripcion'),
-            (string) $request->validated('fecha_inicio'),
-            (string) $request->validated('fecha_fin'),
-            $request->tipo(),
-            $request->alumnoIds(),
-            $request->validated('contenido_texto'),
-            $request->validated('contenido_url'),
-            $request->archivo(),
-        );
+        return Grabado::intentar(function () use ($request, $user, $contexto): RedirectResponse {
+            $this->tareas->crear(
+                $user,
+                $contexto,
+                (string) $request->validated('nombre'),
+                (string) $request->validated('descripcion'),
+                (string) $request->validated('fecha_inicio'),
+                (string) $request->validated('fecha_fin'),
+                $request->tipo(),
+                $request->alumnoIds(),
+                $request->validated('contenido_texto'),
+                $request->validated('contenido_url'),
+                $request->archivo(),
+            );
 
-        return redirect()
-            ->route('Docente.tareas.index')
-            ->with('status', 'tarea-enviada');
+            return redirect()
+                ->route('Docente.tareas.index')
+                ->with('status', 'tarea-enviada');
+        });
     }
 
     public function show(Request $request, EstablecimientoTarea $tarea): View
@@ -166,47 +169,54 @@ class TareaDocenteController extends Controller
 
     public function update(UpdateTareaRequest $request, EstablecimientoTarea $tarea): RedirectResponse
     {
-        $this->tareas->actualizar(
-            $tarea,
-            (string) $request->validated('nombre'),
-            (string) $request->validated('descripcion'),
-            (string) $request->validated('fecha_inicio'),
-            (string) $request->validated('fecha_fin'),
-            $request->tipo(),
-            $request->alumnoIds(),
-            $request->validated('contenido_texto'),
-            $request->validated('contenido_url'),
-            $request->archivo(),
-        );
+        return Grabado::intentar(function () use ($request, $tarea): RedirectResponse {
+            $this->tareas->actualizar(
+                $tarea,
+                (string) $request->validated('nombre'),
+                (string) $request->validated('descripcion'),
+                (string) $request->validated('fecha_inicio'),
+                (string) $request->validated('fecha_fin'),
+                $request->tipo(),
+                $request->alumnoIds(),
+                $request->validated('contenido_texto'),
+                $request->validated('contenido_url'),
+                $request->archivo(),
+            );
 
-        return redirect()
-            ->route('Docente.tareas.show', $tarea)
-            ->with('status', 'tarea-actualizada');
+            return redirect()
+                ->route('Docente.tareas.show', $tarea)
+                ->with('status', 'tarea-actualizada');
+        });
     }
 
     public function destroy(Request $request, EstablecimientoTarea $tarea): RedirectResponse
     {
         $this->autorizar($request, $tarea);
-        $this->tareas->eliminar($tarea);
 
-        return redirect()
-            ->route('Docente.tareas.index')
-            ->with('status', 'tarea-eliminada');
+        return Grabado::intentar(function () use ($tarea): RedirectResponse {
+            $this->tareas->eliminar($tarea);
+
+            return redirect()
+                ->route('Docente.tareas.index')
+                ->with('status', 'tarea-eliminada');
+        });
     }
 
     public function calificar(CalificarTareaRequest $request, EstablecimientoTarea $tarea): RedirectResponse
     {
-        $this->tareas->calificarComoInsumo(
-            $tarea,
-            $request->detalle(),
-            $request->empleadoId(),
-            $request->notas(),
-        );
-        $this->contexto->set($request->contexto());
+        return Grabado::intentar(function () use ($request, $tarea): RedirectResponse {
+            $this->tareas->calificarComoInsumo(
+                $tarea,
+                $request->detalle(),
+                $request->empleadoId(),
+                $request->notas(),
+            );
+            $this->contexto->set($request->contexto());
 
-        return redirect()
-            ->route('Docente.tareas.entregas', $tarea)
-            ->with('status', 'tarea-calificada');
+            return redirect()
+                ->route('Docente.tareas.entregas', $tarea)
+                ->with('status', 'tarea-calificada');
+        });
     }
 
     public function archivo(Request $request, EstablecimientoTarea $tarea): StreamedResponse

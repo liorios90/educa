@@ -23,6 +23,7 @@ use App\Models\Sys_Asignatura;
 use App\Models\User;
 use Database\Seeders\NavigationSeeder;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Exceptions;
 use Illuminate\Support\Facades\Storage;
 
 /**
@@ -303,6 +304,39 @@ describe('entregar', function () {
             'nombre_original' => 'ensayo.pdf',
         ]);
         Storage::disk('local')->assertExists($entrega->archivos()->firstOrFail()->path);
+    });
+
+    it('does not keep a half-saved submission when storing a file fails', function () {
+        Storage::fake('local');
+        $this->travelTo('2026-10-10 12:00:00');
+        $escenario = escenarioTareasAlumno();
+        $tarea = registrarTareaAlumno($escenario, [$escenario['alumno']->id]);
+
+        Exceptions::fake();
+        EstablecimientoTareaEntregaArchivo::creating(function (): void {
+            throw new RuntimeException('falla de grabado');
+        });
+
+        try {
+            $this->actingAs($escenario['cuentaAlumno'])
+                ->from(route('alumno.tareas.index', ['mes' => '2026-10', 'tarea' => $tarea->id]))
+                ->post(route('alumno.tareas.entregar', $tarea), [
+                    'mensaje' => 'Adjunto el ensayo.',
+                    'archivos' => [UploadedFile::fake()->create('ensayo.pdf', 80, 'application/pdf')],
+                ])
+                ->assertRedirect(route('alumno.tareas.index', [
+                    'mes' => '2026-10',
+                    'tarea' => $tarea->id,
+                ]))
+                ->assertSessionHas('error', 'No se pudo grabar. No se guardó ningún cambio.');
+
+            Exceptions::assertReported(RuntimeException::class);
+            $this->assertDatabaseCount('establecimiento_tarea_entregas', 0);
+            $this->assertDatabaseCount('establecimiento_tarea_entrega_archivos', 0);
+            expect(Storage::disk('local')->allFiles())->toBe([]);
+        } finally {
+            EstablecimientoTareaEntregaArchivo::flushEventListeners();
+        }
     });
 
     it('stores a spreadsheet submitted by the student', function () {

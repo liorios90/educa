@@ -454,7 +454,7 @@ it('does not call Gemini when the school has no key', function () {
             'alumno_id' => $escenario['alumno']->id,
         ])
         ->assertRedirect(route('Docente.diagnostico.index'))
-        ->assertSessionHas('error', 'Este instituto no tiene configurada la clave de Gemini. Pide al administrador que la ingrese en Configuración.');
+        ->assertSessionHas('error', 'Este instituto no tiene configurado el asistente. Pide al administrador que lo configure en Configuración.');
 
     Http::assertNothingSent();
 });
@@ -647,7 +647,7 @@ it('does not call Gemini for the group when the school has no key', function () 
         ->from(route('Docente.diagnostico.index'))
         ->post(route('Docente.diagnostico.grupo'))
         ->assertRedirect(route('Docente.diagnostico.index'))
-        ->assertSessionHas('error', 'Este instituto no tiene configurada la clave de Gemini. Pide al administrador que la ingrese en Configuración.');
+        ->assertSessionHas('error', 'Este instituto no tiene configurado el asistente. Pide al administrador que lo configure en Configuración.');
 
     Http::assertNothingSent();
 });

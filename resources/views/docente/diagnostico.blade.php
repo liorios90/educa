@@ -6,7 +6,7 @@
     <div class="py-8">
         <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             @unless ($asistenteListo)
-                <p class="mb-4 text-sm font-medium text-amber-800">Este instituto aún no tiene una clave de Gemini. El administrador debe configurarla en Configuración → Asistente.</p>
+                <p class="mb-4 text-sm font-medium text-amber-800">Este instituto aún no tiene el asistente configurado. El administrador debe hacerlo en Configuración → Asistente.</p>
             @endunless
 
             <div class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">

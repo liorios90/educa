@@ -63,7 +63,7 @@ it('lets a teacher open the assistant', function () {
         ->assertViewHas('storeRoute', route('Docente.asistente.store'))
         ->assertSee('Asistente')
         ->assertSee('Pregunta')
-        ->assertSee('Este instituto aún no tiene una clave de Gemini')
+        ->assertSee('Este instituto aún no tiene el asistente configurado')
         ->assertSee('Preguntas')
         ->assertSee('Tokens')
         ->assertSee('octubre 2026')
@@ -189,9 +189,43 @@ it('does not call Gemini when the teacher school has no key', function () {
             'prompt' => '¿Cómo califico un insumo?',
         ])
         ->assertRedirect(route('Docente.asistente'))
-        ->assertSessionHas('error', 'Este instituto no tiene configurada la clave de Gemini. Pide al administrador que la ingrese en Configuración.');
+        ->assertSessionHas('error', 'Este instituto no tiene configurado el asistente. Pide al administrador que lo configure en Configuración.');
 
     Http::assertNothingSent();
+});
+
+it('sends a teacher prompt to the compatible model and not to Gemini', function () {
+    Http::preventStrayRequests();
+    Http::fake([
+        'https://api.groq.com/openai/v1/chat/completions' => Http::response([
+            'choices' => [
+                ['message' => ['content' => 'Respuesta compatible']],
+            ],
+            'usage' => ['total_tokens' => 9],
+        ]),
+    ]);
+
+    $docente = docenteDeEstablecimiento();
+    $docente->establecimiento->update([
+        'gemini_api_key' => 'clave-groq',
+        'gemini_model' => 'llama-3.1-8b-instant',
+        'asistente_proveedor' => 'compatible',
+        'asistente_base_url' => 'https://api.groq.com/openai/v1',
+        'gemini_preguntas_limite' => 100,
+        'gemini_tokens_limite' => 1000,
+    ]);
+
+    $this->actingAs($docente)
+        ->from(route('Docente.asistente'))
+        ->post(route('Docente.asistente.store'), [
+            'prompt' => 'Resume la clase',
+        ])
+        ->assertRedirect(route('Docente.asistente'))
+        ->assertSessionHas('respuesta', 'Respuesta compatible');
+
+    Http::assertSent(fn (Request $request) => $request->url() === 'https://api.groq.com/openai/v1/chat/completions'
+        && $request->hasHeader('Authorization', 'Bearer clave-groq')
+        && ! str_contains($request->url(), 'generativelanguage.googleapis.com'));
 });
 
 it('redirects back when the teacher prompt is missing', function () {

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\AsistenteProveedor;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\UpdateEstablecimientoAsistenteRequest;
 use App\Models\Establecimiento;
@@ -25,10 +26,15 @@ class ConfiguracionAsistenteController extends Controller
         abort_if($establecimiento === null, 404);
 
         $datos = $request->safe()->only([
+            'asistente_proveedor',
             'gemini_model',
             'gemini_preguntas_limite',
             'gemini_tokens_limite',
         ]);
+
+        $datos['asistente_base_url'] = $request->enum('asistente_proveedor', AsistenteProveedor::class) === AsistenteProveedor::Compatible
+            ? $request->validated('asistente_base_url')
+            : null;
 
         if ($request->filled('gemini_api_key')) {
             $datos['gemini_api_key'] = $request->validated('gemini_api_key');

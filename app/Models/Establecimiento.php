@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\AsistenteProveedor;
 use App\Enums\ModoDecimal;
 use App\Enums\Role;
 use Database\Factories\EstablecimientoFactory;
@@ -46,6 +47,8 @@ class Establecimiento extends Model
         'circuito_id',
         'gemini_api_key',
         'gemini_model',
+        'asistente_proveedor',
+        'asistente_base_url',
         'gemini_preguntas_limite',
         'gemini_tokens_limite',
         'gemini_preguntas_usadas',
@@ -66,6 +69,7 @@ class Establecimiento extends Model
     protected $attributes = [
         'decimales_calificacion' => 2,
         'modo_decimal' => 'aproximar',
+        'asistente_proveedor' => 'gemini',
     ];
 
     protected static function newFactory(): EstablecimientoFactory
@@ -81,6 +85,7 @@ class Establecimiento extends Model
             'bachillerato_tecnico' => 'boolean',
             'bachillerato_internacional' => 'boolean',
             'gemini_api_key' => 'encrypted',
+            'asistente_proveedor' => AsistenteProveedor::class,
             'gemini_preguntas_limite' => 'integer',
             'gemini_tokens_limite' => 'integer',
             'gemini_preguntas_usadas' => 'integer',
@@ -93,6 +98,24 @@ class Establecimiento extends Model
     public function tieneCredencialesGemini(): bool
     {
         return is_string($this->gemini_api_key) && $this->gemini_api_key !== '';
+    }
+
+    public function proveedorAsistente(): AsistenteProveedor
+    {
+        return $this->asistente_proveedor ?? AsistenteProveedor::Gemini;
+    }
+
+    public function tieneCredencialesAsistente(): bool
+    {
+        if (! $this->tieneCredencialesGemini()) {
+            return false;
+        }
+
+        if ($this->proveedorAsistente() === AsistenteProveedor::Compatible) {
+            return is_string($this->asistente_base_url) && $this->asistente_base_url !== '';
+        }
+
+        return true;
     }
 
     public function modeloGemini(): string

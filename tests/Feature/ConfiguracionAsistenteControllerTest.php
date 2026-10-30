@@ -1,6 +1,7 @@
 <?php
 
 use App\Auth\ActiveRole;
+use App\Enums\AsistenteProveedor;
 use App\Enums\Role;
 use App\Models\Establecimiento;
 use App\Models\User;
@@ -44,7 +45,10 @@ describe('edit', function () {
             ->assertOk()
             ->assertSee('Asistente')
             ->assertSee('Unidad Educativa Andina')
-            ->assertSee('Clave de Gemini')
+            ->assertSee('Proveedor')
+            ->assertSee('API compatible con OpenAI')
+            ->assertSee('Clave')
+            ->assertSee('URL base')
             ->assertSee('Hay una clave guardada. Déjala en blanco para conservarla.')
             ->assertSee('gemini-3.6-flash')
             ->assertSee('Preguntas por mes')
@@ -92,6 +96,8 @@ describe('update', function () {
         $this->actingAs($admin)
             ->from(route('Admin.asistente'))
             ->put(route('Admin.asistente.update'), [
+                'asistente_proveedor' => 'gemini',
+                'asistente_base_url' => 'http://127.0.0.1:11434/v1',
                 'gemini_api_key' => 'clave-andina',
                 'gemini_model' => 'gemini-andina',
                 'gemini_preguntas_limite' => 80,
@@ -105,6 +111,8 @@ describe('update', function () {
 
         expect($establecimiento->gemini_api_key)->toBe('clave-andina')
             ->and($establecimiento->gemini_model)->toBe('gemini-andina')
+            ->and($establecimiento->proveedorAsistente())->toBe(AsistenteProveedor::Gemini)
+            ->and($establecimiento->asistente_base_url)->toBeNull()
             ->and($establecimiento->gemini_preguntas_limite)->toBe(80)
             ->and($establecimiento->gemini_tokens_limite)->toBe(5000)
             ->and($establecimiento->nombre)->toBe('Unidad Educativa Andina')
@@ -126,6 +134,7 @@ describe('update', function () {
         $this->actingAs($admin)
             ->from(route('Admin.asistente'))
             ->put(route('Admin.asistente.update'), [
+                'asistente_proveedor' => 'gemini',
                 'gemini_api_key' => '',
                 'gemini_model' => 'modelo-nuevo',
                 'gemini_preguntas_limite' => 100,
@@ -145,6 +154,7 @@ describe('update', function () {
         $this->actingAs($admin)
             ->from(route('Admin.asistente'))
             ->put(route('Admin.asistente.update'), [
+                'asistente_proveedor' => 'gemini',
                 'gemini_api_key' => '',
                 'gemini_model' => '',
                 'gemini_preguntas_limite' => 100,
@@ -152,8 +162,8 @@ describe('update', function () {
             ])
             ->assertRedirect(route('Admin.asistente'))
             ->assertSessionHasErrors([
-                'gemini_api_key' => 'Ingresa la clave de Gemini de este instituto.',
-                'gemini_model' => 'Indica el modelo de Gemini de este instituto.',
+                'gemini_api_key' => 'Ingresa la clave del asistente de este instituto.',
+                'gemini_model' => 'Indica el modelo del asistente de este instituto.',
             ]);
     });
 
@@ -163,8 +173,125 @@ describe('update', function () {
         $this->actingAs($admin)
             ->from(route('Admin.asistente'))
             ->put(route('Admin.asistente.update'), [
+                'asistente_proveedor' => 'gemini',
                 'gemini_api_key' => 'clave-andina',
                 'gemini_model' => '../otro-modelo',
+                'gemini_preguntas_limite' => 100,
+                'gemini_tokens_limite' => 100000,
+            ])
+            ->assertRedirect(route('Admin.asistente'))
+            ->assertSessionHasErrors([
+                'gemini_model' => 'El modelo solo puede contener letras, números, puntos, guiones y guiones bajos.',
+            ]);
+    });
+
+    it('stores a compatible model only for the administrator school', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $otro = Establecimiento::factory()->create([
+            'gemini_api_key' => 'clave-ajena',
+            'gemini_model' => 'modelo-ajeno',
+        ]);
+        $admin = adminOf($establecimiento);
+
+        $this->actingAs($admin)
+            ->from(route('Admin.asistente'))
+            ->put(route('Admin.asistente.update'), [
+                'asistente_proveedor' => 'compatible',
+                'asistente_base_url' => 'https://api.groq.com/openai/v1',
+                'gemini_api_key' => 'clave-andina',
+                'gemini_model' => 'meta-llama/llama-3.1-8b-instant',
+                'gemini_preguntas_limite' => 80,
+                'gemini_tokens_limite' => 5000,
+            ])
+            ->assertRedirect(route('Admin.asistente'))
+            ->assertSessionHas('status', 'asistente-updated');
+
+        $establecimiento->refresh();
+
+        expect($establecimiento->proveedorAsistente())->toBe(AsistenteProveedor::Compatible)
+            ->and($establecimiento->asistente_base_url)->toBe('https://api.groq.com/openai/v1')
+            ->and($establecimiento->gemini_model)->toBe('meta-llama/llama-3.1-8b-instant')
+            ->and($establecimiento->gemini_api_key)->toBe('clave-andina');
+
+        $otro->refresh();
+
+        expect($otro->gemini_api_key)->toBe('clave-ajena')
+            ->and($otro->gemini_model)->toBe('modelo-ajeno')
+            ->and($otro->proveedorAsistente())->toBe(AsistenteProveedor::Gemini);
+    });
+
+    it('stores a local compatible url', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+
+        $this->actingAs($admin)
+            ->from(route('Admin.asistente'))
+            ->put(route('Admin.asistente.update'), [
+                'asistente_proveedor' => 'compatible',
+                'asistente_base_url' => 'http://127.0.0.1:11434/v1',
+                'gemini_api_key' => 'clave-local',
+                'gemini_model' => 'llama3.2',
+                'gemini_preguntas_limite' => 100,
+                'gemini_tokens_limite' => 100000,
+            ])
+            ->assertRedirect(route('Admin.asistente'))
+            ->assertSessionHas('status', 'asistente-updated');
+
+        $establecimiento->refresh();
+
+        expect($establecimiento->asistente_base_url)->toBe('http://127.0.0.1:11434/v1');
+    });
+
+    it('asks for the base url when the provider is compatible', function () {
+        $admin = adminOf(Establecimiento::factory()->create());
+
+        $this->actingAs($admin)
+            ->from(route('Admin.asistente'))
+            ->put(route('Admin.asistente.update'), [
+                'asistente_proveedor' => 'compatible',
+                'asistente_base_url' => '',
+                'gemini_api_key' => 'clave-andina',
+                'gemini_model' => 'llama-3.1-8b-instant',
+                'gemini_preguntas_limite' => 100,
+                'gemini_tokens_limite' => 100000,
+            ])
+            ->assertRedirect(route('Admin.asistente'))
+            ->assertSessionHasErrors([
+                'asistente_base_url' => 'Ingresa la URL base del asistente.',
+            ]);
+    });
+
+    it('rejects a link-local or private assistant url', function (string $url, string $mensaje) {
+        $admin = adminOf(Establecimiento::factory()->create());
+
+        $this->actingAs($admin)
+            ->from(route('Admin.asistente'))
+            ->put(route('Admin.asistente.update'), [
+                'asistente_proveedor' => 'compatible',
+                'asistente_base_url' => $url,
+                'gemini_api_key' => 'clave-andina',
+                'gemini_model' => 'llama-3.1-8b-instant',
+                'gemini_preguntas_limite' => 100,
+                'gemini_tokens_limite' => 100000,
+            ])
+            ->assertRedirect(route('Admin.asistente'))
+            ->assertSessionHasErrors([
+                'asistente_base_url' => $mensaje,
+            ]);
+    })->with([
+        'link local' => ['http://169.254.169.254', 'La URL base debe usar https, salvo en localhost.'],
+        'private network' => ['https://10.0.0.1/v1', 'La URL base no puede apuntar a una red privada.'],
+    ]);
+
+    it('rejects a slash in a Gemini model name', function () {
+        $admin = adminOf(Establecimiento::factory()->create());
+
+        $this->actingAs($admin)
+            ->from(route('Admin.asistente'))
+            ->put(route('Admin.asistente.update'), [
+                'asistente_proveedor' => 'gemini',
+                'gemini_api_key' => 'clave-andina',
+                'gemini_model' => 'meta-llama/llama-3.1-8b-instant',
                 'gemini_preguntas_limite' => 100,
                 'gemini_tokens_limite' => 100000,
             ])

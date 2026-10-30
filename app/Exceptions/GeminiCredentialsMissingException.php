@@ -7,8 +7,8 @@ use Illuminate\Contracts\Debug\ShouldntReport;
 
 class GeminiCredentialsMissingException extends Exception implements ShouldntReport
 {
-    public function __construct()
+    public function __construct(string $message = 'Este instituto no tiene configurado el asistente. Pide al administrador que lo configure en Configuración.')
     {
-        parent::__construct('Este instituto no tiene configurada la clave de Gemini. Pide al administrador que la ingrese en Configuración.');
+        parent::__construct($message);
     }
 }

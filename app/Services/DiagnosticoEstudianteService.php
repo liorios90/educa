@@ -9,12 +9,12 @@ class DiagnosticoEstudianteService
     public const INSTRUCCION_SISTEMA = 'Eres un asesor académico de un colegio ecuatoriano que sigue el MINEDUC. Analizas historiales de notas y asistencia. Respondes únicamente con JSON válido, sin markdown ni texto extra.';
 
     public function __construct(
-        private GeminiService $gemini,
+        private AsistenteService $asistente,
     ) {}
 
     public function analizar(HistorialAcademico $historial, Establecimiento $establecimiento): DiagnosticoEstudiante
     {
-        $respuesta = $this->gemini->generate(
+        $respuesta = $this->asistente->generate(
             $this->prompt($historial),
             $establecimiento,
             self::INSTRUCCION_SISTEMA,
@@ -28,7 +28,7 @@ class DiagnosticoEstudianteService
      */
     public function analizarGrupo(array $historiales, Establecimiento $establecimiento): DiagnosticoGrupo
     {
-        $respuesta = $this->gemini->generate(
+        $respuesta = $this->asistente->generate(
             $this->promptGrupo($historiales),
             $establecimiento,
             self::INSTRUCCION_SISTEMA,

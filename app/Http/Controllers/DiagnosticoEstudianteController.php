@@ -49,7 +49,7 @@ class DiagnosticoEstudianteController extends Controller
                 'ciclo' => old('establecimiento_periodo_ciclo_id', $actual?->ciclo->id),
                 'parcial' => old('parcial_numero', $actual?->parcialNumero),
             ],
-            'asistenteListo' => $establecimiento->tieneCredencialesGemini(),
+            'asistenteListo' => $establecimiento->tieneCredencialesAsistente(),
             'uso' => $this->cupo->resumen($establecimiento),
         ]);
     }
@@ -75,7 +75,7 @@ class DiagnosticoEstudianteController extends Controller
         } catch (ConnectionException $e) {
             report($e);
 
-            return back()->with('error', 'No hay conexión con Gemini (tiempo de espera agotado). Revisa red, firewall o VPN.');
+            return back()->with('error', 'No hay conexión con el asistente (tiempo de espera agotado). Revisa red, firewall o VPN.');
         } catch (RequestException $e) {
             report($e);
 
@@ -134,7 +134,7 @@ class DiagnosticoEstudianteController extends Controller
         } catch (ConnectionException $e) {
             report($e);
 
-            return back()->with('error', 'No hay conexión con Gemini (tiempo de espera agotado). Revisa red, firewall o VPN.');
+            return back()->with('error', 'No hay conexión con el asistente (tiempo de espera agotado). Revisa red, firewall o VPN.');
         } catch (RequestException $e) {
             report($e);
 

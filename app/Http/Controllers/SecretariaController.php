@@ -6,7 +6,7 @@ use App\Exceptions\GeminiCredentialsMissingException;
 use App\Exceptions\GeminiQuotaExceededException;
 use App\Models\Establecimiento;
 use App\Services\AsistenteCupo;
-use App\Services\GeminiService;
+use App\Services\AsistenteService;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\RedirectResponse;
@@ -28,12 +28,12 @@ class SecretariaController extends Controller
             'storeRoute' => $request->routeIs('Docente.asistente')
                 ? route('Docente.asistente.store')
                 : route('secretaria.asistente.store'),
-            'asistenteListo' => $establecimiento->tieneCredencialesGemini(),
+            'asistenteListo' => $establecimiento->tieneCredencialesAsistente(),
             'uso' => $cupo->resumen($establecimiento),
         ]);
     }
 
-    public function store(Request $request, GeminiService $gemini, AsistenteCupo $cupo): RedirectResponse
+    public function store(Request $request, AsistenteService $asistente, AsistenteCupo $cupo): RedirectResponse
     {
         $validated = $request->validate([
             'prompt' => ['required', 'string', 'max:4000'],
@@ -42,7 +42,7 @@ class SecretariaController extends Controller
 
         try {
             $cupo->exigirDisponible($establecimiento);
-            $respuesta = $gemini->generate($validated['prompt'], $establecimiento);
+            $respuesta = $asistente->generate($validated['prompt'], $establecimiento);
             $cupo->registrar($establecimiento, $respuesta->tokens);
         } catch (GeminiCredentialsMissingException|GeminiQuotaExceededException $e) {
             return back()
@@ -53,7 +53,7 @@ class SecretariaController extends Controller
 
             return back()
                 ->withInput()
-                ->with('error', 'No hay conexión con Gemini (tiempo de espera agotado). Revisa red, firewall o VPN.');
+                ->with('error', 'No hay conexión con el asistente (tiempo de espera agotado). Revisa red, firewall o VPN.');
         } catch (RequestException $e) {
             report($e);
 

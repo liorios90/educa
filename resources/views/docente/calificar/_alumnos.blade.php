@@ -33,7 +33,9 @@
                             </div>
                         </td>
                         <td class="px-4 py-2">
-                            @if ($esCualitativa)
+                            @if ($soloConsulta ?? false)
+                                <p class="text-sm text-slate-800">{{ $notaActual !== '' ? $notaActual : '—' }}</p>
+                            @elseif ($esCualitativa)
                                 <select
                                     id="nota-{{ $alumno->id }}"
                                     name="notas[{{ $alumno->id }}]"

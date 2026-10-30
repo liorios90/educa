@@ -20,7 +20,12 @@
                 </p>
             @else
                 <x-docente-contexto :aulas="$aulas" :seleccion="$seleccion" :store-route="route('Docente.calificar.store')" destino="crear">
-                    <div class="mt-4 rounded-lg bg-white p-6 shadow-sm" x-show="seleccionCompleta">
+                    <x-docente-periodo-cerrado />
+                    <p class="mt-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800" x-show="seleccionCompleta && aula?.abierto && parcialCerrado" x-cloak>
+                        {{ \App\Auth\DocenteContexto::MENSAJE_PARCIAL_CERRADO }}
+                        <a class="mt-2 block font-medium text-amber-900 underline" href="{{ route('Docente.calificar.editar') }}">Consultar calificaciones</a>
+                    </p>
+                    <div class="mt-4 rounded-lg bg-white p-6 shadow-sm" x-show="seleccionCompleta && aula?.abierto && !parcialCerrado" x-cloak>
                         <form method="POST" action="{{ route('Docente.calificar.actividades.store') }}" class="grid grid-cols-1 gap-8 md:grid-cols-2">
                             @csrf
                             <input type="hidden" name="establecimiento_aula_id" :value="aulaId">

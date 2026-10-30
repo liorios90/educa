@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Auth\ActiveDocenteContexto;
+use App\Auth\DocenteContexto;
 use App\Enums\TipoCierreEvaluacion;
 use App\Http\Requests\StoreMejoraCalificacionRequest;
 use App\Models\EstablecimientoCierreActividadCalificacion;
@@ -11,6 +12,7 @@ use App\Services\AsignacionesDocente;
 use App\Services\MejoraCalificacion;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class MejoraCalificacionController extends Controller
@@ -91,6 +93,12 @@ class MejoraCalificacionController extends Controller
 
         if ($contexto === null) {
             abort(404);
+        }
+
+        if (! $contexto->permiteIngresarCalificaciones()) {
+            throw ValidationException::withMessages([
+                'calificacion_id' => DocenteContexto::MENSAJE_PERIODO_CERRADO,
+            ]);
         }
 
         $calificacion = EstablecimientoCierreActividadCalificacion::query()

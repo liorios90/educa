@@ -76,8 +76,6 @@ Route::middleware(['auth', 'verified', 'role:Admin'])
         Route::delete('tablas-equivalencias/{equivalencia}/detalles/{detalle}', [EquivalenciaController::class, 'destroyDetalle'])->name('tablas-equivalencias.detalles.destroy')->scopeBindings()->whereNumber('equivalencia')->whereNumber('detalle');
         Route::get('tablas-equivalencias/{equivalencia}/asignaturas', [EquivalenciaController::class, 'asignaturas'])->name('tablas-equivalencias.asignaturas.index')->whereNumber('equivalencia');
         Route::put('tablas-equivalencias/{equivalencia}/asignaturas', [EquivalenciaController::class, 'actualizarAsignaturas'])->name('tablas-equivalencias.asignaturas.update')->whereNumber('equivalencia');
-        Route::get('proceso-cierres', [ProcesoCierresController::class, 'index'])->name('proceso-cierres.index');
-        Route::put('proceso-cierres/parciales', [ProcesoCierresController::class, 'update'])->name('proceso-cierres.update');
         Route::get('asignaturas', [EstablecimientoAsignaturaController::class, 'index'])->name('asignaturas');
         Route::get('asignaturas/{oferta}', [EstablecimientoAsignaturaController::class, 'edit'])->name('asignaturas.edit');
         Route::put('asignaturas/{oferta}', [EstablecimientoAsignaturaController::class, 'update'])->name('asignaturas.update');
@@ -149,4 +147,6 @@ Route::middleware(['auth', 'verified', 'role:Admin|Secretaria'])
         Route::put('programas/{programa}/alumnos', [ProgramaAcademicoController::class, 'updateAlumnos'])->name('programas.alumnos.update')->whereNumber('programa');
         Route::put('programas/{programa}/asignaturas', [ProgramaAcademicoController::class, 'updateAsignaturas'])->name('programas.asignaturas.update')->whereNumber('programa');
         Route::put('programas/{programa}/asignaturas/{asignatura}/inscripciones', [ProgramaAcademicoController::class, 'updateInscripciones'])->name('programas.inscripciones.update')->whereNumber('programa')->whereNumber('asignatura');
+        Route::get('proceso-cierres', [ProcesoCierresController::class, 'index'])->name('proceso-cierres.index');
+        Route::put('proceso-cierres/parciales', [ProcesoCierresController::class, 'update'])->name('proceso-cierres.update');
     });

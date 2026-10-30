@@ -97,7 +97,8 @@ class NavigationSeeder extends Seeder
 
         $this->ensureItem('Reportes', 'reports.index', 'home', 8, true, []);
         $this->ensureItem('Establecimientos', 'sistemas.establecimientos', 'building-library', 8, false, [$sistemas->id]);
-        $this->ensureItem('Proceso de Cierres', 'Admin.proceso-cierres.index', 'clipboard-document-list', 8, false, [$admin->id]);
+        $cierres = $this->ensureItem('Proceso de Cierres', 'Admin.proceso-cierres.index', 'clipboard-document-list', 8, false, [$admin->id, $secretaria->id]);
+        $cierres->roles()->syncWithoutDetaching([$admin->id, $secretaria->id]);
         $this->ensureItem('Perfil', 'profile.edit', 'user', 9, true, [], isActive: false);
 
         $matriculas = $this->ensureItem('Matriculas', 'navigation.hub', 'document-text', 9, false, [$admin->id, $secretaria->id], isGroup: true, groupDisplay: NavigationGroupDisplay::Sidebar);

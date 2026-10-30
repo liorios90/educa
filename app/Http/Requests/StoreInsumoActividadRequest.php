@@ -100,6 +100,18 @@ class StoreInsumoActividadRequest extends FormRequest
                     abort(404);
                 }
 
+                if (! $contexto->permiteIngresarCalificaciones()) {
+                    $validator->errors()->add('nombre', DocenteContexto::MENSAJE_PERIODO_CERRADO);
+
+                    return;
+                }
+
+                if ($contexto->parcialEstaCerrado()) {
+                    $validator->errors()->add('parcial_numero', DocenteContexto::MENSAJE_PARCIAL_CERRADO);
+
+                    return;
+                }
+
                 $detalle = $asignaciones->detalleAsignado(
                     (int) $contexto->aula->id,
                     (int) $contexto->asignatura->id,

@@ -19,6 +19,7 @@ use App\Models\EstablecimientoInsumoActividad;
 use App\Models\EstablecimientoInsumoActividadCalificacion;
 use App\Models\EstablecimientoMatricula;
 use App\Models\EstablecimientoPeriodoCiclo;
+use App\Models\EstablecimientoPeriodoCicloParcial;
 use App\Models\NavigationItem;
 use App\Models\Persona;
 use App\Models\Sys_Asignatura;
@@ -174,6 +175,15 @@ function actividadDeCalificar(array $escenario, TipoInsumoDetalle $detalle, stri
         'tipo_insumo_detalle_id' => $detalle->id,
         'empleado_id' => $empleadoId,
         'nombre' => $nombre,
+    ]);
+}
+
+function cerrarParcialCalificar(array $escenario, int $numero = 1): void
+{
+    EstablecimientoPeriodoCicloParcial::factory()->create([
+        'establecimiento_periodo_ciclo_id' => $escenario['ciclo']->id,
+        'numero' => $numero,
+        'cerrado_en' => now(),
     ]);
 }
 
@@ -639,12 +649,100 @@ describe('store', function () {
             ->get(route('Docente.calificar.index'))
             ->assertSee('Esta materia no tiene un tipo de insumo asignado en el aula.');
     });
+
+    it('hides the grade form until the period is opened', function () {
+        $escenario = escenarioCalificarInsumos();
+        $escenario['periodo']->update(['abierto_en' => null]);
+        guardarContextoCalificar($escenario);
+
+        $this->actingAs($escenario['docente'])
+            ->get(route('Docente.calificar.index'))
+            ->assertSee('Apertura el periodo para ingresar calificaciones.')
+            ->assertSee('aula?.abierto', false);
+    });
 });
 
 describe('storeActividad', function () {
     it('redirects guests to the login page', function () {
         $this->post(route('Docente.calificar.actividades.store'))
             ->assertRedirect(route('login'));
+    });
+
+    it('rejects new grades while the period is not open', function () {
+        $escenario = escenarioCalificarInsumos();
+        $escenario['periodo']->update(['abierto_en' => null]);
+        $insumo = asignarTipoInsumoCalificar($escenario, 'cuantitativa', [
+            ['nombre' => 'Arte', 'porcentaje' => '50.00'],
+        ]);
+        $alumno = alumnoDelEstablecimiento($escenario['establecimiento'], 'Gavilánez');
+        matricularAlumnoCalificar($escenario['aula'], $alumno);
+
+        $this->actingAs($escenario['docente'])
+            ->from(route('Docente.calificar.index'))
+            ->post(route('Docente.calificar.actividades.store'), [
+                'establecimiento_aula_id' => $escenario['aula']->id,
+                'establecimiento_asignatura_id' => $escenario['malla']->id,
+                'establecimiento_periodo_ciclo_id' => $escenario['ciclo']->id,
+                'parcial_numero' => 1,
+                'nombre' => 'Ensayo de arte',
+                'tipo_insumo_detalle_id' => $insumo['detalles'][0]->id,
+                'notas' => [
+                    $alumno->id => '8.5',
+                ],
+            ])
+            ->assertRedirect(route('Docente.calificar.index'))
+            ->assertSessionHasErrors([
+                'nombre' => 'Apertura el periodo para ingresar calificaciones.',
+            ]);
+
+        $this->assertDatabaseCount('establecimiento_insumo_actividades', 0);
+    });
+
+    it('rejects new grades for a closed parcial and still accepts the open one', function () {
+        $escenario = escenarioCalificarInsumos();
+        cerrarParcialCalificar($escenario, 1);
+        $insumo = asignarTipoInsumoCalificar($escenario, 'cuantitativa', [
+            ['nombre' => 'Arte', 'porcentaje' => '50.00'],
+        ]);
+        $alumno = alumnoDelEstablecimiento($escenario['establecimiento'], 'Gavilánez');
+        matricularAlumnoCalificar($escenario['aula'], $alumno);
+        $payload = [
+            'establecimiento_aula_id' => $escenario['aula']->id,
+            'establecimiento_asignatura_id' => $escenario['malla']->id,
+            'establecimiento_periodo_ciclo_id' => $escenario['ciclo']->id,
+            'nombre' => 'Ensayo de arte',
+            'tipo_insumo_detalle_id' => $insumo['detalles'][0]->id,
+            'notas' => [
+                $alumno->id => '8.5',
+            ],
+        ];
+
+        $this->actingAs($escenario['docente'])
+            ->from(route('Docente.calificar.index'))
+            ->post(route('Docente.calificar.actividades.store'), [
+                ...$payload,
+                'parcial_numero' => 1,
+            ])
+            ->assertRedirect(route('Docente.calificar.index'))
+            ->assertSessionHasErrors([
+                'parcial_numero' => 'Este parcial está cerrado. Puedes consultar las calificaciones, pero no modificarlas.',
+            ]);
+
+        $this->actingAs($escenario['docente'])
+            ->post(route('Docente.calificar.actividades.store'), [
+                ...$payload,
+                'parcial_numero' => 2,
+            ])
+            ->assertRedirect(route('Docente.calificar.index'))
+            ->assertSessionHas('status', 'calificaciones-grabadas');
+
+        $this->assertDatabaseHas('establecimiento_insumo_actividades', [
+            'parcial_numero' => 2,
+            'nombre' => 'Ensayo de arte',
+        ]);
+        $this->assertDatabaseMissing('establecimiento_insumo_actividades', [
+            'parcial_numero' => 1,
+        ]);
     });
 
     it('creates an activity for the selected classroom and supply type', function () {
@@ -1140,12 +1238,115 @@ describe('editar', function () {
             ->get(route('Docente.calificar.editar', ['actividad' => $actividad->id]))
             ->assertNotFound();
     });
+
+    it('shows saved grades of a closed parcial without an edit form', function () {
+        $escenario = escenarioCalificarInsumos();
+        cerrarParcialCalificar($escenario, 1);
+        $insumo = asignarTipoInsumoCalificar($escenario, 'cuantitativa', [
+            ['nombre' => 'Arte', 'porcentaje' => '50.00'],
+        ]);
+        $alumno = alumnoDelEstablecimiento($escenario['establecimiento'], 'Espinoza');
+        matricularAlumnoCalificar($escenario['aula'], $alumno);
+        $actividad = actividadDeCalificar($escenario, $insumo['detalles'][0], 'Arte 1er trime');
+        EstablecimientoInsumoActividadCalificacion::factory()->create([
+            'establecimiento_insumo_actividad_id' => $actividad->id,
+            'alumno_id' => $alumno->id,
+            'nota' => '8.50',
+        ]);
+        guardarContextoCalificar($escenario);
+
+        $this->actingAs($escenario['docente'])
+            ->get(route('Docente.calificar.editar', ['actividad' => $actividad->id]))
+            ->assertSee('Este parcial está cerrado. Puedes consultar las calificaciones, pero no modificarlas.')
+            ->assertSee('Arte 1er trime')
+            ->assertSee('8.50')
+            ->assertDontSee('name="notas['.$alumno->id.']"', false)
+            ->assertDontSee('Grabar calificaciones');
+    });
 });
 
 describe('updateActividad', function () {
     it('redirects guests to the login page', function () {
         $this->put(route('Docente.calificar.actividades.update', 1))
             ->assertRedirect(route('login'));
+    });
+
+    it('rejects grade changes while the period is not open', function () {
+        $escenario = escenarioCalificarInsumos();
+        $escenario['periodo']->update(['abierto_en' => null]);
+        $insumo = asignarTipoInsumoCalificar($escenario, 'cuantitativa', [
+            ['nombre' => 'Arte', 'porcentaje' => '50.00'],
+        ]);
+        $alumno = alumnoDelEstablecimiento($escenario['establecimiento'], 'Ordoñez');
+        matricularAlumnoCalificar($escenario['aula'], $alumno);
+        $actividad = actividadDeCalificar($escenario, $insumo['detalles'][0], 'Arte 1er trime');
+        EstablecimientoInsumoActividadCalificacion::factory()->create([
+            'establecimiento_insumo_actividad_id' => $actividad->id,
+            'alumno_id' => $alumno->id,
+            'nota' => '7.00',
+        ]);
+
+        $this->actingAs($escenario['docente'])
+            ->from(route('Docente.calificar.editar', ['actividad' => $actividad->id]))
+            ->put(route('Docente.calificar.actividades.update', $actividad), [
+                'establecimiento_aula_id' => $escenario['aula']->id,
+                'establecimiento_asignatura_id' => $escenario['malla']->id,
+                'establecimiento_periodo_ciclo_id' => $escenario['ciclo']->id,
+                'parcial_numero' => 1,
+                'nombre' => 'Arte primer trimestre',
+                'notas' => [
+                    $alumno->id => '9.25',
+                ],
+            ])
+            ->assertSessionHasErrors([
+                'nombre' => 'Apertura el periodo para ingresar calificaciones.',
+            ]);
+
+        $this->assertDatabaseHas('establecimiento_insumo_actividad_calificaciones', [
+            'alumno_id' => $alumno->id,
+            'nota' => '7.00',
+        ]);
+    });
+
+    it('rejects grade changes for a closed parcial', function () {
+        $escenario = escenarioCalificarInsumos();
+        cerrarParcialCalificar($escenario, 1);
+        $insumo = asignarTipoInsumoCalificar($escenario, 'cuantitativa', [
+            ['nombre' => 'Arte', 'porcentaje' => '50.00'],
+        ]);
+        $alumno = alumnoDelEstablecimiento($escenario['establecimiento'], 'Ordoñez');
+        matricularAlumnoCalificar($escenario['aula'], $alumno);
+        $actividad = actividadDeCalificar($escenario, $insumo['detalles'][0], 'Arte 1er trime');
+        EstablecimientoInsumoActividadCalificacion::factory()->create([
+            'establecimiento_insumo_actividad_id' => $actividad->id,
+            'alumno_id' => $alumno->id,
+            'nota' => '7.00',
+        ]);
+
+        $this->actingAs($escenario['docente'])
+            ->from(route('Docente.calificar.editar', ['actividad' => $actividad->id]))
+            ->put(route('Docente.calificar.actividades.update', $actividad), [
+                'establecimiento_aula_id' => $escenario['aula']->id,
+                'establecimiento_asignatura_id' => $escenario['malla']->id,
+                'establecimiento_periodo_ciclo_id' => $escenario['ciclo']->id,
+                'parcial_numero' => 1,
+                'nombre' => 'Arte primer trimestre',
+                'notas' => [
+                    $alumno->id => '9.25',
+                ],
+            ])
+            ->assertSessionHasErrors([
+                'parcial_numero' => 'Este parcial está cerrado. Puedes consultar las calificaciones, pero no modificarlas.',
+            ]);
+
+        $this->assertDatabaseHas('establecimiento_insumo_actividad_calificaciones', [
+            'alumno_id' => $alumno->id,
+            'nota' => '7.00',
+        ]);
+        $this->assertDatabaseHas('establecimiento_insumo_actividades', [
+            'id' => $actividad->id,
+            'nombre' => 'Arte 1er trime',
+        ]);
     });
 
     it('updates the selected activity name and grades', function () {

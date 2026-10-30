@@ -37,10 +37,11 @@ function datosProcesoCierres(): array
     return compact('establecimiento', 'admin', 'oferta', 'periodo', 'parciales');
 }
 
-it('renders the three closure tabs and partials grouped by cycle', function () {
+it('renders the three closure tabs and partials grouped by cycle', function (string $rol) {
     $datos = datosProcesoCierres();
+    $usuario = $rol === 'secretaria' ? secretariaOf($datos['establecimiento']) : $datos['admin'];
 
-    $this->actingAs($datos['admin'])
+    $this->actingAs($usuario)
         ->withSession(activeContextSession($datos['oferta'], $datos['periodo']))
         ->get(route('Admin.proceso-cierres.index'))
         ->assertSee('Parciales')
@@ -60,14 +61,18 @@ it('renders the three closure tabs and partials grouped by cycle', function () {
         ->assertDontSee('Lista de parciales')
         ->assertDontSee('even:bg-sky-50', false)
         ->assertDontSee('Habilitado Examen');
-});
+})->with([
+    'administrador' => 'admin',
+    'secretaria' => 'secretaria',
+]);
 
-it('saves only the checked parcial closures for the active period', function () {
+it('saves only the checked parcial closures for the active period', function (string $rol) {
     $datos = datosProcesoCierres();
+    $usuario = $rol === 'secretaria' ? secretariaOf($datos['establecimiento']) : $datos['admin'];
     $parcialCerrado = $datos['parciales'][0];
     $parcialPendiente = $datos['parciales'][1];
 
-    $this->actingAs($datos['admin'])
+    $this->actingAs($usuario)
         ->withSession(activeContextSession($datos['oferta'], $datos['periodo']))
         ->put(route('Admin.proceso-cierres.update'), [
             'parciales_cerrados' => [(string) $parcialCerrado->id],
@@ -77,7 +82,10 @@ it('saves only the checked parcial closures for the active period', function () 
 
     expect($parcialCerrado->fresh()->cerrado_en)->not->toBeNull();
     expect($parcialPendiente->fresh()->cerrado_en)->toBeNull();
-});
+})->with([
+    'administrador' => 'admin',
+    'secretaria' => 'secretaria',
+]);
 
 it('rejects closing a parcial outside the active period', function () {
     $datos = datosProcesoCierres();
@@ -102,7 +110,7 @@ it('rejects closing a parcial outside the active period', function () {
     expect($parcialAjeno->fresh()->cerrado_en)->toBeNull();
 });
 
-it('forbids users without the administrator role from opening closure processes', function () {
+it('forbids users outside administrator and secretary from opening closure processes', function () {
     $user = assignRole(User::factory()->create(), Role::Sistemas);
 
     $this->actingAs($user)
@@ -110,12 +118,15 @@ it('forbids users without the administrator role from opening closure processes'
         ->assertForbidden();
 });
 
-it('adds the closure process to the administrator sidebar', function () {
+it('adds the closure process to the administrator and secretary sidebars', function (Role $rol) {
     $this->seed(NavigationSeeder::class);
-    $admin = assignRole(User::factory()->create(), Role::Admin);
+    $usuario = assignRole(User::factory()->create(), $rol);
 
-    $this->actingAs($admin)
+    $this->actingAs($usuario)
         ->get(route('dashboard'))
         ->assertSee('Proceso de Cierres')
         ->assertSee(route('Admin.proceso-cierres.index'), false);
-});
+})->with([
+    'administrador' => Role::Admin,
+    'secretaria' => Role::Secretaria,
+]);

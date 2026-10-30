@@ -102,6 +102,18 @@ class UpdateInsumoActividadRequest extends FormRequest
                     abort(404);
                 }
 
+                if (! $contexto->permiteIngresarCalificaciones()) {
+                    $validator->errors()->add('nombre', DocenteContexto::MENSAJE_PERIODO_CERRADO);
+
+                    return;
+                }
+
+                if ($contexto->parcialEstaCerrado()) {
+                    $validator->errors()->add('parcial_numero', DocenteContexto::MENSAJE_PARCIAL_CERRADO);
+
+                    return;
+                }
+
                 $asignacion = EstablecimientoAulaDocente::query()
                     ->where('establecimiento_aula_id', $contexto->aula->id)
                     ->where('establecimiento_asignatura_id', $contexto->asignatura->id)

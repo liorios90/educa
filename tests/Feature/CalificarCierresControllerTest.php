@@ -286,6 +286,31 @@ describe('store', function () {
 });
 
 describe('storeActividad', function () {
+    it('rejects an exam while the period is not open', function () {
+        $escenario = escenarioCalificarCierres();
+        $escenario['periodo']->update(['abierto_en' => null]);
+        $alumno = alumnoDelEstablecimiento($escenario['establecimiento'], 'Vargas');
+        matricularAlumnoCierre($escenario['aula'], $alumno);
+
+        $this->actingAs($escenario['docente'])
+            ->from(route('Docente.examenes.index'))
+            ->post(route('Docente.examenes.actividades.store'), [
+                'establecimiento_aula_id' => $escenario['aula']->id,
+                'establecimiento_asignatura_id' => $escenario['malla']->id,
+                'establecimiento_periodo_ciclo_id' => $escenario['ciclo']->id,
+                'nombre' => 'Examen primer quimestre',
+                'notas' => [
+                    $alumno->id => '8.50',
+                ],
+            ])
+            ->assertRedirect(route('Docente.examenes.index'))
+            ->assertSessionHasErrors([
+                'nombre' => 'Apertura el periodo para ingresar calificaciones.',
+            ]);
+
+        $this->assertDatabaseCount('establecimiento_cierre_actividades', 0);
+    });
+
     it('creates an exam for the selected classroom and cycle', function () {
         $escenario = escenarioCalificarCierres();
         $alumno = alumnoDelEstablecimiento($escenario['establecimiento'], 'Vargas');

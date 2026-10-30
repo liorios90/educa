@@ -20,7 +20,13 @@
                 </p>
             @else
                 <x-docente-contexto :aulas="$aulas" :seleccion="$seleccion" :store-route="route('Docente.calificar.store')" destino="editar">
-                    <div class="mt-4 rounded-lg bg-white p-6 shadow-sm" x-show="seleccionCompleta">
+                    <x-docente-periodo-cerrado />
+                    <div class="mt-4 rounded-lg bg-white p-6 shadow-sm" x-show="seleccionCompleta && aula?.abierto" x-cloak>
+                        @if ($contexto?->parcialEstaCerrado())
+                            <p class="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800" x-show="coincideConGuardado" x-cloak>
+                                {{ \App\Auth\DocenteContexto::MENSAJE_PARCIAL_CERRADO }}
+                            </p>
+                        @endif
                         <div class="md:col-span-2" x-show="coincideConGuardado">
                             @if ($insumosIngresados === [])
                                 <p class="rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
@@ -145,23 +151,30 @@
                         </div>
 
                         @if ($actividadEditando)
+                            @php $consultarParcial = $contexto?->parcialEstaCerrado() === true; @endphp
                             <form
                                 method="POST"
                                 action="{{ route('Docente.calificar.actividades.update', $actividadEditando) }}"
                                 class="mt-8 grid grid-cols-1 gap-8 md:grid-cols-2"
                                 x-show="coincideConGuardado"
                             >
-                                @csrf
-                                @method('PUT')
-                                <input type="hidden" name="establecimiento_aula_id" :value="aulaId">
-                                <input type="hidden" name="establecimiento_asignatura_id" :value="asignaturaId">
-                                <input type="hidden" name="establecimiento_periodo_ciclo_id" :value="cicloId">
-                                <input type="hidden" name="parcial_numero" :value="parcialId">
+                                @unless ($consultarParcial)
+                                    @csrf
+                                    @method('PUT')
+                                    <input type="hidden" name="establecimiento_aula_id" :value="aulaId">
+                                    <input type="hidden" name="establecimiento_asignatura_id" :value="asignaturaId">
+                                    <input type="hidden" name="establecimiento_periodo_ciclo_id" :value="cicloId">
+                                    <input type="hidden" name="parcial_numero" :value="parcialId">
+                                @endunless
 
                                 <div>
                                     <x-input-label for="nombre" value="Nombre de la actividad" />
-                                    <x-text-input id="nombre" name="nombre" type="text" maxlength="255" required class="mt-1 block w-full" :value="old('nombre', $actividadEditando->nombre)" />
-                                    <x-input-error class="mt-2" :messages="$errors->get('nombre')" />
+                                    @if ($consultarParcial)
+                                        <p class="mt-1 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">{{ $actividadEditando->nombre }}</p>
+                                    @else
+                                        <x-text-input id="nombre" name="nombre" type="text" maxlength="255" required class="mt-1 block w-full" :value="old('nombre', $actividadEditando->nombre)" />
+                                        <x-input-error class="mt-2" :messages="$errors->get('nombre')" />
+                                    @endif
                                 </div>
 
                                 <div>
@@ -171,14 +184,18 @@
 
                                 <div class="md:col-span-2">
                                     @if ($contexto)
-                                        <p class="mb-3 text-sm text-slate-600">También aparecen los alumnos nuevos y los que aún no tienen nota, para que puedas asignarles un valor.</p>
-                                        @include('docente.calificar._alumnos')
+                                        @unless ($consultarParcial)
+                                            <p class="mb-3 text-sm text-slate-600">También aparecen los alumnos nuevos y los que aún no tienen nota, para que puedas asignarles un valor.</p>
+                                        @endunless
+                                        @include('docente.calificar._alumnos', ['soloConsulta' => $consultarParcial])
                                     @endif
                                 </div>
 
-                                <div class="md:col-span-2 flex justify-end">
-                                    <x-primary-button>Grabar calificaciones</x-primary-button>
-                                </div>
+                                @unless ($consultarParcial)
+                                    <div class="md:col-span-2 flex justify-end">
+                                        <x-primary-button>Grabar calificaciones</x-primary-button>
+                                    </div>
+                                @endunless
                             </form>
                         @endif
                     </div>

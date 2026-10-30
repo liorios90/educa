@@ -20,6 +20,7 @@ use App\Models\EstablecimientoGrupoAlumno;
 use App\Models\EstablecimientoInsumoActividad;
 use App\Models\EstablecimientoMatricula;
 use App\Models\EstablecimientoPeriodoCiclo;
+use App\Models\EstablecimientoPeriodoCicloParcial;
 use App\Models\EstablecimientoPeriodoConfiguracionGrado;
 use App\Models\EstablecimientoPeriodoConfiguracionGradoCiclo;
 use App\Models\TipoInsumo;
@@ -49,7 +50,7 @@ class AsignacionesDocente
                 'malla.asignaturaPropia',
                 'aula.establecimientoGrado.grado',
                 'aula.establecimientoGrado.subnivel',
-                'aula.periodo.ciclos',
+                'aula.periodo.ciclos.parciales',
             ])
             ->whereIn('empleado_id', $empleadoIds)
             ->whereHas('aula', fn ($query) => $query
@@ -67,9 +68,10 @@ class AsignacionesDocente
      *     etiqueta: string,
      *     ciclo_label: string,
      *     materias: list<array{id: int, nombre: string, insumos: list<array{id: int, etiqueta: string}>}>,
-     *     ciclos: list<array{id: int, nombre: string}>,
+     *     ciclos: list<array{id: int, nombre: string, parciales_cerrados: list<int>}>,
      *     parciales: list<array{numero: int, nombre: string}>,
-     *     modo: string
+     *     modo: string,
+     *     abierto: bool
      * }>
      */
     public function aulasSelector(User $user): array
@@ -111,6 +113,11 @@ class AsignacionesDocente
                     ->map(fn (EstablecimientoPeriodoCiclo $ciclo): array => [
                         'id' => (int) $ciclo->id,
                         'nombre' => $ciclo->nombre,
+                        'parciales_cerrados' => $ciclo->parciales
+                            ->filter(fn (EstablecimientoPeriodoCicloParcial $parcial): bool => $parcial->cerrado_en !== null)
+                            ->map(fn (EstablecimientoPeriodoCicloParcial $parcial): int => (int) $parcial->numero)
+                            ->values()
+                            ->all(),
                     ])
                     ->values()
                     ->all();
@@ -135,6 +142,7 @@ class AsignacionesDocente
                     'ciclos' => $ciclos,
                     'parciales' => $parciales,
                     'modo' => ($modoGuardado ?? ModoAsistencia::predeterminado($aula->establecimientoGrado?->subnivel?->nombre))->value,
+                    'abierto' => $periodo?->estaAbierto() === true,
                 ];
             })
             ->filter()

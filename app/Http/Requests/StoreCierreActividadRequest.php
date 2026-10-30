@@ -103,6 +103,12 @@ class StoreCierreActividadRequest extends FormRequest
                     abort(404);
                 }
 
+                if (! $contexto->permiteIngresarCalificaciones()) {
+                    $validator->errors()->add('nombre', DocenteContexto::MENSAJE_PERIODO_CERRADO);
+
+                    return;
+                }
+
                 if (! $asignaciones->cicloTieneCierre($contexto, $tipo)) {
                     $validator->errors()->add(
                         'nombre',

@@ -42,6 +42,12 @@
         get parciales() {
             return this.aula?.parciales ?? [];
         },
+        get parcialCerrado() {
+            const ciclo = this.ciclos.find((ciclo) => String(ciclo.id) === String(this.cicloId));
+
+            return Array.isArray(ciclo?.parciales_cerrados)
+                && ciclo.parciales_cerrados.map(String).includes(String(this.parcialId));
+        },
         get insumos() {
             return this.materia?.insumos ?? [];
         },

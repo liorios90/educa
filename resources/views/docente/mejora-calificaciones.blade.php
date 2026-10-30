@@ -33,6 +33,10 @@
                         <a class="font-medium text-indigo-700 hover:text-indigo-900" href="{{ route('Docente.proyectos.index') }}">Ir a calificar proyectos</a>
                     </div>
                 </div>
+            @elseif (! $contexto->permiteIngresarCalificaciones())
+                <p class="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                    {{ \App\Auth\DocenteContexto::MENSAJE_PERIODO_CERRADO }}
+                </p>
             @else
                 <section class="grid gap-2 rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-700 sm:grid-cols-3">
                     <p><span class="font-medium">Aula:</span> {{ $contexto->aula->etiqueta() }}</p>

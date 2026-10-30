@@ -21,7 +21,8 @@
                 </p>
             @else
                 <x-docente-contexto :aulas="$aulas" :seleccion="$seleccion" :store-route="route($tipo->route('store'))" destino="crear" :requiere-parcial="false" :requiere-ciclo="$tipo->requiereCiclo()">
-                    <div class="mt-4 rounded-lg bg-white p-6 shadow-sm" x-show="seleccionCompleta">
+                    <x-docente-periodo-cerrado />
+                    <div class="mt-4 rounded-lg bg-white p-6 shadow-sm" x-show="seleccionCompleta && aula?.abierto" x-cloak>
                         @if ($contexto && ! $cicloTieneCierre)
                             <p class="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                                 {{ $tipo->mensajeSinConfiguracion() }}

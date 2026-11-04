@@ -16,12 +16,16 @@ use App\Models\EstablecimientoAula;
 use App\Models\EstablecimientoAulaDocente;
 use App\Models\EstablecimientoCierreActividad;
 use App\Models\EstablecimientoComportamiento;
+use App\Models\EstablecimientoGrado;
 use App\Models\EstablecimientoInsumoActividad;
 use App\Models\EstablecimientoPeriodoCiclo;
+use App\Models\Sys_Grado;
 use Illuminate\Support\Collection;
 
 class InformeAprendizaje
 {
+    private const NOTA_MINIMA_PROMOCION = 7.0;
+
     public function __construct(
         private AsignacionesDocente $asignaciones,
         private LibretaAula $libreta,
@@ -172,6 +176,274 @@ class InformeAprendizaje
     }
 
     /**
+     * @return array<string, mixed>
+     */
+    public function generarFinal(EstablecimientoAula $aula): array
+    {
+        $consolidado = $this->consolidadoPeriodo($aula);
+
+        return [
+            ...$consolidado,
+            'tipo' => 'final',
+            'titulo' => 'Libreta final de calificaciones',
+            'base_legal' => 'Escala de calificaciones del Reglamento General a la Ley Orgánica de Educación Intercultural (Art. 194). El promedio anual pondera los ciclos y, si aplica, el examen o proyecto final. Las notas en blanco no entran al promedio.',
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function generarCertificado(EstablecimientoAula $aula): array
+    {
+        $consolidado = $this->consolidadoPeriodo($aula);
+        $gradoSiguiente = $this->gradoSiguiente($aula);
+
+        $consolidado['estudiantes'] = array_map(
+            function (array $estudiante) use ($gradoSiguiente): array {
+                $promovido = (bool) $estudiante['promovido'];
+                $estudiante['promocion'] = match (true) {
+                    $promovido && $gradoSiguiente !== null => 'Es promovido/a a '.$gradoSiguiente.' de conformidad con el Art. 197 del Reglamento General a la LOEI.',
+                    $promovido => 'Culminó el subnivel y reúne los requisitos de promoción previstos en el Art. 197 del Reglamento General a la LOEI.',
+                    default => 'No reúne los requisitos de promoción previstos en el Art. 197 del Reglamento General a la LOEI (calificación mínima 7,00 en cada asignatura).',
+                };
+
+                return $estudiante;
+            },
+            $consolidado['estudiantes'],
+        );
+
+        return [
+            ...$consolidado,
+            'tipo' => 'certificado',
+            'titulo' => 'Certificado de promoción',
+            'grado_siguiente' => $gradoSiguiente,
+            'representante' => $aula->establecimiento?->representante ?? '',
+            'direccion' => $aula->establecimiento?->direccion ?? '',
+            'fecha' => now()->format('d/m/Y'),
+            'base_legal' => 'Arts. 194 y 197 del Reglamento General a la Ley Orgánica de Educación Intercultural. La promoción exige al menos 7,00 (Alcanza los aprendizajes requeridos) en cada asignatura cuantitativa.',
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function consolidadoPeriodo(EstablecimientoAula $aula): array
+    {
+        $aula->loadMissing([
+            'establecimiento',
+            'periodo.ciclos',
+            'establecimientoGrado.grado.subnivel',
+            'asignaciones.malla.asignatura',
+            'asignaciones.malla.asignaturaPropia',
+        ]);
+        $establecimiento = $aula->establecimiento;
+        $this->libreta->conEstablecimiento($establecimiento);
+        $ciclos = $aula->periodo?->ciclos ?? collect();
+
+        $asignaturas = $aula->asignaciones
+            ->map(fn (EstablecimientoAulaDocente $asignacion): ?EstablecimientoAsignatura => $asignacion->malla)
+            ->filter()
+            ->unique('id')
+            ->filter(fn (EstablecimientoAsignatura $asignatura): bool => $asignatura->aparece_en_libreta)
+            ->sortBy(fn (EstablecimientoAsignatura $asignatura): string => $asignatura->nombre(), SORT_NATURAL | SORT_FLAG_CASE)
+            ->values();
+
+        $actividades = EstablecimientoInsumoActividad::query()
+            ->with(['detalle', 'calificaciones'])
+            ->where('establecimiento_aula_id', $aula->id)
+            ->orderBy('parcial_numero')
+            ->orderBy('id')
+            ->get()
+            ->groupBy('establecimiento_asignatura_id');
+
+        $cierres = EstablecimientoCierreActividad::query()
+            ->with('calificaciones.mejora')
+            ->where('establecimiento_aula_id', $aula->id)
+            ->get()
+            ->groupBy('establecimiento_asignatura_id');
+
+        $tabla = $this->tablaEquivalencias((int) $aula->establecimiento_periodo_id);
+        $asistencia = $this->asistenciaPorAlumno($aula, null, null);
+        $comportamiento = $this->comportamientoPorAlumno($aula, null);
+        $alumnos = $this->asignaciones->alumnosDelAula($aula);
+        $primerCiclo = $ciclos->first();
+        $pesosPorAsignatura = [];
+        $muestraExamenFinal = false;
+        $muestraProyectoFinal = false;
+
+        foreach ($asignaturas as $asignatura) {
+            foreach ($ciclos as $ciclo) {
+                $pesos = $this->asignaciones->pesosEvaluacion($aula, $asignatura, $ciclo);
+                $pesosPorAsignatura[$asignatura->id][$ciclo->id] = $pesos;
+                $muestraExamenFinal = $muestraExamenFinal || $pesos['examen_final'] > 0.009;
+                $muestraProyectoFinal = $muestraProyectoFinal || $pesos['proyecto_final'] > 0.009;
+            }
+        }
+
+        $estudiantes = $alumnos->map(function (Alumno $alumno) use (
+            $aula,
+            $ciclos,
+            $asignaturas,
+            $actividades,
+            $cierres,
+            $tabla,
+            $asistencia,
+            $comportamiento,
+            $establecimiento,
+            $primerCiclo,
+            $pesosPorAsignatura,
+        ): array {
+            $notasNumericas = [];
+            $filas = [];
+            $promovido = true;
+            $tieneNotaCuantitativa = false;
+
+            foreach ($asignaturas as $asignatura) {
+                $todas = $actividades->get($asignatura->id, collect());
+                $cierresDe = $cierres->get($asignatura->id, collect());
+                $cuantitativa = $this->esCuantitativa($aula, $asignatura);
+                $notasCiclo = [];
+                $promediosCiclo = [];
+                $notaPeriodo = null;
+                $textoCualitativo = null;
+                $examenFinal = null;
+                $proyectoFinal = null;
+                $pesosFinales = $primerCiclo instanceof EstablecimientoPeriodoCiclo
+                    ? ($pesosPorAsignatura[$asignatura->id][$primerCiclo->id] ?? [
+                        'examen_final' => 0.0,
+                        'proyecto_final' => 0.0,
+                        'periodo' => 0.0,
+                        'insumos' => 0.0,
+                        'examen' => 0.0,
+                        'proyecto' => 0.0,
+                    ])
+                    : [
+                        'examen_final' => 0.0,
+                        'proyecto_final' => 0.0,
+                        'periodo' => 0.0,
+                        'insumos' => 0.0,
+                        'examen' => 0.0,
+                        'proyecto' => 0.0,
+                    ];
+
+                foreach ($ciclos as $ciclo) {
+                    $delCiclo = $todas
+                        ->where('establecimiento_periodo_ciclo_id', $ciclo->id)
+                        ->values();
+
+                    if ($cuantitativa) {
+                        $promedioCiclo = $this->notaCuantitativa(
+                            $aula,
+                            $asignatura,
+                            $ciclo,
+                            $alumno,
+                            $delCiclo,
+                            $cierresDe,
+                            false,
+                        );
+                        $notasCiclo[] = [
+                            'nombre' => $ciclo->nombre,
+                            'nota' => $this->libreta->textoNota($promedioCiclo),
+                        ];
+                        $promediosCiclo[] = [
+                            'valor' => $promedioCiclo,
+                            'peso' => $pesosPorAsignatura[$asignatura->id][$ciclo->id]['periodo'] ?? 0.0,
+                        ];
+                    } else {
+                        $texto = $this->notaCualitativaUnica($delCiclo, (int) $alumno->id);
+                        $notasCiclo[] = [
+                            'nombre' => $ciclo->nombre,
+                            'nota' => $texto ?? '—',
+                        ];
+                    }
+                }
+
+                if ($cuantitativa) {
+                    $examenFinal = $this->libreta->cierreDe($cierresDe, TipoCierreEvaluacion::ExamenFinal, (int) $alumno->id);
+                    $proyectoFinal = $this->libreta->cierreDe($cierresDe, TipoCierreEvaluacion::ProyectoFinal, (int) $alumno->id);
+                    $notaPeriodo = $this->libreta->promedioPeriodo(
+                        $aula,
+                        $promediosCiclo,
+                        $examenFinal,
+                        $proyectoFinal,
+                        $pesosFinales,
+                    );
+
+                    if ($notaPeriodo !== null) {
+                        $notasNumericas[] = $notaPeriodo;
+                        $tieneNotaCuantitativa = true;
+
+                        if ($asignatura->escala === EscalaCalificacion::Nacional && $notaPeriodo < self::NOTA_MINIMA_PROMOCION) {
+                            $promovido = false;
+                        }
+                    }
+                } else {
+                    $textos = collect($notasCiclo)
+                        ->pluck('nota')
+                        ->filter(fn (string $nota): bool => $nota !== '—')
+                        ->unique()
+                        ->values();
+                    $textoCualitativo = $textos->count() === 1 ? (string) $textos->first() : null;
+                }
+
+                $filas[] = [
+                    'nombre' => $asignatura->nombre(),
+                    'ciclos' => $notasCiclo,
+                    'examen_final' => $this->libreta->textoNota($examenFinal),
+                    'proyecto_final' => $this->libreta->textoNota($proyectoFinal),
+                    'nota' => $cuantitativa
+                        ? $this->libreta->textoNota($notaPeriodo)
+                        : ($textoCualitativo ?? '—'),
+                    'cualitativa' => $cuantitativa && $asignatura->escala === EscalaCalificacion::Nacional
+                        ? ($this->equivalenciaCualitativa($notaPeriodo, $tabla) ?? '—')
+                        : '—',
+                ];
+            }
+
+            if (! $tieneNotaCuantitativa) {
+                $promovido = false;
+            }
+
+            $promedio = $notasNumericas === []
+                ? null
+                : $this->decimales->aplicar(
+                    array_sum($notasNumericas) / count($notasNumericas),
+                    $establecimiento,
+                );
+
+            return [
+                'nombre' => trim(($alumno->persona?->apellidos ?? '').' '.($alumno->persona?->nombres ?? '')),
+                'identificacion' => (string) ($alumno->persona?->identificacion ?? ''),
+                'asignaturas' => $filas,
+                'promedio' => $this->libreta->textoNota($promedio),
+                'promedio_cualitativa' => $this->equivalenciaCualitativa($promedio, $tabla) ?? '—',
+                'asistencia' => $asistencia[(int) $alumno->id] ?? [
+                    'faltas' => 0,
+                    'justificadas' => 0,
+                    'atrasos' => 0,
+                ],
+                'comportamiento' => $comportamiento[(int) $alumno->id] ?? '—',
+                'promovido' => $promovido,
+            ];
+        })->values()->all();
+
+        return [
+            'establecimiento' => $establecimiento?->nombre ?? '',
+            'amie' => $establecimiento?->codigo_amie ?? '',
+            'logo' => $establecimiento?->logoUrl(),
+            'periodo' => $aula->periodo?->nombre ?? '',
+            'aula' => $aula->etiqueta(),
+            'grado' => $aula->establecimientoGrado?->etiqueta() ?? $aula->etiqueta(),
+            'paralelo' => (string) $aula->paralelo,
+            'ciclos' => $ciclos->map(fn (EstablecimientoPeriodoCiclo $ciclo): string => $ciclo->nombre)->values()->all(),
+            'muestra_examen_final' => $muestraExamenFinal,
+            'muestra_proyecto_final' => $muestraProyectoFinal,
+            'escala' => $this->escalaNacional(),
+            'estudiantes' => $estudiantes,
+        ];
+    }
+
+    /**
      * @param  Collection<int, EstablecimientoInsumoActividad>  $actividades
      * @param  Collection<int, EstablecimientoCierreActividad>  $cierres
      */
@@ -266,12 +538,15 @@ class InformeAprendizaje
      */
     private function asistenciaPorAlumno(
         EstablecimientoAula $aula,
-        EstablecimientoPeriodoCiclo $ciclo,
+        ?EstablecimientoPeriodoCiclo $ciclo,
         ?int $parcialNumero,
     ): array {
         $registros = EstablecimientoAsistencia::query()
             ->where('establecimiento_aula_id', $aula->id)
-            ->where('establecimiento_periodo_ciclo_id', $ciclo->id)
+            ->when(
+                $ciclo instanceof EstablecimientoPeriodoCiclo,
+                fn ($query) => $query->where('establecimiento_periodo_ciclo_id', $ciclo->id),
+            )
             ->when($parcialNumero !== null, fn ($query) => $query->where('parcial_numero', $parcialNumero))
             ->get()
             ->groupBy('alumno_id');
@@ -299,12 +574,15 @@ class InformeAprendizaje
     /**
      * @return array<int, string>
      */
-    private function comportamientoPorAlumno(EstablecimientoAula $aula, EstablecimientoPeriodoCiclo $ciclo): array
+    private function comportamientoPorAlumno(EstablecimientoAula $aula, ?EstablecimientoPeriodoCiclo $ciclo): array
     {
         $registros = EstablecimientoComportamiento::query()
             ->with('detalle')
             ->where('establecimiento_aula_id', $aula->id)
-            ->where('establecimiento_periodo_ciclo_id', $ciclo->id)
+            ->when(
+                $ciclo instanceof EstablecimientoPeriodoCiclo,
+                fn ($query) => $query->where('establecimiento_periodo_ciclo_id', $ciclo->id),
+            )
             ->get()
             ->groupBy('alumno_id');
 
@@ -363,5 +641,33 @@ class InformeAprendizaje
             3 => '3er parcial',
             default => $numero.'º parcial',
         };
+    }
+
+    private function gradoSiguiente(EstablecimientoAula $aula): ?string
+    {
+        $aula->loadMissing('establecimientoGrado.grado');
+        $catalogo = $aula->establecimientoGrado?->grado;
+
+        if (! $catalogo instanceof Sys_Grado) {
+            return null;
+        }
+
+        $siguiente = Sys_Grado::query()
+            ->where('subnivel_id', $catalogo->subnivel_id)
+            ->where('id', '>', $catalogo->id)
+            ->orderBy('id')
+            ->first();
+
+        if (! $siguiente instanceof Sys_Grado) {
+            return null;
+        }
+
+        $local = EstablecimientoGrado::query()
+            ->where('establecimiento_id', $aula->establecimiento_id)
+            ->where('establecimiento_modalidad_jornada_id', $aula->establecimiento_modalidad_jornada_id)
+            ->where('grado_id', $siguiente->id)
+            ->first();
+
+        return $local?->etiqueta() ?? $siguiente->nombre;
     }
 }

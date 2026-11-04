@@ -357,7 +357,7 @@ class LibretaAula
      * @param  list<array{valor: ?float, peso: float}>  $promediosCiclo
      * @param  array{insumos: float, examen: float, proyecto: float, periodo: float, examen_final: float, proyecto_final: float}  $pesosFinales
      */
-    private function promedioPeriodo(
+    public function promedioPeriodo(
         EstablecimientoAula $aula,
         array $promediosCiclo,
         ?float $examenFinal,

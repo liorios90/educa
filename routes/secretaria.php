@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Secretaria\InformeAprendizajeController;
 use App\Http\Controllers\Secretaria\LibretaController;
 use App\Http\Controllers\SecretariaController;
 use Illuminate\Support\Facades\Route;
@@ -11,6 +12,7 @@ Route::middleware(['auth', 'verified', 'role:Secretaria'])
         Route::view('/', 'secretaria.home')->name('home');
         Route::get('/prueba', [SecretariaController::class, 'prueba'])->name('prueba');
         Route::get('/libreta', [LibretaController::class, 'index'])->name('libreta.index');
+        Route::get('/informes-aprendizaje', [InformeAprendizajeController::class, 'index'])->name('informes-aprendizaje.index');
         Route::get('/asistente', [SecretariaController::class, 'asistente'])->name('asistente');
         Route::post('/asistente', [SecretariaController::class, 'store'])->name('asistente.store');
     });

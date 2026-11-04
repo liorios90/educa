@@ -323,10 +323,14 @@ class LibretaAula
         ];
     }
 
-    /**
-     * @param  array{insumos: float, examen: float, proyecto: float, periodo: float, examen_final: float, proyecto_final: float}  $pesos
-     */
-    private function promedioCiclo(
+    public function conEstablecimiento(?Establecimiento $establecimiento): self
+    {
+        $this->establecimiento = $establecimiento;
+
+        return $this;
+    }
+
+    public function promedioCiclo(
         ?float $insumos,
         ?float $examen,
         ?float $proyecto,
@@ -434,7 +438,7 @@ class LibretaAula
     /**
      * @param  Collection<int, EstablecimientoInsumoActividad>  $actividades
      */
-    private function promedioInsumosAlCien(Collection $actividades, int $alumnoId): ?float
+    public function promedioInsumosAlCien(Collection $actividades, int $alumnoId): ?float
     {
         ['partes' => $partes, 'simples' => $simples] = $this->partesInsumos($actividades, $alumnoId);
 
@@ -502,7 +506,7 @@ class LibretaAula
     /**
      * @param  Collection<int, EstablecimientoCierreActividad>  $cierres
      */
-    private function cierreDe(
+    public function cierreDe(
         Collection $cierres,
         TipoCierreEvaluacion $tipo,
         int $alumnoId,
@@ -539,7 +543,7 @@ class LibretaAula
             ->values();
     }
 
-    private function notaDe(Collection $calificaciones, int $alumnoId): string
+    public function notaDe(Collection $calificaciones, int $alumnoId): string
     {
         $calificacion = $calificaciones->first(
             fn (object $fila): bool => (int) $fila->alumno_id === $alumnoId,
@@ -565,7 +569,7 @@ class LibretaAula
         return (float) $texto;
     }
 
-    private function textoNota(?float $nota): string
+    public function textoNota(?float $nota): string
     {
         if ($nota === null) {
             return '—';

@@ -11,6 +11,7 @@ use App\Http\Requests\UpdateInsumoActividadRequest;
 use App\Models\Alumno;
 use App\Models\EstablecimientoInsumoActividad;
 use App\Models\EstablecimientoInsumoActividadCalificacion;
+use App\Models\NavigationItem;
 use App\Models\User;
 use App\Services\AsignacionesDocente;
 use App\Support\Grabado;
@@ -161,7 +162,8 @@ class CalificarInsumosController extends Controller
      *     tipoCalificacion: TipoCalificacion|null,
      *     valoresCualitativos: list<array{valor: string, etiqueta: string}>,
      *     notasGuardadas: array<int, string>,
-     *     seleccion: array{aula: mixed, asignatura: mixed, ciclo: mixed, parcial: mixed}
+     *     seleccion: array{aula: mixed, asignatura: mixed, ciclo: mixed, parcial: mixed},
+     *     backUrl: string|null
      * }
      */
     private function datosVista(Request $request, ?DocenteContexto $actual = null): array
@@ -183,6 +185,7 @@ class CalificarInsumosController extends Controller
                 'ciclo' => old('establecimiento_periodo_ciclo_id', $actual?->ciclo->id),
                 'parcial' => old('parcial_numero', $actual?->parcialNumero),
             ],
+            'backUrl' => NavigationItem::hubBackUrlForRoute((string) $request->route()?->getName()),
         ];
     }
 

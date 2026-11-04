@@ -268,6 +268,17 @@ describe('index', function () {
         'trimestres' => [EsquemaCiclo::Trimestres, 'Trimestres', 'Primer trimestre'],
     ]);
 
+    it('links back to the insumos menu', function () {
+        $this->seed(NavigationSeeder::class);
+        $escenario = escenarioCalificarInsumos();
+        $menu = route('navigation.hub', NavigationItem::query()->where('label', 'Insumos')->where('is_group', true)->firstOrFail());
+
+        $this->actingAs($escenario['docente'])
+            ->get(route('Docente.calificar.index'))
+            ->assertSee('Volver')
+            ->assertSee($menu, false);
+    });
+
     it('shows the calificar insumos link to teachers', function () {
         $this->seed(NavigationSeeder::class);
         $escenario = escenarioCalificarInsumos();
@@ -1106,6 +1117,17 @@ describe('storeActividad', function () {
 });
 
 describe('editar', function () {
+    it('links back to the insumos menu', function () {
+        $this->seed(NavigationSeeder::class);
+        $escenario = escenarioCalificarInsumos();
+        $menu = route('navigation.hub', NavigationItem::query()->where('label', 'Insumos')->where('is_group', true)->firstOrFail());
+
+        $this->actingAs($escenario['docente'])
+            ->get(route('Docente.calificar.editar'))
+            ->assertSee('Volver')
+            ->assertSee($menu, false);
+    });
+
     it('redirects guests to the login page', function () {
         $this->get(route('Docente.calificar.editar'))
             ->assertRedirect(route('login'));

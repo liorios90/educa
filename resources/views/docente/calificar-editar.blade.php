@@ -1,7 +1,15 @@
 <x-app-layout>
     <x-slot name="header">
-        <div>
+        <div class="flex flex-wrap items-center justify-between gap-4">
             <h2 class="text-xl font-semibold leading-tight text-slate-800">Editar insumos</h2>
+            @if ($backUrl)
+                <a
+                    href="{{ $backUrl }}"
+                    class="inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-widest text-gray-700 shadow-sm hover:bg-gray-50"
+                >
+                    Volver
+                </a>
+            @endif
         </div>
     </x-slot>
 

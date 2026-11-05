@@ -35,13 +35,11 @@ return new class extends Migration
                 'clave_asignatura' => 0,
             ]);
 
-        Schema::table('establecimiento_asistencias', function (Blueprint $table) {
-            $table->dropUnique('est_asistencias_alumno_asignatura_fecha_unq');
-            $table->unique(
-                ['alumno_id', 'establecimiento_aula_id', 'fecha', 'clave_asignatura'],
-                'est_asistencias_alumno_aula_fecha_clave_unq',
-            );
-        });
+        $this->reemplazarUnicoAsistencia(
+            'est_asistencias_alumno_asignatura_fecha_unq',
+            'est_asistencias_alumno_aula_fecha_clave_unq',
+            ['alumno_id', 'establecimiento_aula_id', 'fecha', 'clave_asignatura'],
+        );
     }
 
     /**
@@ -49,17 +47,47 @@ return new class extends Migration
      */
     public function down(): void
     {
+        $this->reemplazarUnicoAsistencia(
+            'est_asistencias_alumno_aula_fecha_clave_unq',
+            'est_asistencias_alumno_asignatura_fecha_unq',
+            ['alumno_id', 'establecimiento_asignatura_id', 'fecha'],
+        );
+
         Schema::table('establecimiento_asistencias', function (Blueprint $table) {
-            $table->dropUnique('est_asistencias_alumno_aula_fecha_clave_unq');
-            $table->unique(
-                ['alumno_id', 'establecimiento_asignatura_id', 'fecha'],
-                'est_asistencias_alumno_asignatura_fecha_unq',
-            );
             $table->dropColumn(['clave_asignatura', 'alcance']);
         });
 
         Schema::table('establecimiento_aula_docentes', function (Blueprint $table) {
             $table->dropColumn('modo_asistencia');
         });
+    }
+
+    /**
+     * En MySQL el único (alumno_id, ...) sostiene la foránea de alumno_id.
+     * Hay que crear otro índice sobre alumno_id antes de soltarlo.
+     *
+     * @param  list<string>  $columnasSiguiente
+     */
+    private function reemplazarUnicoAsistencia(string $anterior, string $siguiente, array $columnasSiguiente): void
+    {
+        $esMysql = Schema::getConnection()->getDriverName() !== 'sqlite';
+
+        if ($esMysql && ! Schema::hasIndex('establecimiento_asistencias', 'est_asistencias_alumno_id_idx')) {
+            Schema::table('establecimiento_asistencias', function (Blueprint $table): void {
+                $table->index('alumno_id', 'est_asistencias_alumno_id_idx');
+            });
+        }
+
+        if (Schema::hasIndex('establecimiento_asistencias', $anterior)) {
+            Schema::table('establecimiento_asistencias', function (Blueprint $table) use ($anterior): void {
+                $table->dropUnique($anterior);
+            });
+        }
+
+        if (! Schema::hasIndex('establecimiento_asistencias', $siguiente)) {
+            Schema::table('establecimiento_asistencias', function (Blueprint $table) use ($siguiente, $columnasSiguiente): void {
+                $table->unique($columnasSiguiente, $siguiente);
+            });
+        }
     }
 };

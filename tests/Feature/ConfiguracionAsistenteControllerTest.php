@@ -6,6 +6,8 @@ use App\Enums\Role;
 use App\Models\Establecimiento;
 use App\Models\User;
 use Database\Seeders\NavigationSeeder;
+use Illuminate\Encryption\Encrypter;
+use Illuminate\Support\Facades\DB;
 
 describe('edit', function () {
     it('redirects guests from the assistant settings to the login page', function () {
@@ -54,6 +56,24 @@ describe('edit', function () {
             ->assertSee('Preguntas por mes')
             ->assertSee('Tokens por mes')
             ->assertDontSee('clave-secreta-andina', false);
+    });
+
+    it('lets an administrator open the assistant settings when the stored key cannot be decrypted', function () {
+        $establecimiento = Establecimiento::factory()->create([
+            'nombre' => 'Unidad Educativa Andina',
+        ]);
+        $otroEncrypter = new Encrypter(str_repeat('b', 32), config('app.cipher'));
+        DB::table('establecimientos')->where('id', $establecimiento->id)->update([
+            'gemini_api_key' => $otroEncrypter->encrypt('clave-de-otro-entorno', false),
+        ]);
+        $admin = adminOf($establecimiento);
+
+        $this->actingAs($admin)
+            ->get(route('Admin.asistente'))
+            ->assertOk()
+            ->assertSee('Asistente')
+            ->assertSee('La clave guardada no se puede leer. Vuelve a ingresarla.')
+            ->assertDontSee('Hay una clave guardada. Déjala en blanco para conservarla.');
     });
 
     it('escapes a dangerous school name on the assistant settings page', function () {
@@ -146,6 +166,33 @@ describe('update', function () {
 
         expect($establecimiento->gemini_api_key)->toBe('clave-actual')
             ->and($establecimiento->gemini_model)->toBe('modelo-nuevo');
+    });
+
+    it('lets an administrator replace a key that cannot be decrypted', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $otroEncrypter = new Encrypter(str_repeat('b', 32), config('app.cipher'));
+        DB::table('establecimientos')->where('id', $establecimiento->id)->update([
+            'gemini_api_key' => $otroEncrypter->encrypt('clave-de-otro-entorno', false),
+        ]);
+        $admin = adminOf($establecimiento);
+
+        $this->actingAs($admin)
+            ->from(route('Admin.asistente'))
+            ->put(route('Admin.asistente.update'), [
+                'asistente_proveedor' => 'gemini',
+                'gemini_api_key' => 'clave-andina',
+                'gemini_model' => 'gemini-andina',
+                'gemini_preguntas_limite' => 80,
+                'gemini_tokens_limite' => 5000,
+            ])
+            ->assertRedirect(route('Admin.asistente'))
+            ->assertSessionHas('status', 'asistente-updated');
+
+        $establecimiento->refresh();
+
+        expect($establecimiento->gemini_api_key)->toBe('clave-andina')
+            ->and($establecimiento->tieneCredencialesGemini())->toBeTrue()
+            ->and($establecimiento->claveAsistenteIlegible())->toBeFalse();
     });
 
     it('asks for a key when the school has never configured Gemini', function () {

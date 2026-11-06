@@ -6,6 +6,7 @@ use App\Enums\AsistenteProveedor;
 use App\Enums\ModoDecimal;
 use App\Enums\Role;
 use Database\Factories\EstablecimientoFactory;
+use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -95,9 +96,25 @@ class Establecimiento extends Model
         ];
     }
 
+    public function fromEncryptedString($value)
+    {
+        try {
+            return parent::fromEncryptedString($value);
+        } catch (DecryptException) {
+            return null;
+        }
+    }
+
     public function tieneCredencialesGemini(): bool
     {
         return is_string($this->gemini_api_key) && $this->gemini_api_key !== '';
+    }
+
+    public function claveAsistenteIlegible(): bool
+    {
+        $cruda = $this->getRawOriginal('gemini_api_key');
+
+        return is_string($cruda) && $cruda !== '' && ! $this->tieneCredencialesGemini();
     }
 
     public function proveedorAsistente(): AsistenteProveedor

@@ -78,6 +78,8 @@
                     <p class="mt-2 text-sm text-slate-500">
                         @if ($establecimiento->tieneCredencialesGemini())
                             Hay una clave guardada. Déjala en blanco para conservarla.
+                        @elseif ($establecimiento->claveAsistenteIlegible())
+                            La clave guardada no se puede leer. Vuelve a ingresarla.
                         @else
                             Aún no hay clave. El asistente no funcionará hasta que la ingreses.
                         @endif

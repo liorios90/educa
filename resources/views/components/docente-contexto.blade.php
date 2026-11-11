@@ -137,7 +137,7 @@
             </div>
 
             <div class="w-52 shrink-0" x-show="porAsignatura" @if ($conModo) x-cloak @endif>
-                <label for="establecimiento_asignatura_id" class="block text-xs font-medium text-slate-700">Asignaturas:</label>
+                <label for="establecimiento_asignatura_id" class="block text-xs font-medium text-slate-700" x-text="(aula?.usa_ambitos ? 'Ámbitos' : 'Asignaturas') + ':'">Asignaturas:</label>
                 <select
                     id="establecimiento_asignatura_id"
                     name="establecimiento_asignatura_id"
@@ -148,7 +148,7 @@
                     :required="porAsignatura"
                     @unless ($conModo) required @endunless
                 >
-                    <option value="">Asignatura</option>
+                    <option value="" x-text="aula?.usa_ambitos ? 'Ámbito' : 'Asignatura'">Asignatura</option>
                     <template x-for="materia in materias" :key="materia.id">
                         <option :value="materia.id" x-text="materia.nombre"></option>
                     </template>

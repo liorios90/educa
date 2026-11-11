@@ -75,7 +75,14 @@ class EstablecimientoAsignaturaController extends Controller
         $subnivelIds = $gradosOferta->pluck('subnivel_id')->filter()->unique()->values();
 
         $subniveles = Sys_Subnivel::query()
-            ->with(['nivel', 'areas.asignaturas.gradosCurriculares'])
+            ->with([
+                'nivel',
+                'areas.asignaturas.gradosCurriculares',
+                'areas.asignaturas.criterios',
+                'areas.asignaturas.destrezas.criterio',
+                'areas.asignaturas.destrezas.indicadores',
+                'areas.asignaturas.destrezas.grado',
+            ])
             ->whereIn('id', $subnivelIds)
             ->orderBy('id')
             ->get();

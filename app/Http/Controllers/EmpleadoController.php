@@ -22,13 +22,46 @@ class EmpleadoController extends Controller
     public function index(Request $request): View
     {
         $establecimientoId = $this->establecimientoId($request);
+        $busqueda = mb_substr(trim((string) $request->string('buscar')), 0, 100);
 
         return view('admin.empleados.index', [
+            'busqueda' => $busqueda,
             'empleados' => Empleado::query()
                 ->select('empleados.*')
                 ->with(['persona.user.roles', 'tipoContrato', 'funcion'])
                 ->join('personas', 'personas.id', '=', 'empleados.persona_id')
+                ->leftJoin('users', 'users.id', '=', 'personas.user_id')
+                ->leftJoin('sys_tipo_contratos', 'sys_tipo_contratos.id', '=', 'empleados.tipo_contrato_id')
+                ->leftJoin('sys_funciones', 'sys_funciones.id', '=', 'empleados.funcion_id')
                 ->where('personas.establecimiento_id', $establecimientoId)
+                ->when($busqueda !== '', function ($query) use ($busqueda): void {
+                    $termino = '%'.addcslashes($busqueda, '%_\\').'%';
+                    $roles = collect(Role::cases())
+                        ->filter(fn (Role $role): bool => str_contains(mb_strtolower($role->label()), mb_strtolower($busqueda))
+                            || str_contains(mb_strtolower($role->value), mb_strtolower($busqueda)))
+                        ->map(fn (Role $role): string => $role->value)
+                        ->all();
+
+                    $query->where(function ($query) use ($termino, $roles): void {
+                        $query->where('personas.apellidos', 'like', $termino)
+                            ->orWhere('personas.nombres', 'like', $termino)
+                            ->orWhere('personas.identificacion', 'like', $termino)
+                            ->orWhere('users.email', 'like', $termino)
+                            ->orWhere('sys_tipo_contratos.nombre', 'like', $termino)
+                            ->orWhere('sys_funciones.nombre', 'like', $termino);
+
+                        if ($roles !== []) {
+                            $query->orWhereExists(function ($query) use ($roles): void {
+                                $query->selectRaw('1')
+                                    ->from('model_has_roles')
+                                    ->join('roles', 'roles.id', '=', 'model_has_roles.role_id')
+                                    ->whereColumn('model_has_roles.model_id', 'users.id')
+                                    ->where('model_has_roles.model_type', User::class)
+                                    ->whereIn('roles.name', $roles);
+                            });
+                        }
+                    });
+                })
                 ->orderBy('personas.apellidos')
                 ->orderBy('personas.nombres')
                 ->orderBy('empleados.id')

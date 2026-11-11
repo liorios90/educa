@@ -29,6 +29,26 @@
                 <p class="mb-4 text-sm font-medium text-green-700">Empleado eliminado correctamente.</p>
             @endif
 
+            <form method="GET" action="{{ route('Admin.empleados') }}" class="mb-4 flex flex-wrap items-center gap-3">
+                <label for="buscar-empleados" class="sr-only">Buscar empleados</label>
+                <input
+                    id="buscar-empleados"
+                    type="search"
+                    name="buscar"
+                    value="{{ $busqueda }}"
+                    placeholder="Apellidos, nombres, cédula o correo"
+                    class="w-full max-w-md rounded-lg border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                >
+                <button type="submit" class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800">
+                    Buscar
+                </button>
+                @if ($busqueda !== '')
+                    <a href="{{ route('Admin.empleados') }}" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                        Limpiar
+                    </a>
+                @endif
+            </form>
+
             <div class="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
                 <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
                     <thead class="bg-slate-50 text-slate-600">
@@ -73,7 +93,7 @@
                         @empty
                             <tr>
                                 <td colspan="8" class="px-6 py-8 text-center text-slate-500">
-                                    Aún no hay empleados.
+                                    {{ $busqueda !== '' ? 'Ningún empleado coincide con la búsqueda.' : 'Aún no hay empleados.' }}
                                 </td>
                             </tr>
                         @endforelse

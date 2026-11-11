@@ -2,15 +2,24 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\TipoCalificacion;
+use App\Http\Requests\UpdateCurriculoOrganizacionRequest;
 use App\Http\Requests\UpsertCurriculoAreaRequest;
 use App\Http\Requests\UpsertCurriculoAsignaturaRequest;
+use App\Http\Requests\UpsertCurriculoCriterioRequest;
+use App\Http\Requests\UpsertCurriculoDestrezaRequest;
+use App\Http\Requests\UpsertCurriculoIndicadorRequest;
 use App\Models\NavigationItem;
 use App\Models\Sys_Area;
 use App\Models\Sys_Asignatura;
+use App\Models\Sys_CriterioEvaluacion;
+use App\Models\Sys_Destreza;
+use App\Models\Sys_IndicadorEvaluacion;
 use App\Models\Sys_Nivel;
 use App\Models\Sys_Subnivel;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class CurriculoController extends Controller
@@ -19,7 +28,13 @@ class CurriculoController extends Controller
     {
         return view('sistemas.curriculo.index', [
             'niveles' => Sys_Nivel::query()
-                ->with(['subniveles.areas.asignaturas'])
+                ->with([
+                    'subniveles.grados',
+                    'subniveles.areas.asignaturas.criterios',
+                    'subniveles.areas.asignaturas.destrezas.criterio',
+                    'subniveles.areas.asignaturas.destrezas.indicadores',
+                    'subniveles.areas.asignaturas.destrezas.grado',
+                ])
                 ->orderBy('id')
                 ->get(),
             'backUrl' => NavigationItem::hubBackUrlForRoute('sistemas.curriculo'),
@@ -27,6 +42,26 @@ class CurriculoController extends Controller
             'openSubnivelId' => $request->integer('subnivel') ?: null,
             'openAreaId' => $request->integer('area') ?: null,
         ]);
+    }
+
+    public function updateOrganizacion(
+        UpdateCurriculoOrganizacionRequest $request,
+        Sys_Nivel $nivel,
+        Sys_Subnivel $subnivel,
+    ): RedirectResponse {
+        $porAmbitos = $subnivel->tipo_calificacion === TipoCalificacion::Cualitativa
+            && $request->boolean('usa_ambitos');
+
+        $subnivel->update([
+            'usa_ambitos' => $porAmbitos,
+            'califica_por_destrezas' => $porAmbitos ? true : $subnivel->califica_por_destrezas,
+        ]);
+
+        return $this->redirectToIndex(
+            nivel: $nivel,
+            subnivel: $subnivel,
+            status: 'organizacion-updated',
+        );
     }
 
     public function storeArea(UpsertCurriculoAreaRequest $request, Sys_Nivel $nivel, Sys_Subnivel $subnivel): RedirectResponse
@@ -154,6 +189,217 @@ class CurriculoController extends Controller
             subnivel: $subnivel,
             area: $area,
             status: 'asignatura-deleted',
+        );
+    }
+
+    public function storeCriterio(
+        UpsertCurriculoCriterioRequest $request,
+        Sys_Nivel $nivel,
+        Sys_Subnivel $subnivel,
+        Sys_Area $area,
+        Sys_Asignatura $asignatura,
+    ): RedirectResponse {
+        $asignatura->criterios()->create($request->safe()->only([
+            'grado_id',
+            'codigo',
+            'descripcion',
+            'orden',
+        ]));
+
+        return $this->redirectToIndex(
+            nivel: $nivel,
+            subnivel: $subnivel,
+            area: $area,
+            status: 'criterio-created',
+        );
+    }
+
+    public function updateCriterio(
+        UpsertCurriculoCriterioRequest $request,
+        Sys_Nivel $nivel,
+        Sys_Subnivel $subnivel,
+        Sys_Area $area,
+        Sys_Asignatura $asignatura,
+        Sys_CriterioEvaluacion $criterio,
+    ): RedirectResponse {
+        abort_unless((int) $criterio->asignatura_id === (int) $asignatura->id, 404);
+        $criterio->update($request->safe()->only([
+            'grado_id',
+            'codigo',
+            'descripcion',
+            'orden',
+        ]));
+
+        return $this->redirectToIndex(
+            nivel: $nivel,
+            subnivel: $subnivel,
+            area: $area,
+            status: 'criterio-updated',
+        );
+    }
+
+    public function destroyCriterio(
+        Sys_Nivel $nivel,
+        Sys_Subnivel $subnivel,
+        Sys_Area $area,
+        Sys_Asignatura $asignatura,
+        Sys_CriterioEvaluacion $criterio,
+    ): RedirectResponse {
+        abort_unless((int) $criterio->asignatura_id === (int) $asignatura->id, 404);
+        $criterio->delete();
+
+        return $this->redirectToIndex(
+            nivel: $nivel,
+            subnivel: $subnivel,
+            area: $area,
+            status: 'criterio-deleted',
+        );
+    }
+
+    public function storeDestreza(
+        UpsertCurriculoDestrezaRequest $request,
+        Sys_Nivel $nivel,
+        Sys_Subnivel $subnivel,
+        Sys_Area $area,
+        Sys_Asignatura $asignatura,
+    ): RedirectResponse {
+        $asignatura->destrezas()->create($request->safe()->only([
+            'grado_id',
+            'criterio_evaluacion_id',
+            'codigo',
+            'descripcion',
+            'imprescindible',
+            'orden',
+        ]));
+
+        return $this->redirectToIndex(
+            nivel: $nivel,
+            subnivel: $subnivel,
+            area: $area,
+            status: 'destreza-created',
+        );
+    }
+
+    public function updateDestreza(
+        UpsertCurriculoDestrezaRequest $request,
+        Sys_Nivel $nivel,
+        Sys_Subnivel $subnivel,
+        Sys_Area $area,
+        Sys_Asignatura $asignatura,
+        Sys_Destreza $destreza,
+    ): RedirectResponse {
+        $destreza->update($request->safe()->only([
+            'grado_id',
+            'criterio_evaluacion_id',
+            'codigo',
+            'descripcion',
+            'imprescindible',
+            'orden',
+        ]));
+
+        return $this->redirectToIndex(
+            nivel: $nivel,
+            subnivel: $subnivel,
+            area: $area,
+            status: 'destreza-updated',
+        );
+    }
+
+    public function destroyDestreza(
+        Sys_Nivel $nivel,
+        Sys_Subnivel $subnivel,
+        Sys_Area $area,
+        Sys_Asignatura $asignatura,
+        Sys_Destreza $destreza,
+    ): RedirectResponse {
+        try {
+            $destreza->delete();
+        } catch (ValidationException $exception) {
+            return $this->redirectToIndex(
+                nivel: $nivel,
+                subnivel: $subnivel,
+                area: $area,
+                error: $exception->validator->errors()->first('destreza'),
+            );
+        }
+
+        return $this->redirectToIndex(
+            nivel: $nivel,
+            subnivel: $subnivel,
+            area: $area,
+            status: 'destreza-deleted',
+        );
+    }
+
+    public function storeIndicador(
+        UpsertCurriculoIndicadorRequest $request,
+        Sys_Nivel $nivel,
+        Sys_Subnivel $subnivel,
+        Sys_Area $area,
+        Sys_Asignatura $asignatura,
+        Sys_Destreza $destreza,
+    ): RedirectResponse {
+        $destreza->indicadores()->create($request->safe()->only([
+            'codigo',
+            'descripcion',
+            'orden',
+        ]));
+
+        return $this->redirectToIndex(
+            nivel: $nivel,
+            subnivel: $subnivel,
+            area: $area,
+            status: 'indicador-created',
+        );
+    }
+
+    public function updateIndicador(
+        UpsertCurriculoIndicadorRequest $request,
+        Sys_Nivel $nivel,
+        Sys_Subnivel $subnivel,
+        Sys_Area $area,
+        Sys_Asignatura $asignatura,
+        Sys_Destreza $destreza,
+        Sys_IndicadorEvaluacion $indicador,
+    ): RedirectResponse {
+        $indicador->update($request->safe()->only([
+            'codigo',
+            'descripcion',
+            'orden',
+        ]));
+
+        return $this->redirectToIndex(
+            nivel: $nivel,
+            subnivel: $subnivel,
+            area: $area,
+            status: 'indicador-updated',
+        );
+    }
+
+    public function destroyIndicador(
+        Sys_Nivel $nivel,
+        Sys_Subnivel $subnivel,
+        Sys_Area $area,
+        Sys_Asignatura $asignatura,
+        Sys_Destreza $destreza,
+        Sys_IndicadorEvaluacion $indicador,
+    ): RedirectResponse {
+        try {
+            $indicador->delete();
+        } catch (ValidationException $exception) {
+            return $this->redirectToIndex(
+                nivel: $nivel,
+                subnivel: $subnivel,
+                area: $area,
+                error: $exception->validator->errors()->first('indicador'),
+            );
+        }
+
+        return $this->redirectToIndex(
+            nivel: $nivel,
+            subnivel: $subnivel,
+            area: $area,
+            status: 'indicador-deleted',
         );
     }
 

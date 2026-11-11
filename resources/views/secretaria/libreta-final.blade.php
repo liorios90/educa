@@ -64,7 +64,11 @@
                         @endif
                     </div>
                     <p class="mt-3 text-xs text-slate-500">
-                        Promedio anual según los pesos de cada ciclo y, si aplica, el examen o proyecto final. Escala del Art. 194 del Reglamento General a la LOEI.
+                        @if (($informe['por_destrezas'] ?? false) === true && ($informe['equivale_nota_nacional'] ?? false) !== true)
+                            En Educación Inicial y Preparatoria el informe es cualitativo, por destrezas e indicadores. No se promedia una nota sobre 10.
+                        @else
+                            Promedio anual según los pesos de cada ciclo y, si aplica, el examen o proyecto final. Escala del Art. 194 del Reglamento General a la LOEI.
+                        @endif
                     </p>
                 </form>
 
@@ -145,6 +149,8 @@
                                         </table>
                                     </div>
 
+                                    @include('secretaria._destrezas-informe', ['informe' => $informe, 'estudiante' => $estudiante])
+
                                     <div class="mt-4 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
                                         <p>
                                             <span class="font-semibold text-slate-700">Asistencia:</span>
@@ -155,6 +161,7 @@
                                         <p><span class="font-semibold text-slate-700">Comportamiento:</span> {{ $estudiante['comportamiento'] }}</p>
                                     </div>
 
+                                    @if (($informe['por_destrezas'] ?? false) !== true || ($informe['equivale_nota_nacional'] ?? false) === true)
                                     <div class="mt-4 rounded-lg border border-slate-200 p-3 text-xs text-slate-600">
                                         <p class="font-semibold text-slate-700">Escala de calificaciones (Art. 194)</p>
                                         <ul class="mt-2 grid grid-cols-1 gap-1 sm:grid-cols-2">
@@ -164,6 +171,7 @@
                                         </ul>
                                         <p class="mt-2">{{ $informe['base_legal'] }}</p>
                                     </div>
+                                    @endif
 
                                     <div class="mt-10 grid grid-cols-1 gap-8 text-center text-xs text-slate-600 sm:grid-cols-3">
                                         <p class="border-t border-slate-400 pt-2">Secretaría</p>

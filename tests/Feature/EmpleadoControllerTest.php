@@ -68,7 +68,66 @@ describe('index', function () {
             ->assertSee('Editar')
             ->assertSee('Eliminar')
             ->assertSee(route('Admin.empleados.edit', $empleado), false)
-            ->assertSee(route('Admin.empleados.destroy', $empleado), false);
+            ->assertSee(route('Admin.empleados.destroy', $empleado), false)
+            ->assertSee('Buscar');
+    });
+
+    it('filters empleados by name, identification or email', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $andrea = Persona::factory()->create([
+            'nombres' => 'Andrea',
+            'apellidos' => 'Quishpe',
+            'identificacion' => '095700099',
+            'establecimiento_id' => $establecimiento->id,
+            'user_id' => User::factory()->create([
+                'email' => 'andrea.quishpe@demostracion.test',
+                'establecimiento_id' => $establecimiento->id,
+            ])->id,
+        ]);
+        $luis = Persona::factory()->create([
+            'nombres' => 'Luis',
+            'apellidos' => 'Mora',
+            'identificacion' => '095700001',
+            'establecimiento_id' => $establecimiento->id,
+        ]);
+        Empleado::factory()->for($andrea)->create();
+        Empleado::factory()->for($luis)->create();
+
+        $this->actingAs($admin)
+            ->get(route('Admin.empleados', ['buscar' => 'Quishpe']))
+            ->assertOk()
+            ->assertSee('Andrea')
+            ->assertDontSee('Mora');
+
+        $this->actingAs($admin)
+            ->get(route('Admin.empleados', ['buscar' => '095700001']))
+            ->assertOk()
+            ->assertSee('Mora')
+            ->assertDontSee('Quishpe');
+
+        $this->actingAs($admin)
+            ->get(route('Admin.empleados', ['buscar' => 'andrea.quishpe']))
+            ->assertOk()
+            ->assertSee('Quishpe')
+            ->assertDontSee('Mora');
+    });
+
+    it('shows an empty message when the empleados search has no matches', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $persona = Persona::factory()->create([
+            'nombres' => 'Luis',
+            'apellidos' => 'Mora',
+            'establecimiento_id' => $establecimiento->id,
+        ]);
+        Empleado::factory()->for($persona)->create();
+
+        $this->actingAs($admin)
+            ->get(route('Admin.empleados', ['buscar' => 'inexistente']))
+            ->assertOk()
+            ->assertSee('Ningún empleado coincide con la búsqueda.')
+            ->assertDontSee('Mora');
     });
 
     it('shows assigned roles in the empleados list', function () {

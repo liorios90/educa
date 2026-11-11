@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Auth\ActiveDocenteContexto;
+use App\Auth\ContextoDestreza;
 use App\Auth\DocenteContexto;
 use App\Enums\TipoCalificacion;
 use App\Http\Requests\SelectDocenteContextoRequest;
+use App\Http\Requests\StoreDestrezaCalificacionRequest;
 use App\Http\Requests\StoreInsumoActividadRequest;
 use App\Http\Requests\UpdateInsumoActividadRequest;
 use App\Models\Alumno;
@@ -14,6 +16,7 @@ use App\Models\EstablecimientoInsumoActividadCalificacion;
 use App\Models\NavigationItem;
 use App\Models\User;
 use App\Services\AsignacionesDocente;
+use App\Services\RegistroDestrezas;
 use App\Support\Grabado;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -27,6 +30,7 @@ class CalificarInsumosController extends Controller
     public function __construct(
         private AsignacionesDocente $asignaciones,
         private ActiveDocenteContexto $contexto,
+        private RegistroDestrezas $registro,
     ) {}
 
     public function index(Request $request): View
@@ -79,6 +83,28 @@ class CalificarInsumosController extends Controller
         }
 
         return redirect()->route('Docente.calificar.index');
+    }
+
+    public function registrarDestrezas(StoreDestrezaCalificacionRequest $request): RedirectResponse
+    {
+        $contexto = $request->contexto();
+        $docente = $this->asignaciones->contexto(
+            $request->user(),
+            $contexto->aula->id,
+            $contexto->asignatura->id,
+            $contexto->ciclo->id,
+            $request->integer('parcial_numero'),
+        );
+
+        if ($docente !== null) {
+            $this->contexto->set($docente);
+        }
+
+        $this->registro->guardar($contexto, $request->filas());
+
+        return redirect()
+            ->route('Docente.calificar.index')
+            ->with('status', 'calificaciones-grabadas');
     }
 
     public function storeActividad(StoreInsumoActividadRequest $request): RedirectResponse
@@ -163,7 +189,8 @@ class CalificarInsumosController extends Controller
      *     valoresCualitativos: list<array{valor: string, etiqueta: string}>,
      *     notasGuardadas: array<int, string>,
      *     seleccion: array{aula: mixed, asignatura: mixed, ciclo: mixed, parcial: mixed},
-     *     backUrl: string|null
+     *     backUrl: string|null,
+     *     registroDestrezas: array<string, mixed>|null
      * }
      */
     private function datosVista(Request $request, ?DocenteContexto $actual = null): array
@@ -186,7 +213,23 @@ class CalificarInsumosController extends Controller
                 'parcial' => old('parcial_numero', $actual?->parcialNumero),
             ],
             'backUrl' => NavigationItem::hubBackUrlForRoute((string) $request->route()?->getName()),
+            'registroDestrezas' => $this->registroDestrezas($actual),
         ];
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function registroDestrezas(?DocenteContexto $actual): ?array
+    {
+        if ($actual === null || ! $actual->asignatura->califica_por_destrezas) {
+            return null;
+        }
+
+        return $this->registro->presentar(
+            new ContextoDestreza($actual->aula, $actual->asignatura, $actual->ciclo),
+            $this->asignaciones->alumnos($actual),
+        );
     }
 
     /**

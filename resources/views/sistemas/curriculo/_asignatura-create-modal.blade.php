@@ -14,7 +14,7 @@
     <form method="POST" action="{{ route('sistemas.curriculo.asignaturas.store', [$nivel, $subnivel, $area]) }}" class="p-6">
         @csrf
 
-        <h3 class="text-lg font-semibold text-slate-800">Nueva asignatura</h3>
+        <h3 class="text-lg font-semibold text-slate-800">{{ $subnivel->usa_ambitos ? 'Nuevo ámbito' : 'Nueva asignatura' }}</h3>
         <p class="mt-1 text-sm text-slate-500">
             {{ $area->nombre }}
         </p>

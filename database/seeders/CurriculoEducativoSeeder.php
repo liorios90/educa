@@ -6,6 +6,7 @@ use App\Models\Sys_Area;
 use App\Models\Sys_Asignatura;
 use App\Models\Sys_Subnivel;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 class CurriculoEducativoSeeder extends Seeder
 {
@@ -20,7 +21,7 @@ class CurriculoEducativoSeeder extends Seeder
             $this->seedSubnivel($subnivel, $this->conPeriodoAcompanamiento($inicial));
         }
 
-        $this->seedSubnivel('Preparatoria', $this->conPeriodoAcompanamiento($this->mallaPreparatoria()));
+        $this->seedSubnivel('Preparatoria', $this->conPeriodoAcompanamiento($this->ambitosPreparatoria()));
         $this->seedSubnivel('Básica Elemental', $this->conPeriodoAcompanamiento($this->mallaElemental()));
         $this->seedSubnivel('Básica Media', $this->conPeriodoAcompanamiento($this->mallaMedia()));
         $this->seedSubnivel('Básica Superior', $this->conPeriodoAcompanamiento($this->mallaSuperior()));
@@ -92,6 +93,13 @@ class CurriculoEducativoSeeder extends Seeder
                 );
             }
         }
+
+        if ($subnivel->usa_ambitos) {
+            $subnivel->areas()
+                ->whereNotIn('nombre', collect($areas)->pluck('nombre'))
+                ->where('orden', '<', 50)
+                ->update(['orden' => DB::raw('orden + 100')]);
+        }
     }
 
     /**
@@ -128,18 +136,39 @@ class CurriculoEducativoSeeder extends Seeder
     }
 
     /**
-     * @return list<array{nombre: string, asignaturas: list<array{nombre: string, horas_semanales: int}>}>
+     * Ejes y ámbitos del Currículo Nacional de Preparatoria (MINEDUC).
+     *
+     * @return list<array{nombre: string, descripcion: string, asignaturas: list<array{nombre: string, descripcion: string}>}>
      */
-    private function mallaPreparatoria(): array
+    private function ambitosPreparatoria(): array
     {
-        return $this->areasEgb([
-            'Lengua y Literatura' => 10,
-            'Matemática' => 8,
-            'Ciencias Naturales' => 3,
-            'Estudios Sociales' => 3,
-            'Educación Cultural y Artística' => 2,
-            'Educación Física' => 5,
-        ], conIngles: false, conCiudadania: false);
+        return [
+            [
+                'nombre' => 'Desarrollo personal y social',
+                'descripcion' => 'Eje del Currículo Nacional de Preparatoria.',
+                'asignaturas' => [
+                    ['nombre' => 'Identidad y autonomía', 'descripcion' => 'Ámbito de desarrollo y aprendizaje de Preparatoria.'],
+                    ['nombre' => 'Convivencia', 'descripcion' => 'Ámbito de desarrollo y aprendizaje de Preparatoria.'],
+                ],
+            ],
+            [
+                'nombre' => 'Descubrimiento del medio natural y cultural',
+                'descripcion' => 'Eje del Currículo Nacional de Preparatoria.',
+                'asignaturas' => [
+                    ['nombre' => 'Descubrimiento y comprensión del medio natural y cultural', 'descripcion' => 'Ámbito de desarrollo y aprendizaje de Preparatoria.'],
+                    ['nombre' => 'Relaciones lógico-matemáticas', 'descripcion' => 'Ámbito de desarrollo y aprendizaje de Preparatoria.'],
+                ],
+            ],
+            [
+                'nombre' => 'Expresión y comunicación',
+                'descripcion' => 'Eje del Currículo Nacional de Preparatoria.',
+                'asignaturas' => [
+                    ['nombre' => 'Comprensión y expresión oral y escrita', 'descripcion' => 'Ámbito de desarrollo y aprendizaje de Preparatoria.'],
+                    ['nombre' => 'Comprensión y expresión artística', 'descripcion' => 'Ámbito de desarrollo y aprendizaje de Preparatoria.'],
+                    ['nombre' => 'Expresión corporal', 'descripcion' => 'Ámbito de desarrollo y aprendizaje de Preparatoria.'],
+                ],
+            ],
+        ];
     }
 
     /**

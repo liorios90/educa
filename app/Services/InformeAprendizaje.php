@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\CalificacionDestreza;
 use App\Enums\EscalaCalificacion;
 use App\Enums\EsquemaCiclo;
 use App\Enums\EstadoAsistencia;
@@ -30,6 +31,7 @@ class InformeAprendizaje
         private AsignacionesDocente $asignaciones,
         private LibretaAula $libreta,
         private DecimalesEstablecimiento $decimales,
+        private ConsolidadoDestrezas $consolidado,
     ) {}
 
     /**
@@ -43,7 +45,7 @@ class InformeAprendizaje
         $aula->loadMissing([
             'establecimiento',
             'periodo.ciclos',
-            'establecimientoGrado.grado',
+            'establecimientoGrado.grado.subnivel',
             'asignaciones.malla.asignatura',
             'asignaciones.malla.asignaturaPropia',
         ]);
@@ -83,6 +85,10 @@ class InformeAprendizaje
         $asistencia = $this->asistenciaPorAlumno($aula, $ciclo, $parcialNumero);
         $comportamiento = $this->comportamientoPorAlumno($aula, $ciclo);
         $alumnos = $this->asignaciones->alumnosDelAula($aula);
+        $mapaDestrezas = $this->consolidado->mapa($aula, $asignaturas, collect([$ciclo]), $alumnos);
+        $porDestrezas = $asignaturas->contains(
+            fn (EstablecimientoAsignatura $asignatura): bool => $asignatura->califica_por_destrezas,
+        );
 
         $estudiantes = $alumnos->map(function (Alumno $alumno) use (
             $aula,
@@ -95,6 +101,7 @@ class InformeAprendizaje
             $asistencia,
             $comportamiento,
             $establecimiento,
+            $mapaDestrezas,
         ): array {
             $notasNumericas = [];
             $filas = [];
@@ -105,8 +112,21 @@ class InformeAprendizaje
                 $cuantitativa = $this->esCuantitativa($aula, $asignatura);
                 $nota = null;
                 $textoCualitativo = null;
+                $resumenDestreza = $mapaDestrezas[(int) $alumno->id][(int) $asignatura->id] ?? null;
+                $celdaDestreza = $resumenDestreza['ciclos'][(int) $ciclo->id] ?? null;
 
-                if ($cuantitativa) {
+                $usaAmbitos = (bool) $aula->establecimientoGrado?->grado?->subnivel?->usa_ambitos;
+
+                if ($asignatura->califica_por_destrezas) {
+                    if (is_array($celdaDestreza) && $celdaDestreza['nota'] !== null) {
+                        $nota = $celdaDestreza['nota'];
+                        $notasNumericas[] = $nota;
+                    }
+
+                    $textoCualitativo = $usaAmbitos
+                        ? 'Por destreza'
+                        : (is_array($celdaDestreza) ? ($celdaDestreza['letra'] ?? null) : null);
+                } elseif ($cuantitativa) {
                     $nota = $this->notaCuantitativa(
                         $aula,
                         $asignatura,
@@ -124,14 +144,23 @@ class InformeAprendizaje
                     $textoCualitativo = $this->notaCualitativaUnica($delAlumno, (int) $alumno->id);
                 }
 
+                $notaTexto = match (true) {
+                    $asignatura->califica_por_destrezas && $nota !== null => $this->libreta->textoNota($nota),
+                    $asignatura->califica_por_destrezas => $textoCualitativo ?? '—',
+                    $cuantitativa => $this->libreta->textoNota($nota),
+                    default => $textoCualitativo ?? '—',
+                };
+
                 $filas[] = [
                     'nombre' => $asignatura->nombre(),
-                    'nota' => $cuantitativa
-                        ? $this->libreta->textoNota($nota)
-                        : ($textoCualitativo ?? '—'),
-                    'cualitativa' => $cuantitativa && $asignatura->escala === EscalaCalificacion::Nacional
-                        ? ($this->equivalenciaCualitativa($nota, $tabla) ?? '—')
-                        : '—',
+                    'nota' => $notaTexto,
+                    'cualitativa' => $asignatura->califica_por_destrezas
+                        ? ($usaAmbitos
+                            ? 'Sin promedio'
+                            : (is_array($celdaDestreza) ? ($celdaDestreza['etiqueta'] ?? '—') : '—'))
+                        : ($cuantitativa && $asignatura->escala === EscalaCalificacion::Nacional
+                            ? ($this->equivalenciaCualitativa($nota, $tabla) ?? '—')
+                            : '—'),
                 ];
             }
 
@@ -154,6 +183,11 @@ class InformeAprendizaje
                     'atrasos' => 0,
                 ],
                 'comportamiento' => $comportamiento[(int) $alumno->id] ?? '—',
+                'destrezas' => $this->consolidado->filas(
+                    $mapaDestrezas[(int) $alumno->id] ?? [],
+                    $asignaturas,
+                    collect([$ciclo]),
+                ),
             ];
         })->values()->all();
 
@@ -170,6 +204,14 @@ class InformeAprendizaje
             'ciclo' => $ciclo->nombre,
             'parcial' => $esParcial ? $this->etiquetaParcial((int) $parcialNumero) : null,
             'escala' => $this->escalaNacional(),
+            'por_destrezas' => $porDestrezas,
+            'equivale_nota_nacional' => (bool) $aula->establecimientoGrado?->grado?->subnivel?->equivale_nota_nacional,
+            'usa_ambitos' => (bool) $aula->establecimientoGrado?->grado?->subnivel?->usa_ambitos,
+            'escala_destrezas' => $porDestrezas
+                ? ((bool) $aula->establecimientoGrado?->grado?->subnivel?->usa_ambitos
+                    ? CalificacionDestreza::opcionesAmbito()
+                    : CalificacionDestreza::opciones())
+                : [],
             'estudiantes' => $estudiantes,
             'base_legal' => 'Escala de calificaciones del Reglamento General a la Ley Orgánica de Educación Intercultural (Art. 194). Las notas en blanco no entran al promedio.',
         ];
@@ -198,10 +240,13 @@ class InformeAprendizaje
         $consolidado = $this->consolidadoPeriodo($aula);
         $gradoSiguiente = $this->gradoSiguiente($aula);
 
+        $evaluacionCualitativa = $this->promueveSinNotaNumerica($aula);
         $consolidado['estudiantes'] = array_map(
-            function (array $estudiante) use ($gradoSiguiente): array {
+            function (array $estudiante) use ($gradoSiguiente, $evaluacionCualitativa): array {
                 $promovido = (bool) $estudiante['promovido'];
                 $estudiante['promocion'] = match (true) {
+                    $promovido && $evaluacionCualitativa && $gradoSiguiente !== null => 'Es promovido/a a '.$gradoSiguiente.'. En Educación Inicial y en Preparatoria la evaluación es cualitativa, por destrezas e indicadores.',
+                    $promovido && $evaluacionCualitativa => 'Culminó el subnivel. En Educación Inicial y en Preparatoria la evaluación es cualitativa, por destrezas e indicadores.',
                     $promovido && $gradoSiguiente !== null => 'Es promovido/a a '.$gradoSiguiente.' de conformidad con el Art. 197 del Reglamento General a la LOEI.',
                     $promovido => 'Culminó el subnivel y reúne los requisitos de promoción previstos en el Art. 197 del Reglamento General a la LOEI.',
                     default => 'No reúne los requisitos de promoción previstos en el Art. 197 del Reglamento General a la LOEI (calificación mínima 7,00 en cada asignatura).',
@@ -220,8 +265,20 @@ class InformeAprendizaje
             'representante' => $aula->establecimiento?->representante ?? '',
             'direccion' => $aula->establecimiento?->direccion ?? '',
             'fecha' => now()->format('d/m/Y'),
-            'base_legal' => 'Arts. 194 y 197 del Reglamento General a la Ley Orgánica de Educación Intercultural. La promoción exige al menos 7,00 (Alcanza los aprendizajes requeridos) en cada asignatura cuantitativa.',
+            'base_legal' => $evaluacionCualitativa
+                ? 'Instructivo de evaluación estudiantil y Reglamento General a la LOEI. En Educación Inicial y Preparatoria la promoción no depende de una nota sobre 10.'
+                : 'Arts. 194 y 197 del Reglamento General a la Ley Orgánica de Educación Intercultural. La promoción exige al menos 7,00 (Alcanza los aprendizajes requeridos) en cada asignatura cuantitativa.',
         ];
+    }
+
+    private function promueveSinNotaNumerica(EstablecimientoAula $aula): bool
+    {
+        $aula->loadMissing('establecimientoGrado.grado.subnivel');
+        $subnivel = $aula->establecimientoGrado?->grado?->subnivel;
+
+        return $subnivel !== null
+            && $subnivel->califica_por_destrezas
+            && ! $subnivel->equivale_nota_nacional;
     }
 
     /**
@@ -266,6 +323,10 @@ class InformeAprendizaje
         $asistencia = $this->asistenciaPorAlumno($aula, null, null);
         $comportamiento = $this->comportamientoPorAlumno($aula, null);
         $alumnos = $this->asignaciones->alumnosDelAula($aula);
+        $mapaDestrezas = $this->consolidado->mapa($aula, $asignaturas, $ciclos, $alumnos);
+        $porDestrezas = $asignaturas->contains(
+            fn (EstablecimientoAsignatura $asignatura): bool => $asignatura->califica_por_destrezas,
+        );
         $primerCiclo = $ciclos->first();
         $pesosPorAsignatura = [];
         $muestraExamenFinal = false;
@@ -292,6 +353,7 @@ class InformeAprendizaje
             $establecimiento,
             $primerCiclo,
             $pesosPorAsignatura,
+            $mapaDestrezas,
         ): array {
             $notasNumericas = [];
             $filas = [];
@@ -306,6 +368,7 @@ class InformeAprendizaje
                 $promediosCiclo = [];
                 $notaPeriodo = null;
                 $textoCualitativo = null;
+                $etiquetaDestreza = null;
                 $examenFinal = null;
                 $proyectoFinal = null;
                 $pesosFinales = $primerCiclo instanceof EstablecimientoPeriodoCiclo
@@ -326,48 +389,28 @@ class InformeAprendizaje
                         'proyecto' => 0.0,
                     ];
 
-                foreach ($ciclos as $ciclo) {
-                    $delCiclo = $todas
-                        ->where('establecimiento_periodo_ciclo_id', $ciclo->id)
-                        ->values();
+                $resumenDestreza = $mapaDestrezas[(int) $alumno->id][(int) $asignatura->id] ?? null;
+                $usaAmbitos = (bool) $aula->establecimientoGrado?->grado?->subnivel?->usa_ambitos;
 
-                    if ($cuantitativa) {
-                        $promedioCiclo = $this->notaCuantitativa(
-                            $aula,
-                            $asignatura,
-                            $ciclo,
-                            $alumno,
-                            $delCiclo,
-                            $cierresDe,
-                            false,
-                        );
+                if ($asignatura->califica_por_destrezas) {
+                    foreach ($ciclos as $ciclo) {
+                        $celda = is_array($resumenDestreza)
+                            ? ($resumenDestreza['ciclos'][(int) $ciclo->id] ?? null)
+                            : null;
                         $notasCiclo[] = [
                             'nombre' => $ciclo->nombre,
-                            'nota' => $this->libreta->textoNota($promedioCiclo),
-                        ];
-                        $promediosCiclo[] = [
-                            'valor' => $promedioCiclo,
-                            'peso' => $pesosPorAsignatura[$asignatura->id][$ciclo->id]['periodo'] ?? 0.0,
-                        ];
-                    } else {
-                        $texto = $this->notaCualitativaUnica($delCiclo, (int) $alumno->id);
-                        $notasCiclo[] = [
-                            'nombre' => $ciclo->nombre,
-                            'nota' => $texto ?? '—',
+                            'nota' => is_array($celda) && $celda['nota'] !== null
+                                ? $this->libreta->textoNota($celda['nota'])
+                                : (is_array($celda) ? ($celda['letra'] ?? '—') : '—'),
                         ];
                     }
-                }
 
-                if ($cuantitativa) {
-                    $examenFinal = $this->libreta->cierreDe($cierresDe, TipoCierreEvaluacion::ExamenFinal, (int) $alumno->id);
-                    $proyectoFinal = $this->libreta->cierreDe($cierresDe, TipoCierreEvaluacion::ProyectoFinal, (int) $alumno->id);
-                    $notaPeriodo = $this->libreta->promedioPeriodo(
-                        $aula,
-                        $promediosCiclo,
-                        $examenFinal,
-                        $proyectoFinal,
-                        $pesosFinales,
-                    );
+                    $anual = is_array($resumenDestreza)
+                        ? $resumenDestreza['anual']
+                        : ['letra' => null, 'etiqueta' => null, 'nota' => null];
+                    $notaPeriodo = $anual['nota'];
+                    $textoCualitativo = $usaAmbitos ? 'Por destreza' : $anual['letra'];
+                    $etiquetaDestreza = $usaAmbitos ? 'Sin promedio' : $anual['etiqueta'];
 
                     if ($notaPeriodo !== null) {
                         $notasNumericas[] = $notaPeriodo;
@@ -378,30 +421,90 @@ class InformeAprendizaje
                         }
                     }
                 } else {
-                    $textos = collect($notasCiclo)
-                        ->pluck('nota')
-                        ->filter(fn (string $nota): bool => $nota !== '—')
-                        ->unique()
-                        ->values();
-                    $textoCualitativo = $textos->count() === 1 ? (string) $textos->first() : null;
+                    foreach ($ciclos as $ciclo) {
+                        $delCiclo = $todas
+                            ->where('establecimiento_periodo_ciclo_id', $ciclo->id)
+                            ->values();
+
+                        if ($cuantitativa) {
+                            $promedioCiclo = $this->notaCuantitativa(
+                                $aula,
+                                $asignatura,
+                                $ciclo,
+                                $alumno,
+                                $delCiclo,
+                                $cierresDe,
+                                false,
+                            );
+                            $notasCiclo[] = [
+                                'nombre' => $ciclo->nombre,
+                                'nota' => $this->libreta->textoNota($promedioCiclo),
+                            ];
+                            $promediosCiclo[] = [
+                                'valor' => $promedioCiclo,
+                                'peso' => $pesosPorAsignatura[$asignatura->id][$ciclo->id]['periodo'] ?? 0.0,
+                            ];
+                        } else {
+                            $texto = $this->notaCualitativaUnica($delCiclo, (int) $alumno->id);
+                            $notasCiclo[] = [
+                                'nombre' => $ciclo->nombre,
+                                'nota' => $texto ?? '—',
+                            ];
+                        }
+                    }
+
+                    if ($cuantitativa) {
+                        $examenFinal = $this->libreta->cierreDe($cierresDe, TipoCierreEvaluacion::ExamenFinal, (int) $alumno->id);
+                        $proyectoFinal = $this->libreta->cierreDe($cierresDe, TipoCierreEvaluacion::ProyectoFinal, (int) $alumno->id);
+                        $notaPeriodo = $this->libreta->promedioPeriodo(
+                            $aula,
+                            $promediosCiclo,
+                            $examenFinal,
+                            $proyectoFinal,
+                            $pesosFinales,
+                        );
+
+                        if ($notaPeriodo !== null) {
+                            $notasNumericas[] = $notaPeriodo;
+                            $tieneNotaCuantitativa = true;
+
+                            if ($asignatura->escala === EscalaCalificacion::Nacional && $notaPeriodo < self::NOTA_MINIMA_PROMOCION) {
+                                $promovido = false;
+                            }
+                        }
+                    } else {
+                        $textos = collect($notasCiclo)
+                            ->pluck('nota')
+                            ->filter(fn (string $nota): bool => $nota !== '—')
+                            ->unique()
+                            ->values();
+                        $textoCualitativo = $textos->count() === 1 ? (string) $textos->first() : null;
+                    }
                 }
+
+                $notaAnual = match (true) {
+                    $asignatura->califica_por_destrezas && $notaPeriodo !== null => $this->libreta->textoNota($notaPeriodo),
+                    $asignatura->califica_por_destrezas => $textoCualitativo ?? '—',
+                    $cuantitativa => $this->libreta->textoNota($notaPeriodo),
+                    default => $textoCualitativo ?? '—',
+                };
 
                 $filas[] = [
                     'nombre' => $asignatura->nombre(),
                     'ciclos' => $notasCiclo,
                     'examen_final' => $this->libreta->textoNota($examenFinal),
                     'proyecto_final' => $this->libreta->textoNota($proyectoFinal),
-                    'nota' => $cuantitativa
-                        ? $this->libreta->textoNota($notaPeriodo)
-                        : ($textoCualitativo ?? '—'),
-                    'cualitativa' => $cuantitativa && $asignatura->escala === EscalaCalificacion::Nacional
-                        ? ($this->equivalenciaCualitativa($notaPeriodo, $tabla) ?? '—')
-                        : '—',
+                    'nota' => $notaAnual,
+                    'cualitativa' => $asignatura->califica_por_destrezas
+                        ? ($etiquetaDestreza ?? '—')
+                        : ($cuantitativa && $asignatura->escala === EscalaCalificacion::Nacional
+                            ? ($this->equivalenciaCualitativa($notaPeriodo, $tabla) ?? '—')
+                            : '—'),
                 ];
             }
 
             if (! $tieneNotaCuantitativa) {
-                $promovido = false;
+                $promovido = $this->promueveSinNotaNumerica($aula);
             }
 
             $promedio = $notasNumericas === []
@@ -423,6 +526,11 @@ class InformeAprendizaje
                     'atrasos' => 0,
                 ],
                 'comportamiento' => $comportamiento[(int) $alumno->id] ?? '—',
+                'destrezas' => $this->consolidado->filas(
+                    $mapaDestrezas[(int) $alumno->id] ?? [],
+                    $asignaturas,
+                    $ciclos,
+                ),
                 'promovido' => $promovido,
             ];
         })->values()->all();
@@ -439,6 +547,14 @@ class InformeAprendizaje
             'muestra_examen_final' => $muestraExamenFinal,
             'muestra_proyecto_final' => $muestraProyectoFinal,
             'escala' => $this->escalaNacional(),
+            'por_destrezas' => $porDestrezas,
+            'equivale_nota_nacional' => (bool) $aula->establecimientoGrado?->grado?->subnivel?->equivale_nota_nacional,
+            'usa_ambitos' => (bool) $aula->establecimientoGrado?->grado?->subnivel?->usa_ambitos,
+            'escala_destrezas' => $porDestrezas
+                ? ((bool) $aula->establecimientoGrado?->grado?->subnivel?->usa_ambitos
+                    ? CalificacionDestreza::opcionesAmbito()
+                    : CalificacionDestreza::opciones())
+                : [],
             'estudiantes' => $estudiantes,
         ];
     }

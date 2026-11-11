@@ -125,13 +125,37 @@
             @if (session('status') === 'asignatura-deleted')
                 <p class="mb-4 text-sm font-medium text-green-700">Asignatura eliminada correctamente.</p>
             @endif
+            @if (session('status') === 'destreza-created')
+                <p class="mb-4 text-sm font-medium text-green-700">Destreza creada. Agrega sus indicadores de evaluación.</p>
+            @endif
+            @if (session('status') === 'destreza-updated')
+                <p class="mb-4 text-sm font-medium text-green-700">Destreza actualizada.</p>
+            @endif
+            @if (session('status') === 'destreza-deleted')
+                <p class="mb-4 text-sm font-medium text-green-700">Destreza eliminada.</p>
+            @endif
+            @if (session('status') === 'indicador-created')
+                <p class="mb-4 text-sm font-medium text-green-700">Indicador de evaluación agregado.</p>
+            @endif
+            @if (session('status') === 'indicador-updated')
+                <p class="mb-4 text-sm font-medium text-green-700">Indicador de evaluación actualizado.</p>
+            @endif
+            @if (session('status') === 'indicador-deleted')
+                <p class="mb-4 text-sm font-medium text-green-700">Indicador de evaluación eliminado.</p>
+            @endif
+            @if (session('status') === 'organizacion-updated')
+                <p class="mb-4 text-sm font-medium text-green-700">La organización del subnivel quedó actualizada.</p>
+            @endif
             @if (session('error'))
                 <p class="mb-4 text-sm font-medium text-red-700">{{ session('error') }}</p>
             @endif
 
             <section class="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
                 <p class="text-sm text-slate-600">
-                    Configura las áreas (ámbitos en Inicial) y las asignaturas de cada subnivel. En las libretas del Ministerio de Educación se agrupan por área y luego por asignatura. Más adelante estas asignaturas se podrán asignar a los grados del mismo subnivel.
+                    Configura las áreas y las asignaturas de cada subnivel. En las libretas del Ministerio de Educación se agrupan por área y luego por asignatura. En Inicial, Preparatoria y Básica Elemental cada asignatura también lleva las destrezas y sus indicadores de evaluación.
+                </p>
+                <p class="mt-2 text-sm text-slate-600">
+                    En el subnivel, la casilla <strong>Organiza por ámbitos</strong> usa la organización del Currículo de Inicial y Preparatoria: ejes, ámbitos, destrezas y criterios. Puedes cambiarla cuando la norma cambie. Los nombres se editan en el mismo subnivel.
                 </p>
                 <p class="mt-2 text-sm text-slate-600">Marca <strong>Área técnica</strong> en las áreas del subnivel Bachillerato General Unificado para publicarlas en el catálogo. Cada establecimiento activará únicamente las áreas técnicas que ofrezca.</p>
                 <p class="mt-2 text-sm text-slate-500">

@@ -1,4 +1,10 @@
 @php
+    use App\Enums\TipoCalificacion;
+
+    $porAmbitos = (bool) $subnivel->usa_ambitos;
+    $etiquetaGrupos = $porAmbitos ? 'ejes' : 'áreas';
+    $etiquetaUnidades = $porAmbitos ? 'ámbitos' : 'asignaturas';
+    $puedeOrganizarPorAmbitos = $subnivel->tipo_calificacion === TipoCalificacion::Cualitativa;
     $areaCreateBag = $errors->getBag('area-create-'.$subnivel->id);
     $areaCreateCodigo = $areaCreateBag->isNotEmpty() ? old('codigo') : '';
     $areaCreateNombre = $areaCreateBag->isNotEmpty() ? old('nombre') : '';
@@ -33,11 +39,32 @@
                 </span>
                 <span class="mt-1 block text-sm text-slate-500">{{ $subnivel->descripcion ?: 'Sin descripción' }}</span>
                 <span class="mt-1 block text-xs text-slate-400">
-                    {{ $subnivel->areas->count() }} áreas
-                    · {{ $subnivel->areas->sum(fn ($area) => $area->asignaturas->count()) }} asignaturas
+                    {{ $subnivel->areas->count() }} {{ $etiquetaGrupos }}
+                    · {{ $subnivel->areas->sum(fn ($area) => $area->asignaturas->count()) }} {{ $etiquetaUnidades }}
+                    @if ($porAmbitos)
+                        · Por ámbitos
+                    @endif
                 </span>
             </span>
         </button>
+        @if ($puedeOrganizarPorAmbitos)
+            <form method="POST" action="{{ route('sistemas.curriculo.organizacion.update', [$nivel, $subnivel]) }}" class="sm:shrink-0">
+                @csrf
+                @method('patch')
+                <input type="hidden" name="usa_ambitos" value="0">
+                <label class="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                    <input
+                        type="checkbox"
+                        name="usa_ambitos"
+                        value="1"
+                        class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500"
+                        @checked($porAmbitos)
+                        onchange="this.form.submit()"
+                    >
+                    Organiza por ámbitos
+                </label>
+            </form>
+        @endif
     </div>
 
     <div
@@ -46,13 +73,17 @@
         x-show="openSubnivelId === {{ $subnivel->id }}"
     >
         <div class="flex flex-col gap-4 border-l-2 border-indigo-200 pl-4 sm:pl-6">
-            <h5 class="text-sm font-semibold uppercase tracking-wide text-slate-500">Áreas</h5>
+            <h5 class="text-sm font-semibold uppercase tracking-wide text-slate-500">{{ $porAmbitos ? 'Ejes' : 'Áreas' }}</h5>
 
             @forelse ($subnivel->areas as $area)
                 @include('sistemas.curriculo._area', ['nivel' => $nivel, 'subnivel' => $subnivel, 'area' => $area])
             @empty
                 <p class="rounded-lg border border-dashed border-slate-200 bg-white px-4 py-3 text-sm text-slate-500">
-                    Este subnivel aún no tiene áreas. En Inicial usa ámbitos; en EGB y BGU usa las áreas del currículo nacional.
+                    @if ($porAmbitos)
+                        Este subnivel aún no tiene ejes. Agrega cada eje y, dentro, sus ámbitos con destrezas y criterios.
+                    @else
+                        Este subnivel aún no tiene áreas. En EGB y BGU usa las áreas del currículo nacional.
+                    @endif
                 </p>
             @endforelse
 
@@ -64,7 +95,7 @@
                 <x-input-error class="mt-2" :messages="$areaCreateBag->get('codigo')" />
             </div>
             <div class="md:min-w-40 md:flex-1">
-                <x-input-label :for="'nombre-area-create-'.$subnivel->id" value="Nueva área" />
+                <x-input-label :for="'nombre-area-create-'.$subnivel->id" value="{{ $porAmbitos ? 'Nuevo eje' : 'Nueva área' }}" />
                 <x-text-input :id="'nombre-area-create-'.$subnivel->id" class="mt-1 block w-full" type="text" name="nombre" :value="$areaCreateNombre" required />
                 <x-input-error class="mt-2" :messages="$areaCreateBag->get('nombre')" />
             </div>
@@ -93,9 +124,9 @@
             <input type="hidden" name="es_tecnica" value="0">
             <label class="flex items-center gap-2 text-sm text-slate-700 md:mb-1">
                 <input type="checkbox" name="es_tecnica" value="1" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500">
-                Área técnica
+                {{ $porAmbitos ? 'Eje técnico' : 'Área técnica' }}
             </label>
-            <x-primary-button>Crear área</x-primary-button>
+            <x-primary-button>{{ $porAmbitos ? 'Crear eje' : 'Crear área' }}</x-primary-button>
         </form>
         </div>
     </div>

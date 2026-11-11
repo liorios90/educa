@@ -1,9 +1,12 @@
 <?php
 
 use App\Enums\Role;
+use App\Enums\TipoCalificacion;
 use App\Models\NavigationItem;
 use App\Models\Sys_Area;
 use App\Models\Sys_Asignatura;
+use App\Models\Sys_Destreza;
+use App\Models\Sys_Grado;
 use App\Models\Sys_Nivel;
 use App\Models\Sys_Subnivel;
 use App\Models\User;
@@ -30,6 +33,101 @@ describe('index', function () {
             ->assertSee('Nueva asignatura')
             ->assertSee('En las libretas del Ministerio de Educación')
             ->assertSee(route('sistemas.estructura'), false);
+    });
+
+    it('shows ejes and ambitos when the subnivel organizes by ambitos', function () {
+        $user = assignRole(User::factory()->create(), Role::Sistemas);
+        $nivel = Sys_Nivel::factory()->create(['nombre' => 'Educación General Básica']);
+        $subnivel = Sys_Subnivel::factory()->for($nivel, 'nivel')->create([
+            'nombre' => 'Preparatoria',
+            'tipo_calificacion' => TipoCalificacion::Cualitativa,
+            'califica_por_destrezas' => true,
+            'usa_ambitos' => true,
+        ]);
+        $area = Sys_Area::factory()->for($subnivel, 'subnivel')->create(['nombre' => 'Desarrollo personal y social']);
+        $asignatura = Sys_Asignatura::factory()->for($area, 'area')->create(['nombre' => 'Identidad y autonomía']);
+        $grado = Sys_Grado::factory()->for($subnivel, 'subnivel')->create();
+        Sys_Destreza::factory()->create([
+            'asignatura_id' => $asignatura->id,
+            'grado_id' => $grado->id,
+            'descripcion' => 'Reconocer sus datos de identidad',
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('sistemas.curriculo', ['nivel' => $nivel->id, 'subnivel' => $subnivel->id, 'area' => $area->id]))
+            ->assertOk()
+            ->assertSee('Organiza por ámbitos')
+            ->assertSee('Ejes')
+            ->assertSee('Crear eje')
+            ->assertSee('Crear ámbito')
+            ->assertSee('Nuevo ámbito')
+            ->assertSee('Destrezas y criterios')
+            ->assertSee('Agregar criterio')
+            ->assertSee('Identidad y autonomía');
+    });
+
+    it('turns ambitos on from the curriculo screen and keeps destrezas enabled', function () {
+        $user = assignRole(User::factory()->create(), Role::Sistemas);
+        $nivel = Sys_Nivel::factory()->create();
+        $subnivel = Sys_Subnivel::factory()->for($nivel, 'nivel')->create([
+            'tipo_calificacion' => TipoCalificacion::Cualitativa,
+            'califica_por_destrezas' => false,
+            'usa_ambitos' => false,
+        ]);
+
+        $this->actingAs($user)
+            ->patch(route('sistemas.curriculo.organizacion.update', [$nivel, $subnivel]), [
+                'usa_ambitos' => '1',
+            ])
+            ->assertRedirect(route('sistemas.curriculo', [
+                'nivel' => $nivel->id,
+                'subnivel' => $subnivel->id,
+            ]));
+
+        $subnivel->refresh();
+
+        expect($subnivel->usa_ambitos)->toBeTrue()
+            ->and($subnivel->califica_por_destrezas)->toBeTrue();
+    });
+
+    it('turns ambitos off without clearing destrezas', function () {
+        $user = assignRole(User::factory()->create(), Role::Sistemas);
+        $nivel = Sys_Nivel::factory()->create();
+        $subnivel = Sys_Subnivel::factory()->for($nivel, 'nivel')->create([
+            'tipo_calificacion' => TipoCalificacion::Cualitativa,
+            'califica_por_destrezas' => true,
+            'usa_ambitos' => true,
+            'equivale_nota_nacional' => true,
+        ]);
+
+        $this->actingAs($user)
+            ->patch(route('sistemas.curriculo.organizacion.update', [$nivel, $subnivel]), [
+                'usa_ambitos' => '0',
+            ])
+            ->assertRedirect();
+
+        $subnivel->refresh();
+
+        expect($subnivel->usa_ambitos)->toBeFalse()
+            ->and($subnivel->califica_por_destrezas)->toBeTrue()
+            ->and($subnivel->equivale_nota_nacional)->toBeTrue();
+    });
+
+    it('keeps a quantitative subnivel out of ambitos', function () {
+        $user = assignRole(User::factory()->create(), Role::Sistemas);
+        $nivel = Sys_Nivel::factory()->create();
+        $subnivel = Sys_Subnivel::factory()->for($nivel, 'nivel')->create([
+            'tipo_calificacion' => TipoCalificacion::Cuantitativa,
+            'usa_ambitos' => false,
+        ]);
+
+        $this->actingAs($user)
+            ->patch(route('sistemas.curriculo.organizacion.update', [$nivel, $subnivel]), [
+                'usa_ambitos' => '1',
+            ])
+            ->assertRedirect();
+
+        expect($subnivel->refresh()->usa_ambitos)->toBeFalse();
     });
 
     it('forbids administrators from creating an area', function () {

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Auth\ContextoAsistencia;
 use App\Auth\ContextoComportamiento;
+use App\Auth\ContextoDestreza;
 use App\Auth\DocenteContexto;
 use App\Enums\EsquemaCiclo;
 use App\Enums\ModoAsistencia;
@@ -71,7 +72,8 @@ class AsignacionesDocente
      *     ciclos: list<array{id: int, nombre: string, parciales_cerrados: list<int>}>,
      *     parciales: list<array{numero: int, nombre: string}>,
      *     modo: string,
-     *     abierto: bool
+     *     abierto: bool,
+     *     usa_ambitos: bool
      * }>
      */
     public function aulasSelector(User $user): array
@@ -133,6 +135,7 @@ class AsignacionesDocente
                 $modoGuardado = $grupo->first(
                     fn (EstablecimientoAulaDocente $asignacion): bool => $asignacion->modo_asistencia instanceof ModoAsistencia,
                 )?->modo_asistencia;
+                $subnivel = $aula->establecimientoGrado?->subnivel;
 
                 return [
                     'id' => (int) $aula->id,
@@ -141,8 +144,9 @@ class AsignacionesDocente
                     'materias' => $materias,
                     'ciclos' => $ciclos,
                     'parciales' => $parciales,
-                    'modo' => ($modoGuardado ?? ModoAsistencia::predeterminado($aula->establecimientoGrado?->subnivel?->nombre))->value,
+                    'modo' => ($modoGuardado ?? ModoAsistencia::predeterminado($subnivel?->nombre))->value,
                     'abierto' => $periodo?->estaAbierto() === true,
+                    'usa_ambitos' => (bool) $subnivel?->usa_ambitos,
                 ];
             })
             ->filter()
@@ -188,6 +192,17 @@ class AsignacionesDocente
         }
 
         return new ContextoComportamiento($contexto->aula, $contexto->asignatura, $contexto->ciclo);
+    }
+
+    public function contextoDestreza(User $user, int $aulaId, int $asignaturaId, int $cicloId): ?ContextoDestreza
+    {
+        $contexto = $this->contexto($user, $aulaId, $asignaturaId, $cicloId, 0);
+
+        if ($contexto === null || ! $contexto->asignatura->califica_por_destrezas) {
+            return null;
+        }
+
+        return new ContextoDestreza($contexto->aula, $contexto->asignatura, $contexto->ciclo);
     }
 
     public function contextoAsistencia(

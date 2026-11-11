@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\CatalogoDestrezaController;
 use App\Http\Controllers\Admin\ConfiguracionAsignaturasController;
 use App\Http\Controllers\Admin\ConfiguracionAsistenteController;
 use App\Http\Controllers\Admin\ConfiguracionDecimalesController;
@@ -79,6 +80,15 @@ Route::middleware(['auth', 'verified', 'role:Admin'])
         Route::get('asignaturas', [EstablecimientoAsignaturaController::class, 'index'])->name('asignaturas');
         Route::get('asignaturas/{oferta}', [EstablecimientoAsignaturaController::class, 'edit'])->name('asignaturas.edit');
         Route::put('asignaturas/{oferta}', [EstablecimientoAsignaturaController::class, 'update'])->name('asignaturas.update');
+        Route::post('asignaturas/{oferta}/catalogo/{asignatura}/criterios', [CatalogoDestrezaController::class, 'storeCriterio'])->name('asignaturas.criterios.store')->whereNumber('oferta')->whereNumber('asignatura');
+        Route::patch('asignaturas/{oferta}/catalogo/{asignatura}/criterios/{criterio}', [CatalogoDestrezaController::class, 'updateCriterio'])->name('asignaturas.criterios.update')->whereNumber('oferta')->whereNumber('asignatura')->whereNumber('criterio');
+        Route::delete('asignaturas/{oferta}/catalogo/{asignatura}/criterios/{criterio}', [CatalogoDestrezaController::class, 'destroyCriterio'])->name('asignaturas.criterios.destroy')->whereNumber('oferta')->whereNumber('asignatura')->whereNumber('criterio');
+        Route::post('asignaturas/{oferta}/catalogo/{asignatura}/destrezas', [CatalogoDestrezaController::class, 'storeDestreza'])->name('asignaturas.destrezas.store')->whereNumber('oferta')->whereNumber('asignatura');
+        Route::patch('asignaturas/{oferta}/catalogo/{asignatura}/destrezas/{destreza}', [CatalogoDestrezaController::class, 'updateDestreza'])->name('asignaturas.destrezas.update')->whereNumber('oferta')->whereNumber('asignatura')->whereNumber('destreza');
+        Route::delete('asignaturas/{oferta}/catalogo/{asignatura}/destrezas/{destreza}', [CatalogoDestrezaController::class, 'destroyDestreza'])->name('asignaturas.destrezas.destroy')->whereNumber('oferta')->whereNumber('asignatura')->whereNumber('destreza');
+        Route::post('asignaturas/{oferta}/catalogo/{asignatura}/destrezas/{destreza}/indicadores', [CatalogoDestrezaController::class, 'storeIndicador'])->name('asignaturas.indicadores.store')->whereNumber('oferta')->whereNumber('asignatura')->whereNumber('destreza');
+        Route::patch('asignaturas/{oferta}/catalogo/{asignatura}/destrezas/{destreza}/indicadores/{indicador}', [CatalogoDestrezaController::class, 'updateIndicador'])->name('asignaturas.indicadores.update')->whereNumber('oferta')->whereNumber('asignatura')->whereNumber('destreza')->whereNumber('indicador');
+        Route::delete('asignaturas/{oferta}/catalogo/{asignatura}/destrezas/{destreza}/indicadores/{indicador}', [CatalogoDestrezaController::class, 'destroyIndicador'])->name('asignaturas.indicadores.destroy')->whereNumber('oferta')->whereNumber('asignatura')->whereNumber('destreza')->whereNumber('indicador');
         Route::put('asignaturas/{oferta}/areas-tecnicas', [EstablecimientoAsignaturaController::class, 'updateAreasTecnicas'])->name('asignaturas.areas-tecnicas.update');
         Route::post('asignaturas/{oferta}/figuras-profesionales', [EstablecimientoFiguraProfesionalController::class, 'store'])->name('asignaturas.figuras-profesionales.store');
         Route::delete('asignaturas/{oferta}/figuras-profesionales/{figuraProfesional}', [EstablecimientoFiguraProfesionalController::class, 'destroy'])->name('asignaturas.figuras-profesionales.destroy')->whereNumber('figuraProfesional');

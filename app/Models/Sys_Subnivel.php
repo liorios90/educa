@@ -27,6 +27,8 @@ class Sys_Subnivel extends Model
         'descripcion',
         'tipo_calificacion',
         'califica_por_destrezas',
+        'equivale_nota_nacional',
+        'usa_ambitos',
         'nivel_id',
     ];
 
@@ -35,6 +37,8 @@ class Sys_Subnivel extends Model
      */
     protected $attributes = [
         'califica_por_destrezas' => false,
+        'equivale_nota_nacional' => false,
+        'usa_ambitos' => false,
     ];
 
     /**
@@ -45,6 +49,8 @@ class Sys_Subnivel extends Model
         return [
             'tipo_calificacion' => TipoCalificacion::class,
             'califica_por_destrezas' => 'boolean',
+            'equivale_nota_nacional' => 'boolean',
+            'usa_ambitos' => 'boolean',
         ];
     }
 

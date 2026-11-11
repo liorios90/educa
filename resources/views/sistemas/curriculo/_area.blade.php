@@ -10,6 +10,12 @@
     $areaTecnica = $areaBag->isNotEmpty()
         ? (bool) old('es_tecnica', $area->es_tecnica)
         : $area->es_tecnica;
+    $porAmbitos = (bool) $subnivel->usa_ambitos;
+    $etiquetaGrupo = $porAmbitos ? 'eje' : 'área';
+    $etiquetaUnidad = $porAmbitos ? 'ámbito' : 'asignatura';
+    $etiquetaUnidades = $porAmbitos ? 'ámbitos' : 'asignaturas';
+    $preguntaGrupo = $porAmbitos ? 'este eje' : 'esta área';
+    $preguntaUnidad = $porAmbitos ? 'este ámbito' : 'esta asignatura';
 @endphp
 
 <article class="overflow-hidden rounded-lg border border-slate-200 bg-white">
@@ -38,8 +44,8 @@
                 <span class="mt-1 block text-xs text-slate-400">
                     Orden {{ $area->orden }}
                     · {{ $area->aparece_en_libreta ? 'En libreta' : 'No en libreta' }}
-                    · {{ $area->es_tecnica ? 'Catálogo técnico' : 'Área curricular' }}
-                    · {{ $area->asignaturas->count() }} asignaturas
+                    · {{ $area->es_tecnica ? 'Catálogo técnico' : ($porAmbitos ? 'Eje curricular' : 'Área curricular') }}
+                    · {{ $area->asignaturas->count() }} {{ $etiquetaUnidades }}
                 </span>
             </span>
         </button>
@@ -47,7 +53,7 @@
             <button type="button" class="font-medium text-indigo-600 hover:text-indigo-500" @click.stop="editArea({{ $nivel->id }}, {{ $subnivel->id }}, {{ $area->id }})">
                 Editar
             </button>
-            <form method="POST" action="{{ route('sistemas.curriculo.areas.destroy', [$nivel, $subnivel, $area]) }}" onsubmit="return confirm('¿Eliminar esta área?')">
+            <form method="POST" action="{{ route('sistemas.curriculo.areas.destroy', [$nivel, $subnivel, $area]) }}" onsubmit="return confirm('¿Eliminar {{ $preguntaGrupo }}?')">
                 @csrf
                 @method('delete')
                 <button type="submit" class="font-medium text-red-600 hover:text-red-500">
@@ -107,7 +113,7 @@
             <input type="hidden" name="es_tecnica" value="0">
             <label class="flex items-center gap-2 text-sm text-slate-700 md:mb-1">
                 <input type="checkbox" name="es_tecnica" value="1" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" @checked($areaTecnica)>
-                Área técnica
+                {{ $porAmbitos ? 'Eje técnico' : 'Área técnica' }}
             </label>
             <div class="flex gap-2">
                 <x-primary-button>Guardar</x-primary-button>
@@ -117,7 +123,7 @@
 
         <div class="flex justify-end">
             <x-primary-button type="button" x-on:click="$dispatch('open-modal', 'asignatura-create-{{ $area->id }}')">
-                Crear asignatura
+                Crear {{ $etiquetaUnidad }}
             </x-primary-button>
         </div>
 
@@ -125,7 +131,7 @@
             <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
                 <thead class="bg-slate-50 text-slate-600">
                     <tr>
-                        <th class="px-4 py-3 font-medium">Asignatura</th>
+                        <th class="px-4 py-3 font-medium">{{ $porAmbitos ? 'Ámbito' : 'Asignatura' }}</th>
                         <th class="px-4 py-3 font-medium">Código</th>
                         <th class="px-4 py-3 font-medium">Horas</th>
                         <th class="px-4 py-3 font-medium">Libreta</th>
@@ -204,7 +210,7 @@
                                     <button type="button" class="font-medium text-indigo-600 hover:text-indigo-500" @click="editAsignatura({{ $nivel->id }}, {{ $subnivel->id }}, {{ $area->id }}, {{ $asignatura->id }})">
                                         Editar
                                     </button>
-                                    <form method="POST" action="{{ route('sistemas.curriculo.asignaturas.destroy', [$nivel, $subnivel, $area, $asignatura]) }}" onsubmit="return confirm('¿Eliminar esta asignatura?')">
+                                    <form method="POST" action="{{ route('sistemas.curriculo.asignaturas.destroy', [$nivel, $subnivel, $area, $asignatura]) }}" onsubmit="return confirm('¿Eliminar {{ $preguntaUnidad }}?')">
                                         @csrf
                                         @method('delete')
                                         <button type="submit" class="font-medium text-red-600 hover:text-red-500">
@@ -214,10 +220,18 @@
                                 </div>
                             </td>
                         </tr>
+                        @if ($subnivel->califica_por_destrezas)
+                            @include('sistemas.curriculo._destrezas-asignatura', [
+                                'nivel' => $nivel,
+                                'subnivel' => $subnivel,
+                                'area' => $area,
+                                'asignatura' => $asignatura,
+                            ])
+                        @endif
                     @empty
                         <tr>
                             <td colspan="5" class="px-4 py-6 text-center text-slate-500">
-                                Esta área aún no tiene asignaturas.
+                                {{ $porAmbitos ? 'Este eje aún no tiene ámbitos.' : 'Esta área aún no tiene asignaturas.' }}
                             </td>
                         </tr>
                     @endforelse

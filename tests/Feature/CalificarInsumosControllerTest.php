@@ -14,7 +14,10 @@ use App\Models\EstablecimientoAlumnoAsignatura;
 use App\Models\EstablecimientoAsignatura;
 use App\Models\EstablecimientoAula;
 use App\Models\EstablecimientoAulaDocente;
+use App\Models\EstablecimientoDestrezaCalificacion;
 use App\Models\EstablecimientoGrado;
+use App\Models\EstablecimientoIndicadorCalificacion;
+use App\Models\EstablecimientoIndicadorObservacion;
 use App\Models\EstablecimientoInsumoActividad;
 use App\Models\EstablecimientoInsumoActividadCalificacion;
 use App\Models\EstablecimientoMatricula;
@@ -23,6 +26,9 @@ use App\Models\EstablecimientoPeriodoCicloParcial;
 use App\Models\NavigationItem;
 use App\Models\Persona;
 use App\Models\Sys_Asignatura;
+use App\Models\Sys_CriterioEvaluacion;
+use App\Models\Sys_Destreza;
+use App\Models\Sys_IndicadorEvaluacion;
 use App\Models\TipoInsumo;
 use App\Models\TipoInsumoDetalle;
 use App\Models\User;
@@ -1522,5 +1528,235 @@ describe('updateActividad', function () {
                 'nombre' => 'Cambiada',
             ])
             ->assertForbidden();
+    });
+});
+
+describe('destrezas en calificar', function () {
+    it('shows the indicator scale instead of the qualitative supply', function () {
+        $escenario = escenarioCalificarInsumos([
+            'tipo_calificacion' => TipoCalificacion::Cualitativa,
+            'asignatura' => 'Lengua y Literatura',
+        ]);
+        $escenario['malla']->update(['califica_por_destrezas' => true]);
+        $escenario['aula']->establecimientoGrado->subnivel->update([
+            'califica_por_destrezas' => true,
+            'equivale_nota_nacional' => false,
+            'usa_ambitos' => true,
+        ]);
+        $criterio = Sys_CriterioEvaluacion::factory()->create([
+            'asignatura_id' => $escenario['malla']->asignatura_id,
+            'grado_id' => $escenario['malla']->grado_id,
+            'codigo' => 'CE.LL.1.1',
+            'descripcion' => 'Comunica datos de su identidad',
+        ]);
+        $destreza = Sys_Destreza::factory()->create([
+            'asignatura_id' => $escenario['malla']->asignatura_id,
+            'grado_id' => $escenario['malla']->grado_id,
+            'criterio_evaluacion_id' => $criterio->id,
+            'codigo' => 'LL.1.5.2',
+            'descripcion' => 'Comunicar datos de su identidad',
+        ]);
+        $primero = Sys_IndicadorEvaluacion::factory()->create([
+            'destreza_id' => $destreza->id,
+            'codigo' => 'I.LL.1',
+            'descripcion' => 'Dice su nombre completo',
+        ]);
+        $segundo = Sys_IndicadorEvaluacion::factory()->create([
+            'destreza_id' => $destreza->id,
+            'codigo' => 'I.LL.2',
+            'descripcion' => 'Reconoce su apellido',
+        ]);
+        $alumno = alumnoDelEstablecimiento($escenario['establecimiento'], 'González');
+        matricularAlumnoCalificar($escenario['aula'], $alumno);
+        guardarContextoCalificar($escenario);
+
+        $this->actingAs($escenario['docente'])
+            ->get(route('Docente.calificar.index'))
+            ->assertOk()
+            ->assertSee('usa_ambitos\u0022:true', false)
+            ->assertSee("aula?.usa_ambitos ? 'Ámbitos'", false)
+            ->assertSee('Ámbito: Lengua y Literatura')
+            ->assertSee('Criterio CE.LL.1.1')
+            ->assertSee('Comunica datos de su identidad')
+            ->assertSee('Destreza '.$destreza->codigo)
+            ->assertSee('Dice su nombre completo')
+            ->assertSee('Reconoce su apellido')
+            ->assertSee('name="destrezas['.$alumno->id.']['.$destreza->id.'][indicadores][]"', false)
+            ->assertSee('0 de 2 indicadores')
+            ->assertSee('name="destrezas['.$alumno->id.']['.$destreza->id.'][calificacion]"', false)
+            ->assertSee('A+ — Destreza o aprendizaje alcanzado')
+            ->assertSee('E- — Destreza o aprendizaje iniciado')
+            ->assertSee('NE — No evaluado')
+            ->assertDontSee('Nombre de la actividad')
+            ->assertDontSee('Elegir un tipo de insumo:');
+    });
+
+    it('explains when the subject has no indicators yet', function () {
+        $escenario = escenarioCalificarInsumos([
+            'tipo_calificacion' => TipoCalificacion::Cualitativa,
+        ]);
+        $escenario['malla']->update(['califica_por_destrezas' => true]);
+        $escenario['aula']->establecimientoGrado->subnivel->update([
+            'califica_por_destrezas' => true,
+            'usa_ambitos' => true,
+        ]);
+        guardarContextoCalificar($escenario);
+
+        $this->actingAs($escenario['docente'])
+            ->get(route('Docente.calificar.index'))
+            ->assertOk()
+            ->assertSee('Este ámbito todavía no tiene destrezas.')
+            ->assertDontSee('Nombre de la actividad');
+    });
+
+    it('stores the selected destreza scale and stays on calificar', function () {
+        $escenario = escenarioCalificarInsumos([
+            'tipo_calificacion' => TipoCalificacion::Cualitativa,
+        ]);
+        $escenario['malla']->update(['califica_por_destrezas' => true]);
+        $destreza = Sys_Destreza::factory()->create([
+            'asignatura_id' => $escenario['malla']->asignatura_id,
+            'grado_id' => $escenario['malla']->grado_id,
+        ]);
+        $indicador = Sys_IndicadorEvaluacion::factory()->create([
+            'destreza_id' => $destreza->id,
+            'descripcion' => 'Dice su nombre completo',
+        ]);
+        $alumno = alumnoDelEstablecimiento($escenario['establecimiento'], 'López');
+        matricularAlumnoCalificar($escenario['aula'], $alumno);
+        guardarContextoCalificar($escenario);
+
+        $this->actingAs($escenario['docente'])
+            ->post(route('Docente.calificar.destrezas.store'), [
+                'establecimiento_aula_id' => $escenario['aula']->id,
+                'establecimiento_asignatura_id' => $escenario['malla']->id,
+                'establecimiento_periodo_ciclo_id' => $escenario['ciclo']->id,
+                'parcial_numero' => 1,
+                'destrezas' => [
+                    $alumno->id => [
+                        $indicador->id => ['calificacion' => 'EP'],
+                    ],
+                ],
+            ])
+            ->assertRedirect(route('Docente.calificar.index'))
+            ->assertSessionHas('status', 'calificaciones-grabadas');
+
+        $this->assertDatabaseHas(EstablecimientoIndicadorCalificacion::class, [
+            'alumno_id' => $alumno->id,
+            'indicador_evaluacion_id' => $indicador->id,
+            'establecimiento_asignatura_id' => $escenario['malla']->id,
+            'calificacion' => 'EP',
+        ]);
+
+        $this->actingAs($escenario['docente'])
+            ->get(route('Docente.calificar.index'))
+            ->assertSee('value="EP" selected', false)
+            ->assertSee('Dice su nombre completo');
+    });
+
+    it('stores the preparatoria letter on the destreza without a numeric grade', function () {
+        $escenario = escenarioCalificarInsumos([
+            'tipo_calificacion' => TipoCalificacion::Cualitativa,
+        ]);
+        $escenario['malla']->update(['califica_por_destrezas' => true]);
+        $escenario['aula']->establecimientoGrado->subnivel->update([
+            'califica_por_destrezas' => true,
+            'equivale_nota_nacional' => false,
+            'usa_ambitos' => true,
+        ]);
+        $destreza = Sys_Destreza::factory()->create([
+            'asignatura_id' => $escenario['malla']->asignatura_id,
+            'grado_id' => $escenario['malla']->grado_id,
+        ]);
+        $alumno = alumnoDelEstablecimiento($escenario['establecimiento'], 'Vera');
+        matricularAlumnoCalificar($escenario['aula'], $alumno);
+        guardarContextoCalificar($escenario);
+
+        $this->actingAs($escenario['docente'])
+            ->post(route('Docente.calificar.destrezas.store'), [
+                'establecimiento_aula_id' => $escenario['aula']->id,
+                'establecimiento_asignatura_id' => $escenario['malla']->id,
+                'establecimiento_periodo_ciclo_id' => $escenario['ciclo']->id,
+                'parcial_numero' => 1,
+                'destrezas' => [
+                    $alumno->id => [
+                        $destreza->id => ['calificacion' => 'A+'],
+                    ],
+                ],
+            ])
+            ->assertRedirect(route('Docente.calificar.index'));
+
+        $this->assertDatabaseHas(EstablecimientoDestrezaCalificacion::class, [
+            'alumno_id' => $alumno->id,
+            'destreza_id' => $destreza->id,
+            'calificacion' => 'A+',
+        ]);
+    });
+
+    it('stores the observed indicators and drops them when they are unchecked', function () {
+        $escenario = escenarioCalificarInsumos([
+            'tipo_calificacion' => TipoCalificacion::Cualitativa,
+        ]);
+        $escenario['malla']->update(['califica_por_destrezas' => true]);
+        $escenario['aula']->establecimientoGrado->subnivel->update([
+            'califica_por_destrezas' => true,
+            'equivale_nota_nacional' => false,
+            'usa_ambitos' => true,
+        ]);
+        $destreza = Sys_Destreza::factory()->create([
+            'asignatura_id' => $escenario['malla']->asignatura_id,
+            'grado_id' => $escenario['malla']->grado_id,
+        ]);
+        $observado = Sys_IndicadorEvaluacion::factory()->create(['destreza_id' => $destreza->id]);
+        $otro = Sys_IndicadorEvaluacion::factory()->create(['destreza_id' => $destreza->id]);
+        $ajeno = Sys_IndicadorEvaluacion::factory()->create();
+        $alumno = alumnoDelEstablecimiento($escenario['establecimiento'], 'Vera');
+        matricularAlumnoCalificar($escenario['aula'], $alumno);
+        guardarContextoCalificar($escenario);
+        $payload = [
+            'establecimiento_aula_id' => $escenario['aula']->id,
+            'establecimiento_asignatura_id' => $escenario['malla']->id,
+            'establecimiento_periodo_ciclo_id' => $escenario['ciclo']->id,
+            'parcial_numero' => 1,
+            'destrezas' => [
+                $alumno->id => [
+                    $destreza->id => [
+                        'calificacion' => 'A-',
+                        'indicadores' => [$observado->id],
+                    ],
+                ],
+            ],
+        ];
+
+        $this->actingAs($escenario['docente'])
+            ->post(route('Docente.calificar.destrezas.store'), $payload)
+            ->assertRedirect(route('Docente.calificar.index'));
+
+        $this->assertDatabaseHas(EstablecimientoIndicadorObservacion::class, [
+            'alumno_id' => $alumno->id,
+            'indicador_evaluacion_id' => $observado->id,
+        ]);
+        $this->assertDatabaseMissing(EstablecimientoIndicadorObservacion::class, [
+            'indicador_evaluacion_id' => $otro->id,
+        ]);
+
+        unset($payload['destrezas'][$alumno->id][$destreza->id]['indicadores']);
+
+        $this->actingAs($escenario['docente'])
+            ->post(route('Docente.calificar.destrezas.store'), $payload)
+            ->assertRedirect(route('Docente.calificar.index'));
+
+        $this->assertDatabaseMissing(EstablecimientoIndicadorObservacion::class, [
+            'alumno_id' => $alumno->id,
+            'indicador_evaluacion_id' => $observado->id,
+        ]);
+
+        $payload['destrezas'][$alumno->id][$destreza->id]['indicadores'] = [$ajeno->id];
+
+        $this->actingAs($escenario['docente'])
+            ->from(route('Docente.calificar.index'))
+            ->post(route('Docente.calificar.destrezas.store'), $payload)
+            ->assertRedirect(route('Docente.calificar.index'))
+            ->assertSessionHasErrors('destrezas.'.$alumno->id.'.'.$destreza->id.'.indicadores');
     });
 });

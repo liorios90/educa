@@ -355,7 +355,29 @@ describe('subniveles', function () {
         $subnivel = Sys_Subnivel::query()->where('nombre', 'Inicial 2')->firstOrFail();
 
         expect($subnivel->tipo_calificacion)->toBe(TipoCalificacion::Cualitativa)
-            ->and($subnivel->califica_por_destrezas)->toBeTrue();
+            ->and($subnivel->califica_por_destrezas)->toBeTrue()
+            ->and($subnivel->usa_ambitos)->toBeFalse()
+            ->and($subnivel->equivale_nota_nacional)->toBeFalse();
+    });
+
+    it('stores ambitos and the national note independently of each other', function () {
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+        $nivel = Sys_Nivel::factory()->create();
+
+        $this->actingAs($actor)
+            ->post(route('sistemas.estructura.subniveles.store', $nivel), [
+                'nombre' => 'Preparatoria parametrizable',
+                'tipo_calificacion' => TipoCalificacion::Cualitativa->value,
+                'califica_por_destrezas' => '1',
+                'usa_ambitos' => '1',
+            ])
+            ->assertRedirect();
+
+        $subnivel = Sys_Subnivel::query()->where('nombre', 'Preparatoria parametrizable')->firstOrFail();
+
+        expect($subnivel->califica_por_destrezas)->toBeTrue()
+            ->and($subnivel->usa_ambitos)->toBeTrue()
+            ->and($subnivel->equivale_nota_nacional)->toBeFalse();
     });
 
     it('rejects an empty subnivel payload', function () {
@@ -388,7 +410,36 @@ describe('subniveles', function () {
 
         expect($subnivel->nombre)->toBe('Básica Superior')
             ->and($subnivel->tipo_calificacion)->toBe(TipoCalificacion::Cualitativa)
-            ->and($subnivel->califica_por_destrezas)->toBeTrue();
+            ->and($subnivel->califica_por_destrezas)->toBeTrue()
+            ->and($subnivel->usa_ambitos)->toBeFalse()
+            ->and($subnivel->equivale_nota_nacional)->toBeFalse();
+    });
+
+    it('clears ambitos and the national note when the scale stops being qualitative by destrezas', function () {
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+        $nivel = Sys_Nivel::factory()->create();
+        $subnivel = Sys_Subnivel::factory()->for($nivel, 'nivel')->create([
+            'tipo_calificacion' => TipoCalificacion::Cualitativa,
+            'califica_por_destrezas' => true,
+            'usa_ambitos' => true,
+            'equivale_nota_nacional' => true,
+        ]);
+
+        $this->actingAs($actor)
+            ->patch(route('sistemas.estructura.subniveles.update', [$nivel, $subnivel]), [
+                'nombre' => $subnivel->nombre,
+                'tipo_calificacion' => TipoCalificacion::Cuantitativa->value,
+                'califica_por_destrezas' => '1',
+                'usa_ambitos' => '1',
+                'equivale_nota_nacional' => '1',
+            ])
+            ->assertRedirect(route('sistemas.estructura.niveles.show', $nivel));
+
+        $subnivel->refresh();
+
+        expect($subnivel->califica_por_destrezas)->toBeFalse()
+            ->and($subnivel->usa_ambitos)->toBeFalse()
+            ->and($subnivel->equivale_nota_nacional)->toBeFalse();
     });
 
     it('does not update a subnivel from another nivel', function () {

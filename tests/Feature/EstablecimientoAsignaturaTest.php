@@ -12,6 +12,8 @@ use App\Models\EstablecimientoFiguraProfesional;
 use App\Models\EstablecimientoGrado;
 use App\Models\Sys_Area;
 use App\Models\Sys_Asignatura;
+use App\Models\Sys_Destreza;
+use App\Models\Sys_IndicadorEvaluacion;
 use App\Models\User;
 use Database\Seeders\NavigationSeeder;
 
@@ -1248,6 +1250,109 @@ describe('update', function () {
 
         $this->actingAs($user)
             ->put(route('Admin.asignaturas.update', $oferta), [])
+            ->assertForbidden();
+    });
+});
+
+describe('registro de indicadores', function () {
+    it('opens the indicator registry from the destrezas checkbox', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $oferta = ofertaDe($establecimiento);
+        $estructura = catalogoEstructura(['subnivel' => 'Preparatoria', 'grado' => 'Primero de EGB']);
+        $estructura['subnivel']->update(['califica_por_destrezas' => true]);
+        gradoEnOferta($establecimiento, $oferta, $estructura);
+        $asignatura = catalogoAsignatura($estructura, ['asignatura' => 'Lengua y Literatura']);
+
+        $this->actingAs($admin)
+            ->post(route('Admin.asignaturas.destrezas.store', [$oferta, $asignatura]), [
+                'grado_id' => $estructura['grado']->id,
+                'codigo' => 'LL.1.5.2',
+                'descripcion' => 'Comunicar datos de su identidad',
+                'orden' => 0,
+            ])
+            ->assertRedirect(route('Admin.asignaturas.edit', [
+                'oferta' => $oferta,
+                'area' => $asignatura->area_id,
+                'destrezas' => $asignatura->id.'-'.$estructura['grado']->id,
+            ]));
+
+        $destreza = Sys_Destreza::query()->where('codigo', 'LL.1.5.2')->firstOrFail();
+
+        $this->actingAs($admin)
+            ->post(route('Admin.asignaturas.indicadores.store', [$oferta, $asignatura, $destreza]), [
+                'grado' => $estructura['grado']->id,
+                'codigo' => 'I.LL.1',
+                'descripcion' => 'Dice su nombre completo',
+                'orden' => 0,
+            ])
+            ->assertRedirect(route('Admin.asignaturas.edit', [
+                'oferta' => $oferta,
+                'area' => $asignatura->area_id,
+                'destrezas' => $asignatura->id.'-'.$estructura['grado']->id,
+            ]));
+
+        $this->actingAs($admin)
+            ->get(route('Admin.asignaturas.edit', [
+                'oferta' => $oferta,
+                'area' => $asignatura->area_id,
+                'destrezas' => $asignatura->id.'-'.$estructura['grado']->id,
+            ]))
+            ->assertOk()
+            ->assertSee('Indicadores')
+            ->assertSee('Comunicar datos de su identidad')
+            ->assertSee('Dice su nombre completo')
+            ->assertSee('abrir-destrezas', false);
+
+        $this->assertDatabaseHas(Sys_IndicadorEvaluacion::class, [
+            'destreza_id' => $destreza->id,
+            'codigo' => 'I.LL.1',
+        ]);
+    });
+
+    it('rejects a catalog subject that the offer does not teach', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $oferta = ofertaDe($establecimiento);
+        $estructura = catalogoEstructura();
+        $estructura['subnivel']->update(['califica_por_destrezas' => true]);
+        gradoEnOferta($establecimiento, $oferta, $estructura);
+        $otra = catalogoEstructura([
+            'nivel' => 'Nivel ajeno',
+            'subnivel' => 'Otra básica',
+            'grado' => 'Otro grado',
+        ]);
+        $otra['subnivel']->update(['califica_por_destrezas' => true]);
+        $ajena = catalogoAsignatura($otra, ['asignatura' => 'Ajena']);
+
+        $this->actingAs($admin)
+            ->post(route('Admin.asignaturas.destrezas.store', [$oferta, $ajena]), [
+                'grado_id' => $otra['grado']->id,
+                'codigo' => 'X.1',
+                'descripcion' => 'Destreza ajena',
+                'orden' => 0,
+            ])
+            ->assertNotFound();
+    });
+
+    it('forbids a teacher from registering indicators', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $oferta = ofertaDe($establecimiento);
+        $estructura = catalogoEstructura();
+        $estructura['subnivel']->update(['califica_por_destrezas' => true]);
+        gradoEnOferta($establecimiento, $oferta, $estructura);
+        $asignatura = catalogoAsignatura($estructura);
+        $docente = assignRole(User::factory()->create([
+            'establecimiento_id' => $establecimiento->id,
+        ]), Role::Docente);
+
+        $this->actingAs($docente)
+            ->post(route('Admin.asignaturas.destrezas.store', [$oferta, $asignatura]), [
+                'grado_id' => $estructura['grado']->id,
+                'codigo' => 'LL.1',
+                'descripcion' => 'Destreza',
+                'orden' => 0,
+            ])
             ->assertForbidden();
     });
 });

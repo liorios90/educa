@@ -11,6 +11,7 @@ it('seeds national areas and asignaturas for each ecuadorian subnivel', function
     $this->seed(CurriculoEducativoSeeder::class);
 
     $inicial2 = Sys_Subnivel::query()->where('nombre', 'Inicial 2')->firstOrFail();
+    $preparatoria = Sys_Subnivel::query()->where('nombre', 'Preparatoria')->firstOrFail();
     $elemental = Sys_Subnivel::query()->where('nombre', 'Básica Elemental')->firstOrFail();
     $superior = Sys_Subnivel::query()->where('nombre', 'Básica Superior')->firstOrFail();
     $bachillerato = Sys_Subnivel::query()->where('nombre', 'Bachillerato General Unificado')->firstOrFail();
@@ -22,6 +23,13 @@ it('seeds national areas and asignaturas for each ecuadorian subnivel', function
         'Acompañamiento socioemocional',
     ])
         ->and($inicial2->asignaturas()->pluck('sys_asignaturas.nombre')->all())->toContain('Identidad y autonomía')
+        ->and($preparatoria->areas()->orderBy('orden')->pluck('nombre')->all())->toBe([
+            'Desarrollo personal y social',
+            'Descubrimiento del medio natural y cultural',
+            'Expresión y comunicación',
+            'Acompañamiento socioemocional',
+        ])
+        ->and($preparatoria->asignaturas()->pluck('sys_asignaturas.nombre')->all())->toContain('Identidad y autonomía', 'Expresión corporal')
         ->and($elemental->areas()->pluck('nombre')->all())->toContain('Matemática')
         ->and($elemental->asignaturas()->pluck('sys_asignaturas.nombre')->all())->toContain('Inglés')
         ->and($superior->asignaturas()->pluck('sys_asignaturas.nombre')->all())->toContain('Educación para la Ciudadanía')

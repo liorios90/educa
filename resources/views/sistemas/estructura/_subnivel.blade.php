@@ -11,6 +11,12 @@
     $subnivelDestrezas = $subnivelBag->isNotEmpty()
         ? filter_var(old('califica_por_destrezas'), FILTER_VALIDATE_BOOLEAN)
         : (bool) $subnivel->califica_por_destrezas;
+    $subnivelAmbitos = $subnivelBag->isNotEmpty()
+        ? filter_var(old('usa_ambitos'), FILTER_VALIDATE_BOOLEAN)
+        : (bool) $subnivel->usa_ambitos;
+    $subnivelNota = $subnivelBag->isNotEmpty()
+        ? filter_var(old('equivale_nota_nacional'), FILTER_VALIDATE_BOOLEAN)
+        : (bool) $subnivel->equivale_nota_nacional;
     $gradosCount = $subnivel->grados_count ?? $subnivel->grados->count();
 @endphp
 
@@ -28,6 +34,12 @@
                 {{ $subnivel->tipo_calificacion?->label() ?? 'Sin escala de calificación' }}
                 @if ($subnivel->califica_por_destrezas)
                     · Por destrezas
+                @endif
+                @if ($subnivel->usa_ambitos)
+                    · Ámbitos
+                @endif
+                @if ($subnivel->equivale_nota_nacional)
+                    · Nota sobre 10
                 @endif
                 · {{ $gradosCount }} grados
             </p>
@@ -68,7 +80,7 @@
             <x-text-input :id="'siglas-subnivel-'.$subnivel->id" class="mt-1 block w-full" type="text" name="siglas" :value="$subnivelSiglas" maxlength="10" />
             <x-input-error class="mt-2" :messages="$subnivelBag->get('siglas')" />
         </div>
-        <div class="md:min-w-48" x-data="{ escala: @js((string) $subnivelTipo) }">
+        <div class="md:min-w-48" x-data="{ escala: @js((string) $subnivelTipo), porDestrezas: @js($subnivelDestrezas) }">
             <x-input-label :for="'tipo-calificacion-subnivel-'.$subnivel->id" value="Escala de calificación" />
             <select
                 id="tipo-calificacion-subnivel-{{ $subnivel->id }}"
@@ -91,10 +103,32 @@
                     class="rounded border-gray-300"
                     name="califica_por_destrezas"
                     value="1"
-                    @checked($subnivelDestrezas)
+                    x-model="porDestrezas"
                     :disabled="escala !== 'cualitativa'"
                 >
                 Califica por destrezas
+            </label>
+            <label class="mt-2 flex items-center gap-2 text-sm text-slate-700" x-show="escala === 'cualitativa' && porDestrezas" x-cloak>
+                <input
+                    type="checkbox"
+                    class="rounded border-gray-300"
+                    name="usa_ambitos"
+                    value="1"
+                    @checked($subnivelAmbitos)
+                    :disabled="escala !== 'cualitativa' || !porDestrezas"
+                >
+                Organiza por ámbitos
+            </label>
+            <label class="mt-2 flex items-center gap-2 text-sm text-slate-700" x-show="escala === 'cualitativa' && porDestrezas" x-cloak>
+                <input
+                    type="checkbox"
+                    class="rounded border-gray-300"
+                    name="equivale_nota_nacional"
+                    value="1"
+                    @checked($subnivelNota)
+                    :disabled="escala !== 'cualitativa' || !porDestrezas"
+                >
+                Equivale a nota nacional sobre 10
             </label>
         </div>
         <div class="md:min-w-40 md:flex-1">

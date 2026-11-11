@@ -46,6 +46,7 @@ class DemoInstitutosSeeder extends Seeder
             RoleSeeder::class,
             EstructuraEducativaSeeder::class,
             CurriculoEducativoSeeder::class,
+            CatalogoInicialPreparatoriaSeeder::class,
             ModalidadJornadaSeeder::class,
         ]);
 

@@ -51,6 +51,7 @@ class NavigationSeeder extends Seeder
         $this->ensureItem('Asistencia diaria', 'Docente.asistencia.index', 'calendar-days', 3, false, [$docente->id], parentId: $insumos->id);
         $this->ensureItem('Tareas', 'Docente.tareas.index', 'clipboard-document-list', 4, false, [$docente->id], parentId: $insumos->id);
         $this->ensureItem('Comportamiento', 'Docente.comportamiento.index', 'shield-check', 5, false, [$docente->id], parentId: $insumos->id);
+        $this->ensureItem('Destrezas', 'Docente.destrezas.index', 'academic-cap', 6, false, [$docente->id], parentId: $insumos->id);
 
         $this->ensureItem('Exámenes', 'Docente.examenes.index', 'clipboard-document-list', 4, false, [$docente->id]);
         $this->ensureItem('Proyectos', 'Docente.proyectos.index', 'academic-cap', 5, false, [$docente->id]);

@@ -64,7 +64,11 @@
                         @endif
                     </div>
                     <p class="mt-3 text-xs text-slate-500">
-                        La promoción exige al menos 7,00 en cada asignatura cuantitativa, conforme al Art. 197 del Reglamento General a la LOEI.
+                        @if (($informe['por_destrezas'] ?? false) === true && ($informe['equivale_nota_nacional'] ?? false) !== true)
+                            En Educación Inicial y Preparatoria la promoción no depende de una nota sobre 10.
+                        @else
+                            La promoción exige al menos 7,00 en cada asignatura cuantitativa, conforme al Art. 197 del Reglamento General a la LOEI.
+                        @endif
                     </p>
                 </form>
 
@@ -133,6 +137,9 @@
                                         </table>
                                     </div>
 
+                                    @include('secretaria._destrezas-informe', ['informe' => $informe, 'estudiante' => $estudiante])
+
+                                    @if (($informe['por_destrezas'] ?? false) !== true || ($informe['equivale_nota_nacional'] ?? false) === true)
                                     <div class="mt-4 rounded-lg border border-slate-200 p-3 text-xs text-slate-600">
                                         <p class="font-semibold text-slate-700">Escala de calificaciones (Art. 194)</p>
                                         <ul class="mt-2 grid grid-cols-1 gap-1 sm:grid-cols-2">
@@ -142,6 +149,7 @@
                                         </ul>
                                         <p class="mt-2">{{ $informe['base_legal'] }}</p>
                                     </div>
+                                    @endif
 
                                     <p class="mt-6 text-sm text-slate-700">
                                         @if ($informe['direccion'] !== '')

@@ -10,6 +10,10 @@
         : TipoCalificacion::Cuantitativa->value;
     $subnivelCreateDestrezas = $subnivelCreateBag->isNotEmpty()
         && filter_var(old('califica_por_destrezas'), FILTER_VALIDATE_BOOLEAN);
+    $subnivelCreateAmbitos = $subnivelCreateBag->isNotEmpty()
+        && filter_var(old('usa_ambitos'), FILTER_VALIDATE_BOOLEAN);
+    $subnivelCreateNota = $subnivelCreateBag->isNotEmpty()
+        && filter_var(old('equivale_nota_nacional'), FILTER_VALIDATE_BOOLEAN);
 @endphp
 
 <x-modal name="subnivel-create-{{ $nivel->id }}" maxWidth="2xl" :show="$subnivelCreateBag->isNotEmpty()" focusable>
@@ -32,7 +36,7 @@
                 <x-text-input :id="'siglas-subnivel-create-'.$nivel->id" class="mt-1 block w-full" type="text" name="siglas" :value="$subnivelCreateSiglas" maxlength="10" />
                 <x-input-error class="mt-2" :messages="$subnivelCreateBag->get('siglas')" />
             </div>
-            <div x-data="{ escala: @js((string) $subnivelCreateTipo) }">
+            <div x-data="{ escala: @js((string) $subnivelCreateTipo), porDestrezas: @js($subnivelCreateDestrezas) }">
                 <x-input-label :for="'tipo-calificacion-subnivel-create-'.$nivel->id" value="Escala de calificación" />
                 <select
                     id="tipo-calificacion-subnivel-create-{{ $nivel->id }}"
@@ -55,10 +59,32 @@
                         class="rounded border-gray-300"
                         name="califica_por_destrezas"
                         value="1"
-                        @checked($subnivelCreateDestrezas)
+                        x-model="porDestrezas"
                         :disabled="escala !== 'cualitativa'"
                     >
                     Califica por destrezas
+                </label>
+                <label class="mt-2 flex items-center gap-2 text-sm text-slate-700" x-show="escala === 'cualitativa' && porDestrezas" x-cloak>
+                    <input
+                        type="checkbox"
+                        class="rounded border-gray-300"
+                        name="usa_ambitos"
+                        value="1"
+                        @checked($subnivelCreateAmbitos)
+                        :disabled="escala !== 'cualitativa' || !porDestrezas"
+                    >
+                    Organiza por ámbitos
+                </label>
+                <label class="mt-2 flex items-center gap-2 text-sm text-slate-700" x-show="escala === 'cualitativa' && porDestrezas" x-cloak>
+                    <input
+                        type="checkbox"
+                        class="rounded border-gray-300"
+                        name="equivale_nota_nacional"
+                        value="1"
+                        @checked($subnivelCreateNota)
+                        :disabled="escala !== 'cualitativa' || !porDestrezas"
+                    >
+                    Equivale a nota nacional sobre 10
                 </label>
             </div>
             <div>

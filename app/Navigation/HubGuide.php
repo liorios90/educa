@@ -96,6 +96,11 @@ final class HubGuide
             'description' => 'Califica cada indicador del periodo con la escala de comportamiento. No modifica el promedio de las asignaturas.',
             'icon' => 'shield-check',
         ],
+        'Docente.destrezas.index' => [
+            'section' => 'Registro de clase',
+            'description' => 'Califica cada indicador de las destrezas con la escala A, EP, I o NE.',
+            'icon' => 'academic-cap',
+        ],
     ];
 
     private const SECTION_ORDER = [
@@ -113,7 +118,7 @@ final class HubGuide
         return match ($label) {
             'Catálogos' => 'Listados oficiales que usa secretaría, rectorado y sistemas para matrícula, personal y reportes. Elija un catálogo para consultarlo o actualizarlo.',
             'Estructura' => 'Organice la oferta educativa de la institución: niveles, grados, áreas y asignaturas.',
-            'Insumos' => 'Califica los insumos del parcial, envía tareas, registra la asistencia y el comportamiento.',
+            'Insumos' => 'Califica los insumos del parcial, las destrezas, envía tareas y registra la asistencia y el comportamiento.',
             default => 'Seleccione una opción para continuar.',
         };
     }

@@ -31,19 +31,24 @@ class UpsertEstructuraSubnivelRequest extends FormRequest
             'descripcion' => ['nullable', 'string', 'max:150'],
             'tipo_calificacion' => ['required', Rule::enum(TipoCalificacion::class)],
             'califica_por_destrezas' => ['nullable', 'boolean'],
+            'usa_ambitos' => ['nullable', 'boolean'],
+            'equivale_nota_nacional' => ['nullable', 'boolean'],
         ];
     }
 
     /**
-     * @return array{nombre: string, siglas?: string|null, descripcion?: string|null, tipo_calificacion: string, califica_por_destrezas: bool}
+     * @return array{nombre: string, siglas?: string|null, descripcion?: string|null, tipo_calificacion: string, califica_por_destrezas: bool, usa_ambitos: bool, equivale_nota_nacional: bool}
      */
     public function subnivelAttributes(): array
     {
         /** @var array{nombre: string, siglas?: string|null, descripcion?: string|null, tipo_calificacion: string} $attributes */
         $attributes = $this->safe()->only(['nombre', 'siglas', 'descripcion', 'tipo_calificacion']);
         $tipo = TipoCalificacion::from($attributes['tipo_calificacion']);
-        $attributes['califica_por_destrezas'] = $tipo === TipoCalificacion::Cualitativa
+        $porDestrezas = $tipo === TipoCalificacion::Cualitativa
             && $this->boolean('califica_por_destrezas');
+        $attributes['califica_por_destrezas'] = $porDestrezas;
+        $attributes['usa_ambitos'] = $porDestrezas && $this->boolean('usa_ambitos');
+        $attributes['equivale_nota_nacional'] = $porDestrezas && $this->boolean('equivale_nota_nacional');
 
         return $attributes;
     }

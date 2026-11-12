@@ -249,7 +249,7 @@ class InformeAprendizaje
                     $promovido && $evaluacionCualitativa => 'Culminó el subnivel. En Educación Inicial y en Preparatoria la evaluación es cualitativa, por destrezas e indicadores.',
                     $promovido && $gradoSiguiente !== null => 'Es promovido/a a '.$gradoSiguiente.' de conformidad con el Art. 197 del Reglamento General a la LOEI.',
                     $promovido => 'Culminó el subnivel y reúne los requisitos de promoción previstos en el Art. 197 del Reglamento General a la LOEI.',
-                    default => 'No reúne los requisitos de promoción previstos en el Art. 197 del Reglamento General a la LOEI (calificación mínima 7,00 en cada asignatura).',
+                    default => 'No reúne los requisitos de promoción previstos en el Art. 197 del Reglamento General a la LOEI (cada asignatura cuantitativa debe tener un promedio anual de al menos 7,00).',
                 };
 
                 return $estudiante;
@@ -267,8 +267,29 @@ class InformeAprendizaje
             'fecha' => now()->format('d/m/Y'),
             'base_legal' => $evaluacionCualitativa
                 ? 'Instructivo de evaluación estudiantil y Reglamento General a la LOEI. En Educación Inicial y Preparatoria la promoción no depende de una nota sobre 10.'
-                : 'Arts. 194 y 197 del Reglamento General a la Ley Orgánica de Educación Intercultural. La promoción exige al menos 7,00 (Alcanza los aprendizajes requeridos) en cada asignatura cuantitativa.',
+                : 'Arts. 194 y 197 del Reglamento General a la Ley Orgánica de Educación Intercultural. La promoción exige un promedio anual de al menos 7,00 (Alcanza los aprendizajes requeridos) en cada asignatura cuantitativa. La asignatura sin calificación no cumple ese requisito.',
         ];
+    }
+
+    private function conPromocionDeAsignatura(
+        bool $promovido,
+        EstablecimientoAula $aula,
+        EstablecimientoAsignatura $asignatura,
+        ?float $nota,
+    ): bool {
+        if ($this->promueveSinNotaNumerica($aula) || $asignatura->escala !== EscalaCalificacion::Nacional) {
+            return $promovido;
+        }
+
+        if (! $this->esCuantitativa($aula, $asignatura) && ! $asignatura->califica_por_destrezas) {
+            return $promovido;
+        }
+
+        if ($nota === null || $nota < self::NOTA_MINIMA_PROMOCION) {
+            return false;
+        }
+
+        return $promovido;
     }
 
     private function promueveSinNotaNumerica(EstablecimientoAula $aula): bool
@@ -415,11 +436,9 @@ class InformeAprendizaje
                     if ($notaPeriodo !== null) {
                         $notasNumericas[] = $notaPeriodo;
                         $tieneNotaCuantitativa = true;
-
-                        if ($asignatura->escala === EscalaCalificacion::Nacional && $notaPeriodo < self::NOTA_MINIMA_PROMOCION) {
-                            $promovido = false;
-                        }
                     }
+
+                    $promovido = $this->conPromocionDeAsignatura($promovido, $aula, $asignatura, $notaPeriodo);
                 } else {
                     foreach ($ciclos as $ciclo) {
                         $delCiclo = $todas
@@ -467,11 +486,9 @@ class InformeAprendizaje
                         if ($notaPeriodo !== null) {
                             $notasNumericas[] = $notaPeriodo;
                             $tieneNotaCuantitativa = true;
-
-                            if ($asignatura->escala === EscalaCalificacion::Nacional && $notaPeriodo < self::NOTA_MINIMA_PROMOCION) {
-                                $promovido = false;
-                            }
                         }
+
+                        $promovido = $this->conPromocionDeAsignatura($promovido, $aula, $asignatura, $notaPeriodo);
                     } else {
                         $textos = collect($notasCiclo)
                             ->pluck('nota')

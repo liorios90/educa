@@ -67,7 +67,7 @@
                         @if (($informe['por_destrezas'] ?? false) === true && ($informe['equivale_nota_nacional'] ?? false) !== true)
                             En Educación Inicial y Preparatoria la promoción no depende de una nota sobre 10.
                         @else
-                            La promoción exige al menos 7,00 en cada asignatura cuantitativa, conforme al Art. 197 del Reglamento General a la LOEI.
+                            La promoción exige un promedio anual de al menos 7,00 en cada asignatura cuantitativa, conforme al Art. 197 del Reglamento General a la LOEI. Si una asignatura no tiene calificación, no hay promoción.
                         @endif
                     </p>
                 </form>

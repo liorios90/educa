@@ -3,7 +3,10 @@
 use App\Enums\Role;
 use App\Enums\TipoCierreEvaluacion;
 use App\Models\Establecimiento;
+use App\Models\EstablecimientoAsignatura;
+use App\Models\EstablecimientoAulaDocente;
 use App\Models\EstablecimientoCierreActividad;
+use App\Models\Sys_Asignatura;
 use App\Models\Sys_Grado;
 use App\Models\User;
 
@@ -76,6 +79,50 @@ it('certifies promotion to the next grade when every subject reaches 7.00', func
         ->assertDontSee('No reúne los requisitos de promoción');
 });
 
+it('does not promote a student when a quantitative subject has no annual grade', function () {
+    $escenario = escenarioLibreta();
+    $alumno = alumnoDelEstablecimiento($escenario['establecimiento'], 'Espinoza');
+    $alumno->persona->update(['identificacion' => '1750120110']);
+    matricularAlumnoLibreta($escenario['aula'], $alumno);
+    ['detalle' => $detalle] = asignarTipoInsumoLibreta($escenario);
+    actividadLibreta($escenario, $detalle, $alumno, 'Tarea 1', '8.00');
+    $examen = EstablecimientoCierreActividad::factory()->create([
+        'establecimiento_aula_id' => $escenario['aula']->id,
+        'establecimiento_asignatura_id' => $escenario['malla']->id,
+        'establecimiento_periodo_ciclo_id' => $escenario['ciclo']->id,
+        'tipo' => TipoCierreEvaluacion::Examen,
+        'empleado_id' => $escenario['empleado']->id,
+        'nombre' => 'Examen primer quimestre',
+    ]);
+    $examen->calificaciones()->create([
+        'alumno_id' => $alumno->id,
+        'nota' => '10.00',
+    ]);
+    $lengua = EstablecimientoAsignatura::factory()->create([
+        'establecimiento_id' => $escenario['establecimiento']->id,
+        'establecimiento_modalidad_jornada_id' => $escenario['oferta']->id,
+        'grado_id' => $escenario['malla']->grado_id,
+        'asignatura_id' => Sys_Asignatura::factory()->create(['nombre' => 'Lengua y Literatura'])->id,
+    ]);
+    EstablecimientoAulaDocente::factory()->create([
+        'establecimiento_aula_id' => $escenario['aula']->id,
+        'establecimiento_asignatura_id' => $lengua->id,
+        'empleado_id' => $escenario['empleado']->id,
+    ]);
+
+    $this->actingAs($escenario['secretaria'])
+        ->withSession(sesionLibreta($escenario))
+        ->get(route('secretaria.certificado-promocion.index', [
+            'establecimiento_aula_id' => $escenario['aula']->id,
+        ]))
+        ->assertSee('Espinoza Ana')
+        ->assertSee('1750120110')
+        ->assertSeeInOrder(['Lengua y Literatura', '—', 'Matemática', '8.60'])
+        ->assertSee('No reúne los requisitos de promoción previstos en el Art. 197')
+        ->assertSee('cada asignatura cuantitativa debe tener un promedio anual de al menos 7,00')
+        ->assertDontSee('Es promovido/a');
+});
+
 it('does not promote a student with an annual subject average below 7.00', function () {
     $escenario = escenarioLibreta();
     $alumno = alumnoDelEstablecimiento($escenario['establecimiento'], 'Castro');
@@ -89,7 +136,7 @@ it('does not promote a student with an annual subject average below 7.00', funct
             'establecimiento_aula_id' => $escenario['aula']->id,
         ]))
         ->assertSee('Castro Ana')
-        ->assertSee('5.00')
+        ->assertSee('3.50')
         ->assertSee('No reúne los requisitos de promoción previstos en el Art. 197')
         ->assertDontSee('Es promovido/a');
 });

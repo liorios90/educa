@@ -95,7 +95,8 @@ it('does not include a blank insumo in the annual average', function () {
         ->get(route('secretaria.libreta-final.index', [
             'establecimiento_aula_id' => $escenario['aula']->id,
         ]))
-        ->assertSee('8.00')
+        ->assertSeeInOrder(['Matemática', '5.60', '—', '5.60'])
+        ->assertDontSee('8.00')
         ->assertDontSee('4.00');
 });
 

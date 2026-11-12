@@ -145,6 +145,53 @@ it('averages insumos of the same type and prefers the subject cycle weights', fu
         ->assertDontSee('9.30');
 });
 
+it('uses the ponderado as the cycle average when the exam has no grade', function () {
+    $escenario = escenarioLibreta();
+    $alumno = alumnoDelEstablecimiento($escenario['establecimiento'], 'Espinoza');
+    matricularAlumnoLibreta($escenario['aula'], $alumno);
+    ['detalle' => $detalle] = asignarTipoInsumoLibreta($escenario);
+    actividadLibreta($escenario, $detalle, $alumno, 'Tarea 1', '8.00');
+
+    $this->actingAs($escenario['secretaria'])
+        ->withSession(sesionLibreta($escenario))
+        ->get(route('secretaria.libreta.index', [
+            'establecimiento_aula_id' => $escenario['aula']->id,
+        ]))
+        ->assertSeeInOrder(['>8.00</a>', '5.60', '—', '5.60'], false);
+});
+
+it('sums the weighted ponderado and project when the exam has no grade', function () {
+    $escenario = escenarioLibreta([
+        'porcentaje_insumos' => '60.00',
+        'porcentaje_examen' => '30.00',
+        'porcentaje_proyecto' => '10.00',
+    ]);
+    $alumno = alumnoDelEstablecimiento($escenario['establecimiento'], 'Aguilar');
+    matricularAlumnoLibreta($escenario['aula'], $alumno);
+    ['detalle' => $detalle] = asignarTipoInsumoLibreta($escenario);
+    actividadLibreta($escenario, $detalle, $alumno, 'Tarea 1', '8.00');
+    $proyecto = EstablecimientoCierreActividad::factory()->create([
+        'establecimiento_aula_id' => $escenario['aula']->id,
+        'establecimiento_asignatura_id' => $escenario['malla']->id,
+        'establecimiento_periodo_ciclo_id' => $escenario['ciclo']->id,
+        'tipo' => TipoCierreEvaluacion::Proyecto,
+        'empleado_id' => $escenario['empleado']->id,
+        'nombre' => 'Proyecto primer quimestre',
+    ]);
+    $proyecto->calificaciones()->create([
+        'alumno_id' => $alumno->id,
+        'nota' => '7.00',
+    ]);
+
+    $this->actingAs($escenario['secretaria'])
+        ->withSession(sesionLibreta($escenario))
+        ->get(route('secretaria.libreta.index', [
+            'establecimiento_aula_id' => $escenario['aula']->id,
+        ]))
+        ->assertSeeInOrder(['>8.00</a>', '4.80', '—', '7.00', '5.50'], false)
+        ->assertDontSee('7.86');
+});
+
 it('shows the configured percentage of the 100 percent insumo value in pond', function () {
     $escenario = escenarioLibreta([
         'porcentaje_insumos' => '30.00',

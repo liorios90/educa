@@ -330,27 +330,36 @@ class LibretaAula
         return $this;
     }
 
+    /**
+     * @param  array{insumos: float, examen: float, proyecto: float, periodo?: float, examen_final?: float, proyecto_final?: float}  $pesos
+     */
     public function promedioCiclo(
         ?float $insumos,
         ?float $examen,
         ?float $proyecto,
         array $pesos,
     ): ?float {
-        $partes = [];
+        $suma = 0.0;
+        $tieneNota = false;
 
-        if ($pesos['insumos'] > 0.009 && $insumos !== null) {
-            $partes[] = ['valor' => $insumos, 'peso' => $pesos['insumos']];
+        foreach ([
+            'insumos' => $insumos,
+            'examen' => $examen,
+            'proyecto' => $proyecto,
+        ] as $clave => $valor) {
+            if (($pesos[$clave] ?? 0) <= 0.009 || $valor === null) {
+                continue;
+            }
+
+            $suma += $valor * ($pesos[$clave] / 100);
+            $tieneNota = true;
         }
 
-        if ($pesos['examen'] > 0.009 && $examen !== null) {
-            $partes[] = ['valor' => $examen, 'peso' => $pesos['examen']];
+        if (! $tieneNota) {
+            return null;
         }
 
-        if ($pesos['proyecto'] > 0.009 && $proyecto !== null) {
-            $partes[] = ['valor' => $proyecto, 'peso' => $pesos['proyecto']];
-        }
-
-        return $this->ponderar($partes);
+        return $this->aplicar($suma);
     }
 
     /**

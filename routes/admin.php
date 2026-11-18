@@ -42,6 +42,7 @@ Route::middleware(['auth', 'verified', 'role:Admin'])
         Route::get('decimales', [ConfiguracionDecimalesController::class, 'edit'])->name('decimales');
         Route::put('decimales', [ConfiguracionDecimalesController::class, 'update'])->name('decimales.update');
         Route::post('periodo/aperturar', [EstablecimientoPeriodoEvaluacionController::class, 'aperturar'])->name('periodo.aperturar');
+        Route::post('periodo/revertir-apertura', [EstablecimientoPeriodoEvaluacionController::class, 'revertirApertura'])->name('periodo.revertir-apertura');
         Route::get('configuracion-grados', [EstablecimientoPeriodoConfiguracionGradoController::class, 'index'])->name('configuracion-grados.index');
         Route::get('configuracion-grados/crear', [EstablecimientoPeriodoConfiguracionGradoController::class, 'create'])->name('configuracion-grados.create');
         Route::post('configuracion-grados', [EstablecimientoPeriodoConfiguracionGradoController::class, 'store'])->name('configuracion-grados.store');

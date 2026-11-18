@@ -562,7 +562,10 @@ class LibretaAula
             return '—';
         }
 
-        $texto = trim((string) ($calificacion->mejora?->nota_final ?? $calificacion->nota));
+        $notaFinal = method_exists($calificacion, 'mejora')
+            ? $calificacion->mejora?->nota_final
+            : null;
+        $texto = trim((string) ($notaFinal ?? $calificacion->nota));
 
         return $texto === '' ? '—' : $texto;
     }

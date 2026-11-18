@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\RevertirAperturaPeriodoSistemasRequest;
 use App\Http\Requests\UpsertEstablecimientoPeriodoRequest;
 use App\Models\Establecimiento;
 use App\Models\EstablecimientoModalidadJornada;
 use App\Models\EstablecimientoPeriodo;
 use App\Services\CopiarConfiguracionPeriodo;
+use App\Services\RevertirAperturaPeriodo;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -15,14 +17,21 @@ use Illuminate\View\View;
 
 class EstablecimientoPeriodoController extends Controller
 {
-    public function index(Request $request, Establecimiento $establecimiento): View
+    public function index(Request $request, Establecimiento $establecimiento, RevertirAperturaPeriodo $revertir): View
     {
         $ofertas = $this->ofertas($establecimiento);
+        $periodosRevertibles = $ofertas
+            ->flatMap(fn (EstablecimientoModalidadJornada $oferta) => $oferta->periodos)
+            ->filter(fn (EstablecimientoPeriodo $periodo): bool => $periodo->estaAbierto() && ! $revertir->tieneCalificaciones($periodo))
+            ->map(fn (EstablecimientoPeriodo $periodo): int => $periodo->id)
+            ->values();
 
         return view('sistemas.establecimientos.periodos', [
             'establecimiento' => $establecimiento,
             'ofertas' => $ofertas,
             'openOfertaId' => $this->openOfertaId($request, $ofertas),
+            'periodosRevertibles' => $periodosRevertibles,
+            'mensajeRevertirBloqueado' => RevertirAperturaPeriodo::MENSAJE_CON_CALIFICACIONES,
         ]);
     }
 
@@ -83,6 +92,21 @@ class EstablecimientoPeriodoController extends Controller
         $periodo->delete();
 
         return $this->redirectToPeriodos($establecimiento, $ofertaId, 'periodo-deleted');
+    }
+
+    public function revertirApertura(
+        RevertirAperturaPeriodoSistemasRequest $request,
+        Establecimiento $establecimiento,
+        EstablecimientoPeriodo $periodo,
+        RevertirAperturaPeriodo $revertir,
+    ): RedirectResponse {
+        $revertir->handle($periodo);
+
+        return $this->redirectToPeriodos(
+            $establecimiento,
+            (int) $periodo->establecimiento_modalidad_jornada_id,
+            'periodo-apertura-revertida',
+        );
     }
 
     /**

@@ -11,6 +11,7 @@ use App\Enums\TipoCierreEvaluacion;
 use App\Enums\UsoEquivalencia;
 use App\Models\Alumno;
 use App\Models\Equivalencia;
+use App\Models\EquivalenciaDetalle;
 use App\Models\EstablecimientoAsignatura;
 use App\Models\EstablecimientoAsistencia;
 use App\Models\EstablecimientoAula;
@@ -82,6 +83,7 @@ class InformeAprendizaje
                 ->groupBy('establecimiento_asignatura_id');
 
         $tabla = $this->tablaEquivalencias((int) $aula->establecimiento_periodo_id);
+        $letras = $this->letrasEquivalencia((int) $aula->establecimiento_periodo_id);
         $asistencia = $this->asistenciaPorAlumno($aula, $ciclo, $parcialNumero);
         $comportamiento = $this->comportamientoPorAlumno($aula, $ciclo);
         $alumnos = $this->asignaciones->alumnosDelAula($aula);
@@ -98,6 +100,7 @@ class InformeAprendizaje
             $cierres,
             $esParcial,
             $tabla,
+            $letras,
             $asistencia,
             $comportamiento,
             $establecimiento,
@@ -160,7 +163,7 @@ class InformeAprendizaje
                             : (is_array($celdaDestreza) ? ($celdaDestreza['etiqueta'] ?? '—') : '—'))
                         : ($cuantitativa && $asignatura->escala === EscalaCalificacion::Nacional
                             ? ($this->equivalenciaCualitativa($nota, $tabla) ?? '—')
-                            : '—'),
+                            : ($this->equivalenciaDeLetra($textoCualitativo, $letras) ?? '—')),
                 ];
             }
 
@@ -341,6 +344,7 @@ class InformeAprendizaje
             ->groupBy('establecimiento_asignatura_id');
 
         $tabla = $this->tablaEquivalencias((int) $aula->establecimiento_periodo_id);
+        $letras = $this->letrasEquivalencia((int) $aula->establecimiento_periodo_id);
         $asistencia = $this->asistenciaPorAlumno($aula, null, null);
         $comportamiento = $this->comportamientoPorAlumno($aula, null);
         $alumnos = $this->asignaciones->alumnosDelAula($aula);
@@ -369,6 +373,7 @@ class InformeAprendizaje
             $actividades,
             $cierres,
             $tabla,
+            $letras,
             $asistencia,
             $comportamiento,
             $establecimiento,
@@ -516,7 +521,7 @@ class InformeAprendizaje
                         ? ($etiquetaDestreza ?? '—')
                         : ($cuantitativa && $asignatura->escala === EscalaCalificacion::Nacional
                             ? ($this->equivalenciaCualitativa($notaPeriodo, $tabla) ?? '—')
-                            : '—'),
+                            : ($this->equivalenciaDeLetra($textoCualitativo, $letras) ?? '—')),
                 ];
             }
 
@@ -628,6 +633,40 @@ class InformeAprendizaje
         $tipo = $this->asignaciones->tipoInsumoAsignado((int) $aula->id, (int) $asignatura->id);
 
         return ($tipo?->tipo_calificacion ?? $asignatura->tipo_calificacion->value) === TipoCalificacion::Cuantitativa->value;
+    }
+
+    /**
+     * @param  Collection<string, EquivalenciaDetalle>  $letras
+     */
+    private function equivalenciaDeLetra(?string $nota, Collection $letras): ?string
+    {
+        if ($nota === null || $nota === '—') {
+            return null;
+        }
+
+        $detalle = $letras->get($nota);
+
+        if ($detalle instanceof EquivalenciaDetalle) {
+            return (string) $detalle->nombre;
+        }
+
+        return CalificacionDestreza::tryFrom($nota)?->codigoLibreta();
+    }
+
+    /**
+     * @return Collection<string, EquivalenciaDetalle>
+     */
+    private function letrasEquivalencia(int $periodoId): Collection
+    {
+        return EquivalenciaDetalle::query()
+            ->where('activo', true)
+            ->whereNotNull('valor')
+            ->whereHas('equivalencia', fn ($query) => $query
+                ->where('establecimiento_periodo_id', $periodoId)
+                ->where('uso', UsoEquivalencia::Asignatura)
+                ->where('activo', true))
+            ->get()
+            ->keyBy(fn (EquivalenciaDetalle $detalle): string => (string) $detalle->valor);
     }
 
     private function tablaEquivalencias(int $periodoId): ?Equivalencia

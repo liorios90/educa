@@ -6,6 +6,14 @@ use App\Enums\Role;
 use App\Enums\TipoCalificacion;
 use App\Models\Establecimiento;
 use App\Models\EstablecimientoAsignatura;
+use App\Models\EstablecimientoCalificacion;
+use App\Models\EstablecimientoCierreActividad;
+use App\Models\EstablecimientoCierreActividadCalificacion;
+use App\Models\EstablecimientoComportamiento;
+use App\Models\EstablecimientoDestrezaCalificacion;
+use App\Models\EstablecimientoIndicadorCalificacion;
+use App\Models\EstablecimientoInsumoActividad;
+use App\Models\EstablecimientoInsumoActividadCalificacion;
 use App\Models\EstablecimientoModalidadJornada;
 use App\Models\EstablecimientoPeriodo;
 use App\Models\EstablecimientoPeriodoAsignaturaCiclo;
@@ -14,6 +22,7 @@ use App\Models\EstablecimientoPeriodoCicloParcial;
 use App\Models\Sys_Asignatura;
 use App\Models\Sys_Grado;
 use App\Models\User;
+use App\Services\RevertirAperturaPeriodo;
 use Database\Seeders\NavigationSeeder;
 
 describe('edit', function () {
@@ -727,6 +736,7 @@ describe('aperturar', function () {
             ->get(route('Admin.periodo'))
             ->assertOk()
             ->assertSee('Al aperturar, esta configuración se bloquea')
+            ->assertSee('Puedes revertir la apertura mientras no haya calificaciones.')
             ->assertSee(route('Admin.periodo.aperturar'), false)
             ->assertSee('Guardar configuración')
             ->assertDontSee('Este periodo ya fue aperturado')
@@ -906,6 +916,255 @@ describe('aperturar', function () {
 
     it('redirects guests from opening a period to login', function () {
         $this->post(route('Admin.periodo.aperturar'))
+            ->assertRedirect(route('login'));
+    });
+});
+
+describe('revertir apertura', function () {
+    it('shows an enabled revert action when the open period has no grades', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $oferta = ofertaDe($establecimiento);
+        $periodo = periodoConEvaluacion($oferta, 2);
+        $periodo->update(['abierto_en' => now()]);
+
+        $this->actingAs($admin)
+            ->withSession(activeContextSession($oferta, $periodo))
+            ->get(route('Admin.periodo'))
+            ->assertOk()
+            ->assertSee('Revertir apertura')
+            ->assertSee(route('Admin.periodo.revertir-apertura'), false)
+            ->assertDontSee(RevertirAperturaPeriodo::MENSAJE_CON_CALIFICACIONES);
+    });
+
+    it('shows a disabled revert action when the open period already has grades', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $oferta = ofertaDe($establecimiento);
+        $periodo = periodoConEvaluacion($oferta, 2);
+        $periodo->update(['abierto_en' => now()]);
+        EstablecimientoCalificacion::factory()->create([
+            'establecimiento_periodo_id' => $periodo->id,
+        ]);
+
+        $this->actingAs($admin)
+            ->withSession(activeContextSession($oferta, $periodo))
+            ->get(route('Admin.periodo'))
+            ->assertOk()
+            ->assertSee('Revertir apertura')
+            ->assertSee(RevertirAperturaPeriodo::MENSAJE_CON_CALIFICACIONES)
+            ->assertDontSee(route('Admin.periodo.revertir-apertura'), false);
+    });
+
+    it('reverts the opening and unlocks the configuration when there are no grades', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $oferta = ofertaDe($establecimiento);
+        $periodo = periodoConEvaluacion($oferta, 2);
+
+        $this->actingAs($admin)
+            ->withSession(activeContextSession($oferta, $periodo))
+            ->post(route('Admin.periodo.aperturar'))
+            ->assertRedirect(route('Admin.periodo'));
+
+        $this->actingAs($admin)
+            ->withSession(activeContextSession($oferta, $periodo))
+            ->post(route('Admin.periodo.revertir-apertura'))
+            ->assertRedirect(route('Admin.periodo'))
+            ->assertSessionHas('status', 'periodo-apertura-revertida');
+
+        expect($periodo->fresh()->estaAbierto())->toBeFalse()
+            ->and($periodo->ciclos()->count())->toBe(2)
+            ->and($periodo->ciclos()->withCount('parciales')->get()->sum('parciales_count'))->toBe(0);
+
+        $this->actingAs($admin)
+            ->withSession(activeContextSession($oferta, $periodo))
+            ->get(route('Admin.periodo'))
+            ->assertOk()
+            ->assertSee('Se revirtió la apertura. Ya puedes modificar la configuración del periodo.')
+            ->assertSee('Guardar configuración')
+            ->assertSee('Aperturar periodo')
+            ->assertDontSee('Este periodo ya fue aperturado');
+    });
+
+    it('reverts the opening when activities exist without grades', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $oferta = ofertaDe($establecimiento);
+        $periodo = periodoConEvaluacion($oferta, 2);
+
+        $this->actingAs($admin)
+            ->withSession(activeContextSession($oferta, $periodo))
+            ->post(route('Admin.periodo.aperturar'))
+            ->assertRedirect(route('Admin.periodo'));
+
+        EstablecimientoInsumoActividad::factory()->create([
+            'establecimiento_periodo_ciclo_id' => $periodo->ciclos()->value('id'),
+        ]);
+
+        $this->actingAs($admin)
+            ->withSession(activeContextSession($oferta, $periodo))
+            ->post(route('Admin.periodo.revertir-apertura'))
+            ->assertRedirect(route('Admin.periodo'))
+            ->assertSessionHas('status', 'periodo-apertura-revertida');
+
+        expect($periodo->fresh()->estaAbierto())->toBeFalse();
+    });
+
+    it('rejects reverting the opening when the period already has grades', function (string $origen) {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $oferta = ofertaDe($establecimiento);
+        $periodo = periodoConEvaluacion($oferta, 2);
+
+        $this->actingAs($admin)
+            ->withSession(activeContextSession($oferta, $periodo))
+            ->post(route('Admin.periodo.aperturar'))
+            ->assertRedirect(route('Admin.periodo'));
+
+        $cicloId = $periodo->ciclos()->value('id');
+
+        match ($origen) {
+            'nota consolidada' => EstablecimientoCalificacion::factory()->create([
+                'establecimiento_periodo_id' => $periodo->id,
+            ]),
+            'insumo' => EstablecimientoInsumoActividadCalificacion::factory()->create([
+                'establecimiento_insumo_actividad_id' => EstablecimientoInsumoActividad::factory()->create([
+                    'establecimiento_periodo_ciclo_id' => $cicloId,
+                ])->id,
+            ]),
+            'cierre' => EstablecimientoCierreActividadCalificacion::factory()->create([
+                'establecimiento_cierre_actividad_id' => EstablecimientoCierreActividad::factory()->create([
+                    'establecimiento_periodo_ciclo_id' => $cicloId,
+                ])->id,
+            ]),
+            'destreza' => EstablecimientoDestrezaCalificacion::factory()->create([
+                'establecimiento_periodo_ciclo_id' => $cicloId,
+            ]),
+            'indicador' => EstablecimientoIndicadorCalificacion::factory()->create([
+                'establecimiento_periodo_ciclo_id' => $cicloId,
+            ]),
+            'comportamiento' => EstablecimientoComportamiento::factory()->create([
+                'establecimiento_periodo_ciclo_id' => $cicloId,
+            ]),
+        };
+
+        $this->actingAs($admin)
+            ->withSession(activeContextSession($oferta, $periodo))
+            ->from(route('Admin.periodo'))
+            ->post(route('Admin.periodo.revertir-apertura'))
+            ->assertRedirect(route('Admin.periodo'))
+            ->assertSessionHasErrors([
+                'periodo' => RevertirAperturaPeriodo::MENSAJE_CON_CALIFICACIONES,
+            ]);
+
+        expect($periodo->fresh()->estaAbierto())->toBeTrue()
+            ->and($periodo->ciclos()->withCount('parciales')->get()->sum('parciales_count'))->toBe(4);
+    })->with([
+        'nota consolidada',
+        'insumo',
+        'cierre',
+        'destreza',
+        'indicador',
+        'comportamiento',
+    ]);
+
+    it('ignores grades that belong to another period', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $oferta = ofertaDe($establecimiento);
+        $periodo = periodoConEvaluacion($oferta, 2);
+        $otro = periodoActivoDe($oferta, ['activo' => false, 'nombre' => 'Periodo anterior']);
+        EstablecimientoCalificacion::factory()->create([
+            'establecimiento_periodo_id' => $otro->id,
+        ]);
+
+        $this->actingAs($admin)
+            ->withSession(activeContextSession($oferta, $periodo))
+            ->post(route('Admin.periodo.aperturar'))
+            ->assertRedirect(route('Admin.periodo'));
+
+        $this->actingAs($admin)
+            ->withSession(activeContextSession($oferta, $periodo))
+            ->post(route('Admin.periodo.revertir-apertura'))
+            ->assertRedirect(route('Admin.periodo'))
+            ->assertSessionHas('status', 'periodo-apertura-revertida');
+
+        expect($periodo->fresh()->estaAbierto())->toBeFalse();
+    });
+
+    it('rejects reverting a period that is not open', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $oferta = ofertaDe($establecimiento);
+        $periodo = periodoConEvaluacion($oferta, 2);
+
+        $this->actingAs($admin)
+            ->withSession(activeContextSession($oferta, $periodo))
+            ->from(route('Admin.periodo'))
+            ->post(route('Admin.periodo.revertir-apertura'))
+            ->assertRedirect(route('Admin.periodo'))
+            ->assertSessionHasErrors([
+                'periodo' => RevertirAperturaPeriodo::MENSAJE_SIN_APERTURA,
+            ]);
+
+        expect($periodo->fresh()->estaAbierto())->toBeFalse()
+            ->and(EstablecimientoPeriodoCicloParcial::query()->count())->toBe(0);
+    });
+
+    it('does not revert the open period of another oferta', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $oferta = ofertaDe($establecimiento);
+        $periodo = periodoConEvaluacion($oferta, 2);
+        $otra = ofertaDe($establecimiento, ['jornada' => 'Vespertina']);
+        $periodoAjeno = periodoConEvaluacion($otra, 2);
+
+        $this->actingAs($admin)
+            ->withSession(activeContextSession($oferta, $periodo))
+            ->post(route('Admin.periodo.aperturar'))
+            ->assertRedirect(route('Admin.periodo'));
+
+        $this->actingAs($admin)
+            ->withSession(activeContextSession($otra, $periodoAjeno))
+            ->post(route('Admin.periodo.aperturar'))
+            ->assertRedirect(route('Admin.periodo'));
+
+        $this->actingAs($admin)
+            ->withSession(activeContextSession($oferta, $periodo))
+            ->post(route('Admin.periodo.revertir-apertura'))
+            ->assertRedirect(route('Admin.periodo'));
+
+        expect($periodo->fresh()->estaAbierto())->toBeFalse()
+            ->and($periodoAjeno->fresh()->estaAbierto())->toBeTrue()
+            ->and($periodoAjeno->ciclos()->withCount('parciales')->get()->sum('parciales_count'))->toBe(4);
+    });
+
+    it('forbids an administrator of another establishment from reverting the period', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $oferta = ofertaDe($establecimiento);
+        $periodo = periodoConEvaluacion($oferta, 2);
+        $periodo->update(['abierto_en' => now()]);
+        $adminAjeno = adminOf(Establecimiento::factory()->create());
+
+        $this->actingAs($adminAjeno)
+            ->withSession(activeContextSession($oferta, $periodo))
+            ->post(route('Admin.periodo.revertir-apertura'))
+            ->assertForbidden();
+
+        expect($periodo->fresh()->estaAbierto())->toBeTrue();
+    });
+
+    it('forbids systems users from reverting an opening', function () {
+        $user = assignRole(User::factory()->create(), Role::Sistemas);
+
+        $this->actingAs($user)
+            ->post(route('Admin.periodo.revertir-apertura'))
+            ->assertForbidden();
+    });
+
+    it('redirects guests from reverting an opening to login', function () {
+        $this->post(route('Admin.periodo.revertir-apertura'))
             ->assertRedirect(route('login'));
     });
 });

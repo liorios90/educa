@@ -45,6 +45,7 @@ Route::middleware(['auth', 'verified', 'role:Sistemas'])
         Route::post('/establecimientos/{establecimiento}/periodos', [EstablecimientoPeriodoController::class, 'store'])->name('establecimientos.periodos.store')->whereNumber('establecimiento');
         Route::patch('/establecimientos/{establecimiento}/periodos/{periodo}', [EstablecimientoPeriodoController::class, 'update'])->name('establecimientos.periodos.update')->scopeBindings()->whereNumber('establecimiento')->whereNumber('periodo');
         Route::delete('/establecimientos/{establecimiento}/periodos/{periodo}', [EstablecimientoPeriodoController::class, 'destroy'])->name('establecimientos.periodos.destroy')->scopeBindings()->whereNumber('establecimiento')->whereNumber('periodo');
+        Route::post('/establecimientos/{establecimiento}/periodos/{periodo}/revertir-apertura', [EstablecimientoPeriodoController::class, 'revertirApertura'])->name('establecimientos.periodos.revertir-apertura')->scopeBindings()->whereNumber('establecimiento')->whereNumber('periodo');
         Route::get('/estructura', [EstructuraController::class, 'index'])->name('estructura');
         Route::get('/estructura/niveles/{nivel}', [EstructuraController::class, 'showNivel'])->name('estructura.niveles.show')->whereNumber('nivel');
         Route::get('/estructura/niveles/{nivel}/subniveles/{subnivel}', [EstructuraController::class, 'showSubnivel'])->name('estructura.subniveles.show')->scopeBindings()->whereNumber('nivel')->whereNumber('subnivel');

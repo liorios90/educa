@@ -7,10 +7,12 @@ use App\Auth\ActivePeriodo;
 use App\Enums\EsquemaCiclo;
 use App\Enums\ModoPonderacionCiclos;
 use App\Http\Requests\AperturarEstablecimientoPeriodoRequest;
+use App\Http\Requests\RevertirAperturaEstablecimientoPeriodoRequest;
 use App\Http\Requests\UpdateEstablecimientoPeriodoEvaluacionRequest;
 use App\Models\Establecimiento;
 use App\Models\EstablecimientoPeriodo;
 use App\Services\AbrirPeriodoEvaluacion;
+use App\Services\RevertirAperturaPeriodo;
 use App\Services\SyncPeriodoEvaluacion;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -23,7 +25,7 @@ class EstablecimientoPeriodoEvaluacionController extends Controller
         private ActivePeriodo $activePeriodo,
     ) {}
 
-    public function edit(Request $request): View|RedirectResponse
+    public function edit(Request $request, RevertirAperturaPeriodo $revertir): View|RedirectResponse
     {
         $establecimiento = $this->establecimiento($request);
         $user = $request->user();
@@ -73,6 +75,10 @@ class EstablecimientoPeriodoEvaluacionController extends Controller
                 ? filter_var($tieneProyectoFinal, FILTER_VALIDATE_BOOLEAN)
                 : (float) $proyectoFinal > 0.009,
             'porcentajeProyectoFinal' => $proyectoFinal,
+            'puedeRevertirApertura' => $periodo instanceof EstablecimientoPeriodo
+                && $periodo->estaAbierto()
+                && ! $revertir->tieneCalificaciones($periodo),
+            'mensajeRevertirBloqueado' => RevertirAperturaPeriodo::MENSAJE_CON_CALIFICACIONES,
         ]);
     }
 
@@ -115,6 +121,21 @@ class EstablecimientoPeriodoEvaluacionController extends Controller
         return redirect()
             ->route('Admin.periodo')
             ->with('status', 'periodo-aperturado');
+    }
+
+    public function revertirApertura(
+        RevertirAperturaEstablecimientoPeriodoRequest $request,
+        RevertirAperturaPeriodo $revertir,
+    ): RedirectResponse {
+        $periodo = $request->periodo();
+
+        abort_if($periodo === null, 403);
+
+        $revertir->handle($periodo);
+
+        return redirect()
+            ->route('Admin.periodo')
+            ->with('status', 'periodo-apertura-revertida');
     }
 
     private function establecimiento(Request $request): Establecimiento

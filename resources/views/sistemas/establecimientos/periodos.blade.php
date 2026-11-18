@@ -65,6 +65,12 @@
             @if (session('status') === 'periodo-deleted')
                 <p class="mb-4 text-sm font-medium text-green-700">Periodo eliminado correctamente.</p>
             @endif
+            @if (session('status') === 'periodo-apertura-revertida')
+                <p class="mb-4 text-sm font-medium text-green-700">Se revirtió la apertura. El colegio ya puede modificar la configuración del periodo.</p>
+            @endif
+            @if ($errors->has('periodo'))
+                <p class="mb-4 text-sm font-medium text-red-700">{{ $errors->first('periodo') }}</p>
+            @endif
 
             <p class="mb-4 text-sm text-slate-500">
                 <a href="{{ route('sistemas.establecimientos') }}" class="font-medium text-indigo-600 hover:text-indigo-500">Establecimientos</a>
@@ -141,10 +147,24 @@
                                                     @endif
                                                 </td>
                                                 <td class="px-4 py-3">
-                                                    <div class="flex items-center gap-3">
+                                                    <div class="flex flex-wrap items-center gap-3">
                                                         <button type="button" class="font-medium text-indigo-600 hover:text-indigo-500" @click="editingPeriodoId = {{ $periodo->id }}">
                                                             Editar
                                                         </button>
+                                                        @if ($periodo->estaAbierto())
+                                                            @if ($periodosRevertibles->contains($periodo->id))
+                                                                <form method="POST" action="{{ route('sistemas.establecimientos.periodos.revertir-apertura', [$establecimiento, $periodo]) }}" onsubmit="return confirm('Se revierte la apertura y el colegio podrá modificar de nuevo la configuración. ¿Continuar?');">
+                                                                    @csrf
+                                                                    <button type="submit" class="font-medium text-amber-700 hover:text-amber-600">
+                                                                        Revertir apertura
+                                                                    </button>
+                                                                </form>
+                                                            @else
+                                                                <button type="button" disabled class="cursor-not-allowed font-medium text-slate-400" title="{{ $mensajeRevertirBloqueado }}">
+                                                                    Revertir apertura
+                                                                </button>
+                                                            @endif
+                                                        @endif
                                                         <form method="POST" action="{{ route('sistemas.establecimientos.periodos.destroy', [$establecimiento, $periodo]) }}" onsubmit="return confirm('¿Eliminar este periodo?')">
                                                             @csrf
                                                             @method('delete')

@@ -20,6 +20,10 @@
                 <p class="mb-4 text-sm font-medium text-green-700">El periodo se aperturó. La configuración quedó bloqueada y se creó un cierre por cada parcial.</p>
             @endif
 
+            @if (session('status') === 'periodo-apertura-revertida')
+                <p class="mb-4 text-sm font-medium text-green-700">Se revirtió la apertura. Ya puedes modificar la configuración del periodo.</p>
+            @endif
+
             @if ($oferta === null)
                 <p class="rounded-2xl border border-slate-200 bg-white px-6 py-8 text-center text-slate-500">
                     Sistemas aún no ha asignado modalidades y jornadas a este establecimiento.
@@ -52,6 +56,19 @@
                         <p class="mt-1 text-sm leading-6 text-amber-950">
                             La configuración quedó bloqueada. Puedes consultarla, pero no modificar la forma de trabajo, los ciclos ni la ponderación final.
                         </p>
+                        <div class="mt-4">
+                            @if ($puedeRevertirApertura)
+                                <form method="POST" action="{{ route('Admin.periodo.revertir-apertura') }}" onsubmit="return confirm('Se revierte la apertura y podrás modificar de nuevo la configuración. ¿Continuar?');">
+                                    @csrf
+                                    <x-danger-button>Revertir apertura</x-danger-button>
+                                </form>
+                            @else
+                                <x-danger-button type="button" disabled class="cursor-not-allowed opacity-50" title="{{ $mensajeRevertirBloqueado }}">
+                                    Revertir apertura
+                                </x-danger-button>
+                                <p class="mt-2 text-sm text-amber-950">{{ $mensajeRevertirBloqueado }}</p>
+                            @endif
+                        </div>
                     </div>
                 @endif
 
@@ -769,10 +786,10 @@
                     <section class="mt-6 rounded-2xl border-2 border-amber-500 bg-amber-50 p-6">
                         <h3 class="text-base font-semibold text-amber-950">Aperturar periodo</h3>
                         <p class="mt-2 text-sm leading-6 text-amber-950">
-                            Al aperturar, esta configuración se bloquea y se crea un cierre por cada parcial de cada ciclo. Después solo se puede consultar. Esa acción no se puede deshacer.
+                            Al aperturar, esta configuración se bloquea y se crea un cierre por cada parcial de cada ciclo. Después solo se puede consultar. Puedes revertir la apertura mientras no haya calificaciones.
                         </p>
                         @if ($periodo->ciclos->isNotEmpty() && $periodo->numero_parciales !== null)
-                            <form method="POST" action="{{ route('Admin.periodo.aperturar') }}" class="mt-4" onsubmit="return confirm('Al aperturar, la configuración se bloquea y no se puede modificar. ¿Continuar?');">
+                            <form method="POST" action="{{ route('Admin.periodo.aperturar') }}" class="mt-4" onsubmit="return confirm('Al aperturar, la configuración se bloquea. Podrás revertirla solo si aún no hay calificaciones. ¿Continuar?');">
                                 @csrf
                                 <x-danger-button>Aperturar periodo</x-danger-button>
                             </form>

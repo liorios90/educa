@@ -5,9 +5,8 @@ namespace App\Enums;
 /**
  * Escala del Reglamento General a la LOEI y del Acuerdo MINEDEC-MINEDEC-2026-00082-A.
  *
- * Básica Elemental usa A, EP e I, con equivalencia sobre 10.
- * Inicial y Preparatoria usan letras de A+ a E-, sin promedio numérico.
- * NE significa que la destreza no se trabajó en el periodo.
+ * Básica Elemental se califica con A+ a E-. La libreta muestra la equivalencia
+ * del reglamento: A, EP o I. NE significa que no se trabajó en el periodo.
  */
 enum CalificacionDestreza: string
 {
@@ -87,6 +86,19 @@ enum CalificacionDestreza: string
         ], true);
     }
 
+    /**
+     * Código que ve la familia en la libreta, según la equivalencia del RGLOEI.
+     */
+    public function codigoLibreta(): string
+    {
+        return match ($this) {
+            self::Alcanzado, self::APlus, self::AMinus => 'A',
+            self::EnProceso, self::BPlus, self::BMinus, self::CPlus, self::CMinus => 'EP',
+            self::Iniciado, self::DPlus, self::DMinus, self::EPlus, self::EMinus => 'I',
+            self::NoEvaluado => 'NE',
+        };
+    }
+
     public function notaElemental(): ?float
     {
         return match ($this) {
@@ -159,6 +171,21 @@ enum CalificacionDestreza: string
     public static function opciones(): array
     {
         return self::lista([self::Alcanzado, self::EnProceso, self::Iniciado, self::NoEvaluado]);
+    }
+
+    /**
+     * Escala con la que se califica Básica Elemental: de A+ a E-, más NE.
+     *
+     * @return list<array{codigo: string, libreta: string, etiqueta: string, descripcion: string}>
+     */
+    public static function escalaElemental(): array
+    {
+        return array_map(fn (self $escala): array => [
+            'codigo' => $escala->value,
+            'libreta' => $escala->codigoLibreta(),
+            'etiqueta' => $escala->etiqueta(),
+            'descripcion' => $escala->descripcion(),
+        ], self::casosAmbito());
     }
 
     /**

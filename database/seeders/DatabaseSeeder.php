@@ -26,6 +26,7 @@ class DatabaseSeeder extends Seeder
             CatalogoInicialPreparatoriaSeeder::class,
             ModalidadJornadaSeeder::class,
             CriterioComportamientoSeeder::class,
+            TerritorioEducativoSeeder::class,
         ]);
 
         User::factory()->create([

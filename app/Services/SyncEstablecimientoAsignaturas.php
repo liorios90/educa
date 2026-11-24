@@ -56,8 +56,9 @@ class SyncEstablecimientoAsignaturas
         array $filas,
         array $modosArea = [],
         array $definiciones = [],
+        ?bool $porAmbitos = null,
     ): void {
-        DB::transaction(function () use ($establecimiento, $oferta, $filas, $modosArea, $definiciones): void {
+        DB::transaction(function () use ($establecimiento, $oferta, $filas, $modosArea, $definiciones, $porAmbitos): void {
             $anteriores = EstablecimientoAsignatura::query()
                 ->where('establecimiento_modalidad_jornada_id', $oferta->id)
                 ->get();
@@ -84,11 +85,16 @@ class SyncEstablecimientoAsignaturas
                 }
             }
 
-            $idPorClave = $this->sincronizarPropias($establecimiento, $oferta, $definiciones);
+            $idPorClave = $this->sincronizarPropias($establecimiento, $oferta, $definiciones, $porAmbitos);
 
-            EstablecimientoAreaLibreta::query()
-                ->where('establecimiento_modalidad_jornada_id', $oferta->id)
-                ->delete();
+            $libretas = EstablecimientoAreaLibreta::query()
+                ->where('establecimiento_modalidad_jornada_id', $oferta->id);
+
+            if ($porAmbitos !== null) {
+                $libretas->whereHas('area.subnivel', fn ($subnivel) => $subnivel->where('usa_ambitos', $porAmbitos));
+            }
+
+            $libretas->delete();
 
             $conservar = [];
 
@@ -141,6 +147,13 @@ class SyncEstablecimientoAsignaturas
                 $conservar[] = EstablecimientoAsignatura::query()->create($atributos)->id;
             }
 
+            if ($porAmbitos !== null) {
+                $conservar = array_values(array_unique([
+                    ...$conservar,
+                    ...$this->idsFueraDeOrganizacion($oferta, $porAmbitos),
+                ]));
+            }
+
             $sobrantes = EstablecimientoAsignatura::query()
                 ->where('establecimiento_modalidad_jornada_id', $oferta->id);
 
@@ -184,6 +197,7 @@ class SyncEstablecimientoAsignaturas
         Establecimiento $establecimiento,
         EstablecimientoModalidadJornada $oferta,
         array $definiciones,
+        ?bool $porAmbitos = null,
     ): array {
         $conservar = [];
 
@@ -198,6 +212,10 @@ class SyncEstablecimientoAsignaturas
 
         if ($conservar !== []) {
             $sobrantes->whereNotIn('id', $conservar);
+        }
+
+        if ($porAmbitos !== null) {
+            $sobrantes->whereHas('area.subnivel', fn ($subnivel) => $subnivel->where('usa_ambitos', $porAmbitos));
         }
 
         $sobrantes->delete();
@@ -237,6 +255,27 @@ class SyncEstablecimientoAsignaturas
         }
 
         return $ids;
+    }
+
+    /**
+     * @return list<int>
+     */
+    private function idsFueraDeOrganizacion(EstablecimientoModalidadJornada $oferta, bool $porAmbitos): array
+    {
+        return EstablecimientoAsignatura::query()
+            ->where('establecimiento_modalidad_jornada_id', $oferta->id)
+            ->where(function ($query) use ($porAmbitos): void {
+                $query->whereHas(
+                    'asignatura.area.subnivel',
+                    fn ($subnivel) => $subnivel->where('usa_ambitos', ! $porAmbitos),
+                )->orWhereHas(
+                    'asignaturaPropia.area.subnivel',
+                    fn ($subnivel) => $subnivel->where('usa_ambitos', ! $porAmbitos),
+                );
+            })
+            ->pluck('id')
+            ->map(fn (mixed $id): int => (int) $id)
+            ->all();
     }
 
     /**

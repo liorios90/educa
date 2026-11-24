@@ -7,6 +7,7 @@ use App\Models\Sys_Area;
 use App\Models\Sys_Asignatura;
 use App\Models\Sys_Destreza;
 use App\Models\Sys_Grado;
+use App\Models\Sys_IndicadorEvaluacion;
 use App\Models\Sys_Nivel;
 use App\Models\Sys_Subnivel;
 use App\Models\User;
@@ -28,11 +29,50 @@ describe('index', function () {
             ->assertSee('Básica Superior')
             ->assertSee('Lengua y Literatura')
             ->assertSee('Crear área')
+            ->assertSee('Asignaturas')
+            ->assertSee("dispatch('open-modal', 'asignaturas-{$area->id}')", false)
             ->assertSee('Crear asignatura')
             ->assertSee("dispatch('open-modal', 'asignatura-create-{$area->id}')", false)
             ->assertSee('Nueva asignatura')
             ->assertSee('En las libretas del Ministerio de Educación')
             ->assertSee(route('sistemas.estructura'), false);
+    });
+
+    it('lists skills of a subject even when the subnivel is graded with numbers', function () {
+        $user = assignRole(User::factory()->create(), Role::Sistemas);
+        $nivel = Sys_Nivel::factory()->create(['nombre' => 'Educación General Básica']);
+        $subnivel = Sys_Subnivel::factory()->for($nivel, 'nivel')->create([
+            'nombre' => 'Básica Superior',
+            'califica_por_destrezas' => false,
+        ]);
+        $grado = Sys_Grado::factory()->for($subnivel, 'subnivel')->create(['nombre' => 'Octavo de EGB']);
+        $area = Sys_Area::factory()->for($subnivel, 'subnivel')->create(['nombre' => 'Acompañamiento socioemocional']);
+        $asignatura = Sys_Asignatura::factory()->for($area, 'area')->create([
+            'nombre' => 'Cívica y Acompañamiento Integral en el Aula',
+            'tipo_calificacion' => TipoCalificacion::Cualitativa,
+            'usa_criterios' => false,
+        ]);
+        $destreza = Sys_Destreza::factory()->for($asignatura, 'asignatura')->for($grado, 'grado')->create([
+            'codigo' => 'CIV.01',
+            'descripcion' => 'Reconoce sus emociones, fortalezas y aspectos por mejorar.',
+            'imprescindible' => true,
+        ]);
+        Sys_IndicadorEvaluacion::factory()->for($destreza, 'destreza')->create([
+            'codigo' => 'I.CIV.01',
+            'descripcion' => 'Comprende las interacciones sociales y culturales.',
+        ]);
+
+        $this->actingAs($user)
+            ->get(route('sistemas.curriculo'))
+            ->assertOk()
+            ->assertSee('Destrezas e indicadores de evaluación')
+            ->assertSee('no entra al promedio')
+            ->assertSee('A, EP, I o NE')
+            ->assertSee('Octavo de EGB')
+            ->assertSee('CIV.01')
+            ->assertSee('Reconoce sus emociones, fortalezas y aspectos por mejorar.')
+            ->assertSee('Imprescindible')
+            ->assertSee('Comprende las interacciones sociales y culturales.');
     });
 
     it('shows ejes and ambitos when the subnivel organizes by ambitos', function () {
@@ -54,16 +94,22 @@ describe('index', function () {
         ]);
 
         $this->actingAs($user)
-            ->get(route('sistemas.curriculo', ['nivel' => $nivel->id, 'subnivel' => $subnivel->id, 'area' => $area->id]))
+            ->get(route('sistemas.curriculo.ambitos', ['nivel' => $nivel->id, 'subnivel' => $subnivel->id, 'area' => $area->id]))
             ->assertOk()
-            ->assertSee('Organiza por ámbitos')
+            ->assertSee('Ámbitos y Destrezas')
             ->assertSee('Ejes')
             ->assertSee('Crear eje')
             ->assertSee('Crear ámbito')
             ->assertSee('Nuevo ámbito')
-            ->assertSee('Destrezas y criterios')
+            ->assertSee('Criterios, destrezas e indicadores')
             ->assertSee('Agregar criterio')
             ->assertSee('Identidad y autonomía');
+
+        $this->actingAs($user)
+            ->get(route('sistemas.curriculo'))
+            ->assertOk()
+            ->assertDontSee('Preparatoria')
+            ->assertDontSee('Identidad y autonomía');
     });
 
     it('turns ambitos on from the curriculo screen and keeps destrezas enabled', function () {
@@ -79,7 +125,7 @@ describe('index', function () {
             ->patch(route('sistemas.curriculo.organizacion.update', [$nivel, $subnivel]), [
                 'usa_ambitos' => '1',
             ])
-            ->assertRedirect(route('sistemas.curriculo', [
+            ->assertRedirect(route('sistemas.curriculo.ambitos', [
                 'nivel' => $nivel->id,
                 'subnivel' => $subnivel->id,
             ]));
@@ -389,6 +435,7 @@ describe('asignaturas', function () {
                 'orden' => 1,
                 'horas_semanales' => 5,
                 'aparece_en_libreta' => '1',
+                'tipo_calificacion' => TipoCalificacion::Cuantitativa->value,
             ])
             ->assertRedirect(route('sistemas.curriculo', [
                 'nivel' => $nivel->id,
@@ -403,6 +450,8 @@ describe('asignaturas', function () {
             'orden' => 1,
             'horas_semanales' => 5,
             'aparece_en_libreta' => true,
+            'tipo_calificacion' => TipoCalificacion::Cuantitativa->value,
+            'usa_criterios' => false,
             'area_id' => $area->id,
         ]);
 
@@ -459,6 +508,8 @@ describe('asignaturas', function () {
                 'orden' => 4,
                 'horas_semanales' => 3,
                 'aparece_en_libreta' => '1',
+                'tipo_calificacion' => TipoCalificacion::Cualitativa->value,
+                'usa_criterios' => '1',
             ])
             ->assertRedirect(route('sistemas.curriculo', [
                 'nivel' => $nivel->id,
@@ -467,7 +518,41 @@ describe('asignaturas', function () {
             ]))
             ->assertSessionHas('status', 'asignatura-updated');
 
-        expect($asignatura->fresh()->nombre)->toBe('Geometría y medida');
+        $asignatura->refresh();
+
+        expect($asignatura->nombre)->toBe('Geometría y medida')
+            ->and($asignatura->tipo_calificacion)->toBe(TipoCalificacion::Cualitativa)
+            ->and($asignatura->usa_criterios)->toBeTrue();
+    });
+
+    it('keeps civica qualitative when a numeric scale is submitted', function () {
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+        $nivel = Sys_Nivel::factory()->create();
+        $subnivel = Sys_Subnivel::factory()->for($nivel, 'nivel')->create();
+        $area = Sys_Area::factory()->for($subnivel, 'subnivel')->create();
+        $asignatura = Sys_Asignatura::factory()->for($area, 'area')->create([
+            'nombre' => 'Cívica y Acompañamiento Integral en el Aula',
+            'tipo_calificacion' => TipoCalificacion::Cuantitativa,
+        ]);
+
+        $this->actingAs($actor)
+            ->patch(route('sistemas.curriculo.asignaturas.update', [$nivel, $subnivel, $area, $asignatura]), [
+                'nombre' => 'Cívica y Acompañamiento Integral en el Aula',
+                'orden' => 1,
+                'aparece_en_libreta' => '0',
+                'tipo_calificacion' => TipoCalificacion::Cuantitativa->value,
+                'usa_criterios' => '1',
+            ])
+            ->assertRedirect(route('sistemas.curriculo', [
+                'nivel' => $nivel->id,
+                'subnivel' => $subnivel->id,
+                'area' => $area->id,
+            ]));
+
+        $asignatura->refresh();
+
+        expect($asignatura->tipo_calificacion)->toBe(TipoCalificacion::Cualitativa)
+            ->and($asignatura->usa_criterios)->toBeFalse();
     });
 
     it('does not update an asignatura from another area', function () {
@@ -518,5 +603,7 @@ it('seeds the curriculo hub button for systems users', function () {
         ->get(route('navigation.hub', $estructura))
         ->assertOk()
         ->assertSee('Áreas y asignaturas')
-        ->assertSee(route('sistemas.curriculo'), false);
+        ->assertSee('Ámbitos y Destrezas')
+        ->assertSee(route('sistemas.curriculo'), false)
+        ->assertSee(route('sistemas.curriculo.ambitos'), false);
 });

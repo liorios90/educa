@@ -33,6 +33,7 @@ class InformeAprendizaje
         private LibretaAula $libreta,
         private DecimalesEstablecimiento $decimales,
         private ConsolidadoDestrezas $consolidado,
+        private AcompanamientoCivica $acompanamiento,
     ) {}
 
     /**
@@ -120,7 +121,7 @@ class InformeAprendizaje
 
                 $usaAmbitos = (bool) $aula->establecimientoGrado?->grado?->subnivel?->usa_ambitos;
 
-                if ($asignatura->califica_por_destrezas) {
+                if ($asignatura->califica_por_destrezas && ! $this->acompanamiento->esMalla($asignatura)) {
                     if (is_array($celdaDestreza) && $celdaDestreza['nota'] !== null) {
                         $nota = $celdaDestreza['nota'];
                         $notasNumericas[] = $nota;
@@ -129,6 +130,8 @@ class InformeAprendizaje
                     $textoCualitativo = $usaAmbitos
                         ? 'Por destreza'
                         : (is_array($celdaDestreza) ? ($celdaDestreza['letra'] ?? null) : null);
+                } elseif ($asignatura->califica_por_destrezas) {
+                    $textoCualitativo = null;
                 } elseif ($cuantitativa) {
                     $nota = $this->notaCuantitativa(
                         $aula,
@@ -157,13 +160,13 @@ class InformeAprendizaje
                 $filas[] = [
                     'nombre' => $asignatura->nombre(),
                     'nota' => $notaTexto,
-                    'cualitativa' => $asignatura->califica_por_destrezas
-                        ? ($usaAmbitos
-                            ? 'Sin promedio'
-                            : (is_array($celdaDestreza) ? ($celdaDestreza['etiqueta'] ?? '—') : '—'))
-                        : ($cuantitativa && $asignatura->escala === EscalaCalificacion::Nacional
-                            ? ($this->equivalenciaCualitativa($nota, $tabla) ?? '—')
-                            : ($this->equivalenciaDeLetra($textoCualitativo, $letras) ?? '—')),
+                    'cualitativa' => match (true) {
+                        $this->acompanamiento->esMalla($asignatura) => 'Por habilidad',
+                        $asignatura->califica_por_destrezas && $usaAmbitos => 'Sin promedio',
+                        $asignatura->califica_por_destrezas => is_array($celdaDestreza) ? ($celdaDestreza['etiqueta'] ?? '—') : '—',
+                        $cuantitativa && $asignatura->escala === EscalaCalificacion::Nacional => $this->equivalenciaCualitativa($nota, $tabla) ?? '—',
+                        default => $this->equivalenciaDeLetra($textoCualitativo, $letras) ?? '—',
+                    },
                 ];
             }
 
@@ -418,7 +421,18 @@ class InformeAprendizaje
                 $resumenDestreza = $mapaDestrezas[(int) $alumno->id][(int) $asignatura->id] ?? null;
                 $usaAmbitos = (bool) $aula->establecimientoGrado?->grado?->subnivel?->usa_ambitos;
 
-                if ($asignatura->califica_por_destrezas) {
+                if ($asignatura->califica_por_destrezas && $this->acompanamiento->esMalla($asignatura)) {
+                    foreach ($ciclos as $ciclo) {
+                        $notasCiclo[] = [
+                            'nombre' => $ciclo->nombre,
+                            'nota' => '—',
+                        ];
+                    }
+
+                    $notaPeriodo = null;
+                    $textoCualitativo = null;
+                    $etiquetaDestreza = 'Por habilidad';
+                } elseif ($asignatura->califica_por_destrezas) {
                     foreach ($ciclos as $ciclo) {
                         $celda = is_array($resumenDestreza)
                             ? ($resumenDestreza['ciclos'][(int) $ciclo->id] ?? null)

@@ -16,7 +16,7 @@
     <x-slot name="header">
         <div>
             <h2 class="text-xl font-semibold leading-tight text-slate-800">
-                Asignaturas
+                {{ $porAmbitos ? 'Ámbitos y Destrezas' : 'Áreas y asignaturas' }}
             </h2>
             <p class="mt-1 text-sm text-slate-500">
                 {{ $establecimiento->nombre }} · {{ $oferta->etiqueta() }}
@@ -95,7 +95,7 @@
         }"
     >
         <div class="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
-            @if ($periodo !== null && $establecimiento->bachillerato_tecnico)
+            @if (! $porAmbitos && $periodo !== null && $establecimiento->bachillerato_tecnico)
                 <section x-show="nivelEsBachillerato" x-cloak class="mb-5 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                     <h3 class="font-semibold text-slate-800">Figuras profesionales del Bachillerato Técnico</h3>
                     <p class="mt-1 text-sm text-slate-500">El Bachillerato Técnico es una opción dentro del BGU: conserva los tres cursos y el tronco común, y añade los módulos de la figura profesional elegida.</p>
@@ -137,13 +137,17 @@
             @endif
 
             <section class="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                <h3 class="text-base font-semibold text-slate-800">Áreas por nivel y subnivel</h3>
+                <h3 class="text-base font-semibold text-slate-800">{{ $porAmbitos ? 'Ámbitos por nivel y subnivel' : 'Áreas por nivel y subnivel' }}</h3>
                 <p class="mt-2 text-sm leading-6 text-slate-600">
-                    Selecciona un nivel y luego un subnivel para administrar sus áreas, asignaturas y presentación en la libreta.
+                    @if ($porAmbitos)
+                        Subniveles que Sistemas organizó por ámbitos. Activa los ejes y ámbitos que dicta esta jornada.
+                    @else
+                        Subniveles que Sistemas organizó por áreas. Activa las áreas y asignaturas que dicta esta jornada, y cómo salen en la libreta.
+                    @endif
                 </p>
             </section>
 
-            @if ($establecimiento->bachillerato_tecnico && $areasTecnicasDisponibles->isNotEmpty())
+            @if (! $porAmbitos && $establecimiento->bachillerato_tecnico && $areasTecnicasDisponibles->isNotEmpty())
                 <section x-show="nivelEsBachillerato" x-cloak class="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-6 shadow-sm">
                     <h3 class="font-semibold text-slate-800">Áreas técnicas ofrecidas por este establecimiento</h3>
                     <p class="mt-1 text-sm text-slate-600">Activa las áreas técnicas que ofrece esta jornada. Se administran por separado del tronco común y solo aparecerán aquí después de guardarlas.</p>
@@ -163,7 +167,7 @@
                         <div><x-primary-button>Guardar áreas técnicas</x-primary-button></div>
                     </form>
                 </section>
-            @elseif ($establecimiento->bachillerato_tecnico)
+            @elseif (! $porAmbitos && $establecimiento->bachillerato_tecnico)
                 <section x-show="nivelEsBachillerato" x-cloak class="mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-6 shadow-sm">
                     <h3 class="font-semibold text-slate-800">Áreas técnicas</h3>
                     <p class="mt-1 text-sm text-slate-600">Sistemas todavía no ha creado áreas técnicas para los niveles de esta oferta. El catálogo se configura en Sistemas → Currículo, en el subnivel Bachillerato General Unificado, marcando “Área técnica”.</p>
@@ -176,10 +180,15 @@
             <form method="POST" action="{{ route('Admin.asignaturas.update', $oferta) }}">
                 @csrf
                 @method('PUT')
+                <input type="hidden" name="organizacion" value="{{ $porAmbitos ? 'ambitos' : 'areas' }}">
 
                 @if ($subniveles->isEmpty())
                     <p class="rounded-2xl border border-slate-200 bg-white px-6 py-8 text-center text-slate-500">
-                        Sin grados en la estructura para esta jornada.
+                        @if ($porAmbitos)
+                            Ningún grado de esta jornada está en un subnivel organizado por ámbitos.
+                        @else
+                            Ningún grado de esta jornada está en un subnivel organizado por áreas.
+                        @endif
                         <a href="{{ route('Admin.estructura.edit', $oferta) }}" class="font-medium text-indigo-600 hover:text-indigo-500">
                             Definir estructura
                         </a>

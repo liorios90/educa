@@ -37,11 +37,15 @@ class NavigationSeeder extends Seeder
 
         $estructuraInstitucional = $this->ensureItem('Estructura Institucional', 'navigation.hub', 'squares-2x2', 3, false, [$admin->id], isGroup: true, groupDisplay: NavigationGroupDisplay::Sidebar);
         $this->ensureItem('Nivel - Subnivel - Grado', 'Admin.estructura', 'building-office-2', 1, false, [$admin->id], parentId: $estructuraInstitucional->id);
-        $this->ensureItem('Areas y Asignaturas', 'Admin.asignaturas', 'book-open', 2, false, [$admin->id], parentId: $estructuraInstitucional->id);
-        $this->ensureItem('Docentes', 'Admin.docentes', 'user', 3, false, [$admin->id], parentId: $estructuraInstitucional->id);
-        $this->ensureItem('Aulas', 'Admin.aulas', 'building-library', 4, false, [$admin->id], parentId: $estructuraInstitucional->id);
-        $this->ensureItem('Grupos por Grado', 'Admin.grupos-asignatura.flotantes', 'users', 5, false, [$admin->id], parentId: $estructuraInstitucional->id);
-        $this->ensureItem('Programas', 'Admin.programas.index', 'map', 6, false, [$admin->id, $secretaria->id], parentId: $estructuraInstitucional->id);
+        $this->ensureItem('Áreas y asignaturas', 'Admin.asignaturas', 'book-open', 2, false, [$admin->id], parentId: $estructuraInstitucional->id);
+        $this->ensureItem('Ámbitos y Destrezas', 'Admin.asignaturas.ambitos', 'academic-cap', 3, false, [$admin->id], parentId: $estructuraInstitucional->id);
+        $this->alinearEstructuraInstitucional($estructuraInstitucional);
+
+        $plantel = $this->ensureItem('Estructura del plantel', 'navigation.hub', 'building-office', 4, false, [$admin->id, $secretaria->id], isGroup: true, groupDisplay: NavigationGroupDisplay::Sidebar);
+        $this->ubicarEn($plantel, 'Admin.docentes', 'Docentes', 'user', 1, [$admin->id], restringirRoles: true);
+        $this->ubicarEn($plantel, 'Admin.aulas', 'Aulas', 'building-library', 2, [$admin->id], restringirRoles: true);
+        $this->ubicarEn($plantel, 'Admin.programas.index', 'Programas', 'map', 3, [$admin->id], restringirRoles: true);
+        $this->ubicarEn($plantel, 'Admin.grupos-asignatura.flotantes', 'Aulas flotantes', 'academic-cap', 4, [$admin->id, $secretaria->id], ['Aulas flotantes', 'Grupos flotantes'], restringirRoles: true);
 
         $this->ensureItem('Sistemas', 'sistemas.home', 'cog', 3, false, [$sistemas->id]);
 
@@ -85,6 +89,7 @@ class NavigationSeeder extends Seeder
         $estructura = $this->ensureItem('Estructura', 'navigation.hub', 'home', 7, false, [$sistemas->id], isGroup: true);
         $this->ensureItem('Nivel - Subnivel - Grado', 'sistemas.estructura', 'home', 1, false, [$sistemas->id], parentId: $estructura->id);
         $this->ensureItem('Áreas y asignaturas', 'sistemas.curriculo', 'home', 2, false, [$sistemas->id], parentId: $estructura->id);
+        $this->ensureItem('Ámbitos y Destrezas', 'sistemas.curriculo.ambitos', 'academic-cap', 3, false, [$sistemas->id], parentId: $estructura->id);
 
         $configuracion = $this->ensureItem('Configuración', 'navigation.hub', 'cog', 7, false, [$admin->id], isGroup: true, groupDisplay: NavigationGroupDisplay::Sidebar);
         $this->ensureItem('Período', 'Admin.periodo', 'calendar-days', 1, false, [$admin->id], parentId: $configuracion->id);
@@ -94,6 +99,7 @@ class NavigationSeeder extends Seeder
         $this->ensureItem('Tablas de Equivalencias', 'Admin.tablas-equivalencias.index', 'table-cells', 5, false, [$admin->id], parentId: $configuracion->id);
         $this->ensureItem('Asistente', 'Admin.asistente', 'sparkles', 6, false, [$admin->id], parentId: $configuracion->id);
         $this->ensureItem('Decimales', 'Admin.decimales', 'chart-bar', 7, false, [$admin->id], parentId: $configuracion->id);
+        $this->ensureItem('Habilidades de Cívica', 'Admin.habilidades-civica.edit', 'academic-cap', 9, false, [$admin->id], parentId: $configuracion->id);
         $this->ensureItem('Criterios de comportamiento', 'Admin.criterios-comportamiento.edit', 'academic-cap', 8, false, [$admin->id], parentId: $configuracion->id);
 
         $this->ensureItem('Reportes', 'reports.index', 'home', 8, true, []);
@@ -106,7 +112,6 @@ class NavigationSeeder extends Seeder
         $this->ensureItem('Formularios', 'Admin.matriculas.index', 'clipboard-document-list', 1, false, [$admin->id, $secretaria->id], parentId: $matriculas->id);
         $this->ensureItem('Matricular Alumno', 'Admin.grupos-asignatura.index', 'user', 2, false, [$admin->id, $secretaria->id], parentId: $matriculas->id);
 
-        $this->ensureItem('Grupos flotantes', 'Admin.grupos-asignatura.flotantes', 'academic-cap', 11, false, [$admin->id, $secretaria->id]);
     }
 
     /**
@@ -145,6 +150,69 @@ class NavigationSeeder extends Seeder
         $item->roles()->sync($visibleToAll ? [] : $roleIds);
 
         return $item;
+    }
+
+    /**
+     * @param  list<int>  $roleIds
+     * @param  list<string>  $etiquetas
+     */
+    private function ubicarEn(
+        NavigationItem $grupo,
+        string $routeName,
+        string $label,
+        string $icon,
+        int $sortOrder,
+        array $roleIds,
+        array $etiquetas = [],
+        bool $restringirRoles = false,
+    ): void {
+        $query = NavigationItem::query()
+            ->where('route_name', $routeName)
+            ->where('is_group', false);
+
+        if ($etiquetas !== []) {
+            $query->whereIn('label', $etiquetas);
+        }
+
+        $item = $query->orderBy('id')->first();
+
+        if ($item instanceof NavigationItem) {
+            $item->update([
+                'label' => $label,
+                'icon' => $icon,
+                'parent_id' => $grupo->id,
+                'sort_order' => $sortOrder,
+                'is_active' => true,
+            ]);
+
+            if ($restringirRoles) {
+                $item->roles()->sync($roleIds);
+            }
+
+            return;
+        }
+
+        $this->ensureItem($label, $routeName, $icon, $sortOrder, false, $roleIds, parentId: $grupo->id);
+    }
+
+    private function alinearEstructuraInstitucional(NavigationItem $grupo): void
+    {
+        NavigationItem::query()
+            ->where('parent_id', $grupo->id)
+            ->where('route_name', 'Admin.asignaturas')
+            ->update([
+                'label' => 'Áreas y asignaturas',
+                'icon' => 'book-open',
+                'sort_order' => 2,
+            ]);
+
+        NavigationItem::query()
+            ->where('label', 'Grupos por Grado')
+            ->where('route_name', 'Admin.grupos-asignatura.flotantes')
+            ->update([
+                'is_active' => false,
+                'parent_id' => $grupo->id,
+            ]);
     }
 
     private function existingItem(string $routeName, bool $isGroup, ?int $parentId, string $label): ?NavigationItem

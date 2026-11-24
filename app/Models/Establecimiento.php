@@ -217,6 +217,14 @@ class Establecimiento extends Model
     }
 
     /**
+     * @return HasMany<EstablecimientoHabilidadCivica, $this>
+     */
+    public function habilidadesCivica(): HasMany
+    {
+        return $this->hasMany(EstablecimientoHabilidadCivica::class);
+    }
+
+    /**
      * @return HasMany<EstablecimientoAula, $this>
      */
     public function aulas(): HasMany

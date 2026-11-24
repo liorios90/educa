@@ -40,14 +40,17 @@ class EstablecimientoAsignaturaController extends Controller
         $oferta = $this->activeOferta->get($user);
         $periodo = $this->activePeriodo->get($user);
 
+        $porAmbitos = $this->porAmbitos($request);
+
         if ($oferta !== null && $periodo !== null) {
-            return redirect()->route('Admin.asignaturas.edit', $oferta);
+            return redirect()->route($porAmbitos ? 'Admin.asignaturas.ambitos.edit' : 'Admin.asignaturas.edit', $oferta);
         }
 
         return view('admin.asignaturas.index', [
             'establecimiento' => $establecimiento,
             'oferta' => $oferta,
             'periodo' => $periodo,
+            'porAmbitos' => $porAmbitos,
         ]);
     }
 
@@ -72,6 +75,7 @@ class EstablecimientoAsignaturaController extends Controller
                 ->where('establecimiento_modalidad_jornada_id', $oferta->id)
                 ->orderBy('nombre')
                 ->get();
+        $porAmbitos = $this->porAmbitos($request);
         $subnivelIds = $gradosOferta->pluck('subnivel_id')->filter()->unique()->values();
 
         $subniveles = Sys_Subnivel::query()
@@ -84,6 +88,7 @@ class EstablecimientoAsignaturaController extends Controller
                 'areas.asignaturas.destrezas.grado',
             ])
             ->whereIn('id', $subnivelIds)
+            ->where('usa_ambitos', $porAmbitos)
             ->orderBy('id')
             ->get();
 
@@ -122,6 +127,7 @@ class EstablecimientoAsignaturaController extends Controller
             'promedioPorcentualPorArea' => $libretaPorArea['porcentual'],
             'areasTecnicasDisponibles' => $areasTecnicasDisponibles,
             'areasTecnicasSeleccionadas' => $areasTecnicasSeleccionadas,
+            'porAmbitos' => $porAmbitos,
         ]);
     }
 
@@ -155,17 +161,25 @@ class EstablecimientoAsignaturaController extends Controller
         $establecimiento = $this->establecimiento($request);
         $oferta = $this->ofertaDelEstablecimiento($establecimiento, $oferta);
 
+        $porAmbitos = $request->limitaAAmbitos();
+
         $sync->handle(
             $establecimiento,
             $oferta,
             $request->filas(),
             $request->modosArea(),
             $request->definicionesPropias(),
+            $porAmbitos,
         );
 
         return redirect()
-            ->route('Admin.asignaturas.edit', $oferta)
+            ->route($porAmbitos === true ? 'Admin.asignaturas.ambitos.edit' : 'Admin.asignaturas.edit', $oferta)
             ->with('status', 'asignaturas-updated');
+    }
+
+    private function porAmbitos(Request $request): bool
+    {
+        return $request->routeIs('Admin.asignaturas.ambitos', 'Admin.asignaturas.ambitos.edit');
     }
 
     private function establecimiento(Request $request): Establecimiento

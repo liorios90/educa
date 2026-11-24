@@ -149,9 +149,15 @@ it('returns only the links the user may see', function () {
 
     $matriculas = $items->firstWhere('label', 'Matriculas');
 
-    expect($items->pluck('label')->all())->toContain('Matenimiento', 'Estructura Institucional', 'Configuración', 'Matriculas', 'Grupos flotantes')
-        ->not->toContain('Grupos de clase', 'Usuarios')
-        ->and(collect($configuracion?->children)->pluck('label')->all())->toBe(['Período', 'Por grados', 'Por Asignaturas', 'Tipos de Insumos', 'Tablas de Equivalencias', 'Asistente', 'Decimales', 'Criterios de comportamiento'])
+    $estructura = $items->firstWhere('label', 'Estructura Institucional');
+
+    $plantel = $items->firstWhere('label', 'Estructura del plantel');
+
+    expect($items->pluck('label')->all())->toContain('Matenimiento', 'Estructura Institucional', 'Estructura del plantel', 'Configuración', 'Matriculas')
+        ->not->toContain('Grupos de clase', 'Usuarios', 'Docentes', 'Aulas', 'Programas', 'Grupos flotantes', 'Aulas flotantes')
+        ->and(collect($estructura?->children)->pluck('label')->all())->toBe(['Nivel - Subnivel - Grado', 'Áreas y asignaturas', 'Ámbitos y Destrezas'])
+        ->and(collect($plantel?->children)->pluck('label')->all())->toBe(['Docentes', 'Aulas', 'Programas', 'Aulas flotantes'])
+        ->and(collect($configuracion?->children)->pluck('label')->all())->toBe(['Período', 'Por grados', 'Por Asignaturas', 'Tipos de Insumos', 'Tablas de Equivalencias', 'Asistente', 'Decimales', 'Criterios de comportamiento', 'Habilidades de Cívica'])
         ->and(collect($matriculas?->children)->pluck('label')->all())->toBe(['Formularios', 'Matricular Alumno']);
 });
 
@@ -177,9 +183,12 @@ it('shows class groups and programs to secretaries', function () {
     $items = collect((new Navigation)->itemsFor($secretaria));
     $mantenimiento = $items->firstWhere('label', 'Matenimiento');
 
+    $plantel = $items->firstWhere('label', 'Estructura del plantel');
+
     expect($items->pluck('label')->all())
-        ->toContain('Matriculas', 'Grupos flotantes', 'Asistente', 'Libreta', 'Matenimiento')
-        ->not->toContain('Grupos de clase', 'Programas')
+        ->toContain('Matriculas', 'Estructura del plantel', 'Asistente', 'Libreta', 'Matenimiento')
+        ->not->toContain('Grupos de clase', 'Programas', 'Docentes', 'Aulas')
+        ->and(collect($plantel?->children)->pluck('label')->all())->toBe(['Aulas flotantes'])
         ->and(collect($mantenimiento?->children)->pluck('label')->all())->toBe(['Padres', 'Alumnos']);
 });
 

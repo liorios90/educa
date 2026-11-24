@@ -147,6 +147,34 @@ it('rejects skills when the subnivel is not evaluated by skills', function () {
     expect(Sys_Destreza::query()->count())->toBe(0);
 });
 
+it('keeps an existing skill editable when the subnivel is graded with numbers', function () {
+    $escenario = escenarioCurriculoDestrezas(false);
+    $destreza = Sys_Destreza::factory()->create([
+        'asignatura_id' => $escenario['asignatura']->id,
+        'grado_id' => $escenario['grado']->id,
+        'codigo' => 'CIV.01',
+        'descripcion' => 'Reconoce sus emociones.',
+    ]);
+
+    $this->actingAs($escenario['user'])
+        ->patch(route('sistemas.curriculo.destrezas.update', [
+            $escenario['nivel'],
+            $escenario['subnivel'],
+            $escenario['area'],
+            $escenario['asignatura'],
+            $destreza,
+        ]), [
+            'grado_id' => $escenario['grado']->id,
+            'codigo' => 'CIV.01',
+            'descripcion' => 'Reconoce sus emociones, fortalezas y aspectos por mejorar.',
+            'orden' => 1,
+        ])
+        ->assertRedirect()
+        ->assertSessionHas('status', 'destreza-updated');
+
+    expect($destreza->refresh()->descripcion)->toBe('Reconoce sus emociones, fortalezas y aspectos por mejorar.');
+});
+
 it('refuses to delete a skill that already has grades', function () {
     $escenario = escenarioCurriculoDestrezas();
     $destreza = Sys_Destreza::factory()->create([

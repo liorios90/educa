@@ -24,6 +24,7 @@ class DatabaseSeeder extends Seeder
             EstructuraEducativaSeeder::class,
             CurriculoEducativoSeeder::class,
             CatalogoInicialPreparatoriaSeeder::class,
+            CatalogoCivicaSeeder::class,
             ModalidadJornadaSeeder::class,
             CriterioComportamientoSeeder::class,
             TerritorioEducativoSeeder::class,

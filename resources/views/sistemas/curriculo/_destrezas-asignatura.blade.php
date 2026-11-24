@@ -1,20 +1,34 @@
 @php
+    use App\Enums\TipoCalificacion;
+
     $crearBag = $errors->getBag('destreza-create-'.$asignatura->id);
     $porAmbitos = (bool) $subnivel->usa_ambitos;
+    $esCivica = $asignatura->nombre === \App\Services\AcompanamientoCivica::ASIGNATURA;
+    $usaCriterios = ! $esCivica && ($porAmbitos || ($asignatura->tipo_calificacion === TipoCalificacion::Cualitativa && $asignatura->usa_criterios));
 @endphp
 
 <tr>
-    <td colspan="5" class="bg-slate-50 px-4 py-4">
-        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ $porAmbitos ? 'Criterios, destrezas e indicadores' : 'Destrezas e indicadores de evaluación' }}</p>
+    <td colspan="{{ $porAmbitos ? 5 : 6 }}" class="bg-slate-50 px-4 py-4">
+        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">{{ $usaCriterios ? 'Criterios, destrezas e indicadores' : 'Destrezas e indicadores de evaluación' }}</p>
         <p class="mt-1 text-sm text-slate-600">
-            @if ($porAmbitos)
+            @if ($esCivica)
+                El Ministerio pide evaluar nueve habilidades con A, EP, I o NE. Esa letra no entra al promedio ni es requisito de promoción.
+            @elseif ($porAmbitos)
                 El docente califica cada destreza con letras de A+ a E-, o NE si no se trabajó. No se promedia. Los indicadores dicen qué observar.
             @else
-                En Básica Elemental el docente califica cada indicador con A, EP, I o NE.
+                El docente califica cada indicador con A, EP, I o NE.
             @endif
         </p>
 
-        @if ($porAmbitos)
+        @if (! $usaCriterios && $asignatura->criterios->isNotEmpty())
+            <div class="mt-4 flex flex-col gap-2">
+                @foreach ($asignatura->criterios->unique('codigo') as $criterio)
+                    <p class="text-sm text-slate-600"><span class="font-medium text-indigo-700">{{ $criterio->codigo }}.</span> {{ $criterio->descripcion }}</p>
+                @endforeach
+            </div>
+        @endif
+
+        @if ($usaCriterios)
             <div class="mt-4 flex flex-col gap-3">
                 @foreach ($asignatura->criterios as $criterio)
                     @php $criterioBag = $errors->getBag('criterio-'.$criterio->id); @endphp
@@ -69,22 +83,33 @@
         @endif
 
         <div class="mt-4 flex flex-col gap-4">
-            @forelse ($asignatura->destrezas as $destreza)
+            @php
+                $destrezasVisibles = $asignatura->destrezas->sortBy([
+                    ['grado_id', 'asc'],
+                    ['codigo', 'asc'],
+                ]);
+                $gradoAnterior = null;
+            @endphp
+            @forelse ($destrezasVisibles as $destreza)
                 @php
                     $destrezaBag = $errors->getBag('destreza-'.$destreza->id);
                     $indicadorBag = $errors->getBag('indicador-create-'.$destreza->id);
                 @endphp
+                @if ($gradoAnterior !== $destreza->grado_id)
+                    <h3 class="text-sm font-semibold text-slate-800">{{ $destreza->grado?->nombre }}</h3>
+                    @php $gradoAnterior = $destreza->grado_id; @endphp
+                @endif
                 <article class="rounded-lg border border-slate-200 bg-white p-4">
                     <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div>
                             <p class="font-medium text-slate-800">
                                 {{ $destreza->codigo }}
                                 <span class="font-normal text-slate-500">· {{ $destreza->grado?->nombre }}</span>
-                                @if ($porAmbitos)
+                                @if ($porAmbitos || $destreza->imprescindible)
                                     <span class="font-normal text-slate-500">· {{ $destreza->imprescindible ? 'Imprescindible' : 'Deseable' }}</span>
-                                    @if ($destreza->criterio)
-                                        <span class="font-normal text-indigo-700">· {{ $destreza->criterio->codigo }}</span>
-                                    @endif
+                                @endif
+                                @if ($destreza->criterio)
+                                    <span class="font-normal text-indigo-700">· {{ $destreza->criterio->codigo }}</span>
                                 @endif
                             </p>
                             <p class="mt-1 text-sm text-slate-600">{{ $destreza->descripcion }}</p>
@@ -122,7 +147,7 @@
                             <x-input-label :for="'orden-destreza-'.$destreza->id" value="Orden" />
                             <x-text-input :id="'orden-destreza-'.$destreza->id" class="mt-1 block w-full" type="number" name="orden" :value="$destrezaBag->isNotEmpty() ? old('orden', $destreza->orden) : $destreza->orden" min="0" max="999" required />
                         </div>
-                        @if ($porAmbitos)
+                        @if ($usaCriterios)
                             <div class="md:w-56">
                                 <x-input-label :for="'criterio-destreza-'.$destreza->id" value="Criterio" />
                                 <select id="criterio-destreza-{{ $destreza->id }}" name="criterio_evaluacion_id" class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
@@ -132,6 +157,8 @@
                                     @endforeach
                                 </select>
                             </div>
+                        @endif
+                        @if ($porAmbitos)
                             <label class="flex items-center gap-2 text-sm text-slate-700">
                                 <input type="hidden" name="imprescindible" value="0">
                                 <input type="checkbox" name="imprescindible" value="1" class="rounded border-slate-300" @checked(filter_var(old('imprescindible', $destreza->imprescindible), FILTER_VALIDATE_BOOLEAN))>

@@ -8,6 +8,9 @@
     $asignaturaCreateLibreta = $asignaturaCreateBag->isNotEmpty()
         ? (bool) old('aparece_en_libreta', true)
         : true;
+    $asignaturaCreateEscala = $asignaturaCreateBag->isNotEmpty() ? old('tipo_calificacion', 'cuantitativa') : 'cuantitativa';
+    $asignaturaCreateCriterios = $asignaturaCreateBag->isNotEmpty()
+        && filter_var(old('usa_criterios'), FILTER_VALIDATE_BOOLEAN);
 @endphp
 
 <x-modal name="asignatura-create-{{ $area->id }}" maxWidth="2xl" :show="$asignaturaCreateBag->isNotEmpty()" focusable>
@@ -47,6 +50,27 @@
                 <x-text-input :id="'horas-asignatura-create-'.$area->id" class="mt-1 block w-full" type="number" name="horas_semanales" :value="$asignaturaCreateHoras" min="0" max="40" />
                 <x-input-error class="mt-2" :messages="$asignaturaCreateBag->get('horas_semanales')" />
             </div>
+            @unless ($subnivel->usa_ambitos)
+                <div x-data="{ escala: @js((string) $asignaturaCreateEscala) }">
+                    <x-input-label :for="'escala-asignatura-create-'.$area->id" value="Calificación" />
+                    <select
+                        id="escala-asignatura-create-{{ $area->id }}"
+                        name="tipo_calificacion"
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                        x-model="escala"
+                        required
+                    >
+                        @foreach (\App\Enums\TipoCalificacion::cases() as $opcion)
+                            <option value="{{ $opcion->value }}" @selected((string) $asignaturaCreateEscala === $opcion->value)>{{ $opcion->label() }}</option>
+                        @endforeach
+                    </select>
+                    <x-input-error class="mt-2" :messages="$asignaturaCreateBag->get('tipo_calificacion')" />
+                    <label class="mt-2 flex items-center gap-2 text-sm text-slate-700" x-show="escala === 'cualitativa'" x-cloak>
+                        <input type="checkbox" class="rounded border-gray-300" name="usa_criterios" value="1" @checked($asignaturaCreateCriterios)>
+                        Utiliza criterios
+                    </label>
+                </div>
+            @endunless
             <label class="flex items-center gap-2 text-sm text-slate-700">
                 <input type="hidden" name="aparece_en_libreta" value="0">
                 <input
@@ -63,7 +87,7 @@
 
         <div class="mt-6 flex justify-end gap-2">
             <x-secondary-button x-on:click="$dispatch('close')">Cancelar</x-secondary-button>
-            <x-primary-button>Crear asignatura</x-primary-button>
+            <x-primary-button>{{ $subnivel->usa_ambitos ? 'Crear ámbito' : 'Crear asignatura' }}</x-primary-button>
         </div>
     </form>
 </x-modal>

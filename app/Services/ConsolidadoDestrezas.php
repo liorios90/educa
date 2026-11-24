@@ -18,6 +18,8 @@ use Illuminate\Support\Collection;
  */
 class ConsolidadoDestrezas
 {
+    public function __construct(private AcompanamientoCivica $acompanamiento) {}
+
     /**
      * @param  Collection<int, EstablecimientoAsignatura>  $asignaturas
      * @param  Collection<int, EstablecimientoPeriodoCiclo>  $ciclos
@@ -70,6 +72,8 @@ class ConsolidadoDestrezas
                     $notasCiclo[(int) $ciclo->id] = [];
                 }
 
+                $esAcompanamiento = $this->acompanamiento->esMalla($asignatura);
+
                 foreach ($destrezas as $destreza) {
                     $letrasDestreza = [];
                     $celdas = [];
@@ -92,16 +96,21 @@ class ConsolidadoDestrezas
 
                         if ($consolidada instanceof CalificacionDestreza) {
                             $letrasDestreza[] = $consolidada;
-                            $letrasCiclo[(int) $ciclo->id][] = $consolidada;
-                            $nota = $equivale ? $consolidada->notaElemental() : null;
 
-                            if ($nota !== null) {
-                                $notasCiclo[(int) $ciclo->id][] = $nota;
+                            if (! $esAcompanamiento) {
+                                $letrasCiclo[(int) $ciclo->id][] = $consolidada;
+                                $nota = $equivale ? $consolidada->notaElemental() : null;
+
+                                if ($nota !== null) {
+                                    $notasCiclo[(int) $ciclo->id][] = $nota;
+                                }
                             }
                         }
                     }
 
-                    $anualDestreza = CalificacionDestreza::masBajo($letrasDestreza);
+                    $anualDestreza = $esAcompanamiento
+                        ? CalificacionDestreza::ultimaEvaluada($letrasDestreza)
+                        : CalificacionDestreza::masBajo($letrasDestreza);
                     $detalle[] = [
                         'codigo' => $destreza->codigo,
                         'descripcion' => $destreza->descripcion,
@@ -203,6 +212,13 @@ class ConsolidadoDestrezas
                     $query->orWhere(function ($par) use ($asignatura): void {
                         $par->where('asignatura_id', $asignatura->asignatura_id)
                             ->where('grado_id', $asignatura->grado_id);
+
+                        if ($this->acompanamiento->esMalla($asignatura)) {
+                            $par->whereIn(
+                                'codigo',
+                                $this->acompanamiento->codigosEvaluables((int) $asignatura->establecimiento_id),
+                            );
+                        }
                     });
                 }
             })

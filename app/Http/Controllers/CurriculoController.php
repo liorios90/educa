@@ -26,18 +26,43 @@ class CurriculoController extends Controller
 {
     public function index(Request $request): View
     {
+        return $this->catalogo($request, porAmbitos: false);
+    }
+
+    public function ambitos(Request $request): View
+    {
+        return $this->catalogo($request, porAmbitos: true);
+    }
+
+    private function catalogo(Request $request, bool $porAmbitos): View
+    {
+        $niveles = Sys_Nivel::query()
+            ->with([
+                'subniveles.grados',
+                'subniveles.areas.asignaturas.criterios',
+                'subniveles.areas.asignaturas.destrezas.criterio',
+                'subniveles.areas.asignaturas.destrezas.indicadores',
+                'subniveles.areas.asignaturas.destrezas.grado',
+            ])
+            ->orderBy('id')
+            ->get()
+            ->map(function (Sys_Nivel $nivel) use ($porAmbitos): Sys_Nivel {
+                $nivel->setRelation(
+                    'subniveles',
+                    $nivel->subniveles
+                        ->filter(fn (Sys_Subnivel $subnivel): bool => (bool) $subnivel->usa_ambitos === $porAmbitos)
+                        ->values(),
+                );
+
+                return $nivel;
+            })
+            ->filter(fn (Sys_Nivel $nivel): bool => $nivel->subniveles->isNotEmpty())
+            ->values();
+
         return view('sistemas.curriculo.index', [
-            'niveles' => Sys_Nivel::query()
-                ->with([
-                    'subniveles.grados',
-                    'subniveles.areas.asignaturas.criterios',
-                    'subniveles.areas.asignaturas.destrezas.criterio',
-                    'subniveles.areas.asignaturas.destrezas.indicadores',
-                    'subniveles.areas.asignaturas.destrezas.grado',
-                ])
-                ->orderBy('id')
-                ->get(),
-            'backUrl' => NavigationItem::hubBackUrlForRoute('sistemas.curriculo'),
+            'niveles' => $niveles,
+            'porAmbitos' => $porAmbitos,
+            'backUrl' => NavigationItem::hubBackUrlForRoute($porAmbitos ? 'sistemas.curriculo.ambitos' : 'sistemas.curriculo'),
             'openNivelId' => $request->integer('nivel') ?: null,
             'openSubnivelId' => $request->integer('subnivel') ?: null,
             'openAreaId' => $request->integer('area') ?: null,
@@ -135,14 +160,7 @@ class CurriculoController extends Controller
         Sys_Subnivel $subnivel,
         Sys_Area $area,
     ): RedirectResponse {
-        $area->asignaturas()->create($request->safe()->only([
-            'codigo',
-            'nombre',
-            'descripcion',
-            'orden',
-            'horas_semanales',
-            'aparece_en_libreta',
-        ]));
+        $area->asignaturas()->create($request->asignaturaAttributes());
 
         return $this->redirectToIndex(
             nivel: $nivel,
@@ -159,14 +177,7 @@ class CurriculoController extends Controller
         Sys_Area $area,
         Sys_Asignatura $asignatura,
     ): RedirectResponse {
-        $asignatura->update($request->safe()->only([
-            'codigo',
-            'nombre',
-            'descripcion',
-            'orden',
-            'horas_semanales',
-            'aparece_en_libreta',
-        ]));
+        $asignatura->update($request->asignaturaAttributes());
 
         return $this->redirectToIndex(
             nivel: $nivel,
@@ -410,7 +421,7 @@ class CurriculoController extends Controller
         ?string $status = null,
         ?string $error = null,
     ): RedirectResponse {
-        $redirect = redirect()->route('sistemas.curriculo', array_filter([
+        $redirect = redirect()->route($subnivel?->usa_ambitos ? 'sistemas.curriculo.ambitos' : 'sistemas.curriculo', array_filter([
             'nivel' => $nivel?->id,
             'subnivel' => $subnivel?->id,
             'area' => $area?->id,

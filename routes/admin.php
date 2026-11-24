@@ -9,6 +9,7 @@ use App\Http\Controllers\Admin\EquivalenciaController;
 use App\Http\Controllers\Admin\EstablecimientoFiguraProfesionalController;
 use App\Http\Controllers\Admin\EstablecimientoPeriodoConfiguracionGradoController;
 use App\Http\Controllers\Admin\GrupoAsignaturaController;
+use App\Http\Controllers\Admin\HabilidadesCivicaController;
 use App\Http\Controllers\Admin\HorarioClaseController;
 use App\Http\Controllers\Admin\ProcesoCierresController;
 use App\Http\Controllers\Admin\ProgramaAcademicoController;
@@ -41,6 +42,8 @@ Route::middleware(['auth', 'verified', 'role:Admin'])
         Route::put('asistente', [ConfiguracionAsistenteController::class, 'update'])->name('asistente.update');
         Route::get('decimales', [ConfiguracionDecimalesController::class, 'edit'])->name('decimales');
         Route::put('decimales', [ConfiguracionDecimalesController::class, 'update'])->name('decimales.update');
+        Route::get('habilidades-civica', [HabilidadesCivicaController::class, 'edit'])->name('habilidades-civica.edit');
+        Route::put('habilidades-civica', [HabilidadesCivicaController::class, 'update'])->name('habilidades-civica.update');
         Route::post('periodo/aperturar', [EstablecimientoPeriodoEvaluacionController::class, 'aperturar'])->name('periodo.aperturar');
         Route::post('periodo/revertir-apertura', [EstablecimientoPeriodoEvaluacionController::class, 'revertirApertura'])->name('periodo.revertir-apertura');
         Route::get('configuracion-grados', [EstablecimientoPeriodoConfiguracionGradoController::class, 'index'])->name('configuracion-grados.index');
@@ -79,6 +82,8 @@ Route::middleware(['auth', 'verified', 'role:Admin'])
         Route::get('tablas-equivalencias/{equivalencia}/asignaturas', [EquivalenciaController::class, 'asignaturas'])->name('tablas-equivalencias.asignaturas.index')->whereNumber('equivalencia');
         Route::put('tablas-equivalencias/{equivalencia}/asignaturas', [EquivalenciaController::class, 'actualizarAsignaturas'])->name('tablas-equivalencias.asignaturas.update')->whereNumber('equivalencia');
         Route::get('asignaturas', [EstablecimientoAsignaturaController::class, 'index'])->name('asignaturas');
+        Route::get('asignaturas/ambitos', [EstablecimientoAsignaturaController::class, 'index'])->name('asignaturas.ambitos');
+        Route::get('asignaturas/ambitos/{oferta}', [EstablecimientoAsignaturaController::class, 'edit'])->name('asignaturas.ambitos.edit');
         Route::get('asignaturas/{oferta}', [EstablecimientoAsignaturaController::class, 'edit'])->name('asignaturas.edit');
         Route::put('asignaturas/{oferta}', [EstablecimientoAsignaturaController::class, 'update'])->name('asignaturas.update');
         Route::post('asignaturas/{oferta}/catalogo/{asignatura}/criterios', [CatalogoDestrezaController::class, 'storeCriterio'])->name('asignaturas.criterios.store')->whereNumber('oferta')->whereNumber('asignatura');

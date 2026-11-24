@@ -16,24 +16,12 @@
     $etiquetaUnidades = $porAmbitos ? 'ámbitos' : 'asignaturas';
     $preguntaGrupo = $porAmbitos ? 'este eje' : 'esta área';
     $preguntaUnidad = $porAmbitos ? 'este ámbito' : 'esta asignatura';
+    $abrirAsignaturas = (int) ($openAreaId ?? 0) === $area->id && (int) ($editingAreaId ?? 0) !== $area->id;
 @endphp
 
 <article class="overflow-hidden rounded-lg border border-slate-200 bg-white">
     <div class="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-        <button
-            type="button"
-            class="flex min-w-0 flex-1 items-start gap-3 text-left"
-            @click="toggleArea({{ $nivel->id }}, {{ $subnivel->id }}, {{ $area->id }})"
-        >
-            <span
-                class="mt-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600 transition"
-                :class="{ 'rotate-180 bg-indigo-100 text-indigo-700': openAreaId === {{ $area->id }} }"
-            >
-                <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-                </svg>
-            </span>
-            <span class="min-w-0">
+        <div class="min-w-0">
                 <span class="block font-medium text-slate-800">
                     {{ $area->nombre }}
                     @if ($area->codigo)
@@ -47,10 +35,12 @@
                     · {{ $area->es_tecnica ? 'Catálogo técnico' : ($porAmbitos ? 'Eje curricular' : 'Área curricular') }}
                     · {{ $area->asignaturas->count() }} {{ $etiquetaUnidades }}
                 </span>
-            </span>
-        </button>
+        </div>
         <div class="flex items-center gap-3 sm:shrink-0">
-            <button type="button" class="font-medium text-indigo-600 hover:text-indigo-500" @click.stop="editArea({{ $nivel->id }}, {{ $subnivel->id }}, {{ $area->id }})">
+            <button type="button" class="font-medium text-indigo-600 hover:text-indigo-500" x-on:click="$dispatch('open-modal', 'asignaturas-{{ $area->id }}')">
+                {{ $porAmbitos ? 'Ámbitos' : 'Asignaturas' }}
+            </button>
+            <button type="button" class="font-medium text-indigo-600 hover:text-indigo-500" @click="editArea({{ $nivel->id }}, {{ $subnivel->id }}, {{ $area->id }})">
                 Editar
             </button>
             <form method="POST" action="{{ route('sistemas.curriculo.areas.destroy', [$nivel, $subnivel, $area]) }}" onsubmit="return confirm('¿Eliminar {{ $preguntaGrupo }}?')">
@@ -63,16 +53,10 @@
         </div>
     </div>
 
-    <div
-        class="space-y-4 border-t border-slate-100 bg-slate-50 py-4 pl-8 pr-4 sm:pl-16 sm:pr-6"
-        x-cloak
-        x-show="openAreaId === {{ $area->id }}"
-    >
-        <div class="flex flex-col gap-4 border-l-2 border-indigo-200 pl-4 sm:pl-6">
-        <form
+    <form
             method="POST"
             action="{{ route('sistemas.curriculo.areas.update', [$nivel, $subnivel, $area]) }}"
-            class="flex flex-col gap-4 rounded-lg border border-slate-200 bg-white p-4 md:flex-row md:flex-wrap md:items-end"
+            class="flex flex-col gap-4 border-t border-slate-100 bg-slate-50 px-4 py-4 md:flex-row md:flex-wrap md:items-end sm:px-6"
             x-show="editingAreaId === {{ $area->id }}"
             x-cloak
         >
@@ -119,9 +103,21 @@
                 <x-primary-button>Guardar</x-primary-button>
                 <x-secondary-button type="button" x-on:click="editingAreaId = null">Cancelar</x-secondary-button>
             </div>
-        </form>
+    </form>
+</article>
 
-        <div class="flex justify-end">
+<template x-teleport="body">
+    <x-modal name="asignaturas-{{ $area->id }}" maxWidth="4xl" :show="$abrirAsignaturas">
+        <div class="max-h-[90vh] overflow-y-auto p-6">
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <h2 class="text-lg font-semibold text-slate-800">{{ $porAmbitos ? 'Ámbitos' : 'Asignaturas' }}</h2>
+                    <p class="mt-1 text-sm text-slate-500">{{ $subnivel->nombre }} · {{ $area->nombre }}</p>
+                </div>
+                <x-secondary-button type="button" x-on:click="$dispatch('close')">Cerrar</x-secondary-button>
+            </div>
+
+            <div class="mt-4 flex justify-end">
             <x-primary-button type="button" x-on:click="$dispatch('open-modal', 'asignatura-create-{{ $area->id }}')">
                 Crear {{ $etiquetaUnidad }}
             </x-primary-button>
@@ -134,6 +130,9 @@
                         <th class="px-4 py-3 font-medium">{{ $porAmbitos ? 'Ámbito' : 'Asignatura' }}</th>
                         <th class="px-4 py-3 font-medium">Código</th>
                         <th class="px-4 py-3 font-medium">Horas</th>
+                        @unless ($porAmbitos)
+                            <th class="px-4 py-3 font-medium">Calificación</th>
+                        @endunless
                         <th class="px-4 py-3 font-medium">Libreta</th>
                         <th class="sticky right-0 bg-slate-50 px-4 py-3 font-medium">Acciones</th>
                     </tr>
@@ -150,9 +149,15 @@
                             $asignaturaLibreta = $asignaturaBag->isNotEmpty()
                                 ? (bool) old('aparece_en_libreta', $asignatura->aparece_en_libreta)
                                 : $asignatura->aparece_en_libreta;
+                            $asignaturaEscala = $asignaturaBag->isNotEmpty()
+                                ? old('tipo_calificacion', $asignatura->tipo_calificacion?->value)
+                                : $asignatura->tipo_calificacion?->value;
+                            $asignaturaCriterios = $asignaturaBag->isNotEmpty()
+                                ? filter_var(old('usa_criterios'), FILTER_VALIDATE_BOOLEAN)
+                                : (bool) $asignatura->usa_criterios;
                         @endphp
                         <tr>
-                            <td class="px-4 py-3" colspan="5" x-show="editingAsignaturaId === {{ $asignatura->id }}" x-cloak>
+                            <td class="px-4 py-3" colspan="{{ $porAmbitos ? 5 : 6 }}" x-show="editingAsignaturaId === {{ $asignatura->id }}" x-cloak>
                                 <form method="POST" action="{{ route('sistemas.curriculo.asignaturas.update', [$nivel, $subnivel, $area, $asignatura]) }}" class="flex flex-col gap-4 md:flex-row md:flex-wrap md:items-end">
                                     @csrf
                                     @method('patch')
@@ -181,6 +186,35 @@
                                         <x-text-input :id="'horas-asignatura-'.$asignatura->id" class="mt-1 block w-full" type="number" name="horas_semanales" :value="$asignaturaHoras" min="0" max="40" />
                                         <x-input-error class="mt-2" :messages="$asignaturaBag->get('horas_semanales')" />
                                     </div>
+                                    @unless ($porAmbitos)
+                                        @if ($asignatura->nombre === \App\Services\AcompanamientoCivica::ASIGNATURA)
+                                            <div class="md:min-w-56 md:max-w-sm">
+                                                <x-input-label value="Calificación" />
+                                                <p class="mt-1 text-sm text-slate-600">Cualitativa. El Ministerio pide A, EP, I o NE y esta letra no entra al promedio.</p>
+                                                <input type="hidden" name="tipo_calificacion" value="{{ \App\Enums\TipoCalificacion::Cualitativa->value }}">
+                                            </div>
+                                        @else
+                                            <div class="md:w-44" x-data="{ escala: @js((string) $asignaturaEscala) }">
+                                                <x-input-label :for="'escala-asignatura-'.$asignatura->id" value="Calificación" />
+                                                <select
+                                                    id="escala-asignatura-{{ $asignatura->id }}"
+                                                    name="tipo_calificacion"
+                                                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                                    x-model="escala"
+                                                    required
+                                                >
+                                                    @foreach (\App\Enums\TipoCalificacion::cases() as $opcion)
+                                                        <option value="{{ $opcion->value }}" @selected((string) $asignaturaEscala === $opcion->value)>{{ $opcion->label() }}</option>
+                                                    @endforeach
+                                                </select>
+                                                <x-input-error class="mt-2" :messages="$asignaturaBag->get('tipo_calificacion')" />
+                                                <label class="mt-2 flex items-center gap-2 text-sm text-slate-700" x-show="escala === 'cualitativa'" x-cloak>
+                                                    <input type="checkbox" class="rounded border-gray-300" name="usa_criterios" value="1" @checked($asignaturaCriterios)>
+                                                    Utiliza criterios
+                                                </label>
+                                            </div>
+                                        @endif
+                                    @endunless
                                     <label class="flex items-center gap-2 text-sm text-slate-700 md:mb-1">
                                         <input type="hidden" name="aparece_en_libreta" value="0">
                                         <input
@@ -204,10 +238,23 @@
                             <td class="px-4 py-3 font-medium">{{ $asignatura->nombre }}</td>
                             <td class="px-4 py-3 text-slate-500">{{ $asignatura->codigo ?: '—' }}</td>
                             <td class="px-4 py-3 text-slate-500">{{ $asignatura->horas_semanales !== null ? $asignatura->horas_semanales.' h' : '—' }}</td>
+                            @unless ($porAmbitos)
+                                <td class="px-4 py-3 text-slate-500">
+                                    @if ($asignatura->nombre === \App\Services\AcompanamientoCivica::ASIGNATURA)
+                                        Cualitativa
+                                        <span class="mt-1 block text-xs text-slate-400">A, EP, I o NE · no entra al promedio</span>
+                                    @else
+                                        {{ $asignatura->tipo_calificacion?->label() ?? 'Cuantitativa' }}
+                                        @if ($asignatura->tipo_calificacion === \App\Enums\TipoCalificacion::Cualitativa && $asignatura->usa_criterios)
+                                            · Criterios
+                                        @endif
+                                    @endif
+                                </td>
+                            @endunless
                             <td class="px-4 py-3 text-slate-500">{{ $asignatura->aparece_en_libreta ? 'Sí' : 'No' }}</td>
                             <td class="sticky right-0 bg-white px-4 py-3">
                                 <div class="flex items-center gap-3">
-                                    <button type="button" class="font-medium text-indigo-600 hover:text-indigo-500" @click="editAsignatura({{ $nivel->id }}, {{ $subnivel->id }}, {{ $area->id }}, {{ $asignatura->id }})">
+                                    <button type="button" class="font-medium text-indigo-600 hover:text-indigo-500" @click="editAsignatura({{ $asignatura->id }})">
                                         Editar
                                     </button>
                                     <form method="POST" action="{{ route('sistemas.curriculo.asignaturas.destroy', [$nivel, $subnivel, $area, $asignatura]) }}" onsubmit="return confirm('¿Eliminar {{ $preguntaUnidad }}?')">
@@ -220,7 +267,7 @@
                                 </div>
                             </td>
                         </tr>
-                        @if ($subnivel->califica_por_destrezas)
+                        @if ($subnivel->usa_ambitos || $subnivel->califica_por_destrezas || $asignatura->usa_criterios || $asignatura->tipo_calificacion === \App\Enums\TipoCalificacion::Cualitativa || $asignatura->destrezas->isNotEmpty())
                             @include('sistemas.curriculo._destrezas-asignatura', [
                                 'nivel' => $nivel,
                                 'subnivel' => $subnivel,
@@ -230,17 +277,17 @@
                         @endif
                     @empty
                         <tr>
-                            <td colspan="5" class="px-4 py-6 text-center text-slate-500">
+                            <td colspan="{{ $porAmbitos ? 5 : 6 }}" class="px-4 py-6 text-center text-slate-500">
                                 {{ $porAmbitos ? 'Este eje aún no tiene ámbitos.' : 'Esta área aún no tiene asignaturas.' }}
                             </td>
                         </tr>
                     @endforelse
                 </tbody>
             </table>
+            </div>
         </div>
-        </div>
-    </div>
-</article>
+    </x-modal>
+</template>
 
 <template x-teleport="body">
     @include('sistemas.curriculo._asignatura-create-modal', [

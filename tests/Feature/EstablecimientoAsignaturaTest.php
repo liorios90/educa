@@ -69,7 +69,7 @@ describe('index', function () {
             ->withSession(activeContextSession($matutina, $periodo))
             ->get(route('Admin.asignaturas.edit', $matutina))
             ->assertOk()
-            ->assertSee('Sin grados en la estructura')
+            ->assertSee('organizado por áreas')
             ->assertSee(route('Admin.estructura.edit', $matutina), false)
             ->assertDontSee('Definir malla');
     });
@@ -223,6 +223,63 @@ describe('edit', function () {
 
         expect(substr_count($response->getContent(), 'Guardar malla'))->toBe(2)
             ->and(substr_count($response->getContent(), 'sticky bottom-0'))->toBe(2);
+    });
+
+    it('separates areas from ambitos and keeps the other organization when one screen is saved', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $oferta = ofertaDe($establecimiento);
+        $areas = catalogoEstructura([
+            'nivel' => 'Educación General Básica',
+            'subnivel' => 'Básica Elemental',
+            'grado' => 'Segundo de EGB',
+        ]);
+        $ambitos = catalogoEstructura([
+            'nivel' => 'Educación Inicial',
+            'subnivel' => 'Inicial 2',
+            'grado' => 'Grupo de 4 años',
+        ]);
+        $ambitos['subnivel']->update(['usa_ambitos' => true]);
+        gradoEnOferta($establecimiento, $oferta, $areas);
+        gradoEnOferta($establecimiento, $oferta, $ambitos);
+        $matematica = catalogoAsignatura($areas);
+        $convivencia = catalogoAsignatura($ambitos, [
+            'area' => 'Convivencia',
+            'asignatura' => 'Convivencia',
+        ]);
+        $mallaAmbito = EstablecimientoAsignatura::factory()->create([
+            'establecimiento_id' => $establecimiento->id,
+            'establecimiento_modalidad_jornada_id' => $oferta->id,
+            'asignatura_id' => $convivencia->id,
+            'grado_id' => $ambitos['grado']->id,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('Admin.asignaturas.edit', $oferta))
+            ->assertOk()
+            ->assertSee('Áreas y asignaturas')
+            ->assertSee('Básica Elemental')
+            ->assertDontSee('Grupo de 4 años');
+
+        $this->actingAs($admin)
+            ->get(route('Admin.asignaturas.ambitos.edit', $oferta))
+            ->assertOk()
+            ->assertSee('Ámbitos y Destrezas')
+            ->assertSee('Inicial 2')
+            ->assertDontSee('Básica Elemental');
+
+        $this->actingAs($admin)
+            ->put(route('Admin.asignaturas.update', $oferta), [
+                'organizacion' => 'areas',
+                'asignaturas' => [
+                    $matematica->id => [
+                        'grados' => [$areas['grado']->id],
+                    ],
+                ],
+            ])
+            ->assertRedirect(route('Admin.asignaturas.edit', $oferta));
+
+        $this->assertModelExists($mallaAmbito);
     });
 
     it('does not show asignaturas of a subnivel the jornada does not offer', function () {

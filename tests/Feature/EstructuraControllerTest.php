@@ -322,8 +322,7 @@ describe('subniveles', function () {
             ->post(route('sistemas.estructura.subniveles.store', $nivel), [
                 'nombre' => 'Básica Superior',
                 'descripcion' => 'Octavo a décimo',
-                'tipo_calificacion' => TipoCalificacion::Cuantitativa->value,
-                'califica_por_destrezas' => '1',
+                'organizacion' => 'areas',
             ]);
 
         $subnivel = Sys_Subnivel::query()->where('nombre', 'Básica Superior')->firstOrFail();
@@ -336,47 +335,27 @@ describe('subniveles', function () {
             ->assertSessionHas('status', 'subnivel-created');
 
         expect($subnivel->nivel_id)->toBe($nivel->id)
+            ->and($subnivel->usa_ambitos)->toBeFalse()
             ->and($subnivel->tipo_calificacion)->toBe(TipoCalificacion::Cuantitativa)
             ->and($subnivel->califica_por_destrezas)->toBeFalse();
     });
 
-    it('stores destrezas when the subnivel scale is qualitative', function () {
-        $actor = assignRole(User::factory()->create(), Role::Sistemas);
-        $nivel = Sys_Nivel::factory()->create();
-
-        $this->actingAs($actor)
-            ->post(route('sistemas.estructura.subniveles.store', $nivel), [
-                'nombre' => 'Inicial 2',
-                'tipo_calificacion' => TipoCalificacion::Cualitativa->value,
-                'califica_por_destrezas' => '1',
-            ])
-            ->assertRedirect();
-
-        $subnivel = Sys_Subnivel::query()->where('nombre', 'Inicial 2')->firstOrFail();
-
-        expect($subnivel->tipo_calificacion)->toBe(TipoCalificacion::Cualitativa)
-            ->and($subnivel->califica_por_destrezas)->toBeTrue()
-            ->and($subnivel->usa_ambitos)->toBeFalse()
-            ->and($subnivel->equivale_nota_nacional)->toBeFalse();
-    });
-
-    it('stores ambitos and the national note independently of each other', function () {
+    it('stores an ambito subnivel as qualitative by destrezas', function () {
         $actor = assignRole(User::factory()->create(), Role::Sistemas);
         $nivel = Sys_Nivel::factory()->create();
 
         $this->actingAs($actor)
             ->post(route('sistemas.estructura.subniveles.store', $nivel), [
                 'nombre' => 'Preparatoria parametrizable',
-                'tipo_calificacion' => TipoCalificacion::Cualitativa->value,
-                'califica_por_destrezas' => '1',
-                'usa_ambitos' => '1',
+                'organizacion' => 'ambitos',
             ])
             ->assertRedirect();
 
         $subnivel = Sys_Subnivel::query()->where('nombre', 'Preparatoria parametrizable')->firstOrFail();
 
-        expect($subnivel->califica_por_destrezas)->toBeTrue()
-            ->and($subnivel->usa_ambitos)->toBeTrue()
+        expect($subnivel->usa_ambitos)->toBeTrue()
+            ->and($subnivel->tipo_calificacion)->toBe(TipoCalificacion::Cualitativa)
+            ->and($subnivel->califica_por_destrezas)->toBeTrue()
             ->and($subnivel->equivale_nota_nacional)->toBeFalse();
     });
 
@@ -400,8 +379,7 @@ describe('subniveles', function () {
             ->patch(route('sistemas.estructura.subniveles.update', [$nivel, $subnivel]), [
                 'nombre' => 'Básica Superior',
                 'descripcion' => 'Actualizado',
-                'tipo_calificacion' => TipoCalificacion::Cualitativa->value,
-                'califica_por_destrezas' => '1',
+                'organizacion' => 'areas',
             ])
             ->assertRedirect(route('sistemas.estructura.niveles.show', $nivel))
             ->assertSessionHas('status', 'subnivel-updated');
@@ -409,13 +387,10 @@ describe('subniveles', function () {
         $subnivel->refresh();
 
         expect($subnivel->nombre)->toBe('Básica Superior')
-            ->and($subnivel->tipo_calificacion)->toBe(TipoCalificacion::Cualitativa)
-            ->and($subnivel->califica_por_destrezas)->toBeTrue()
-            ->and($subnivel->usa_ambitos)->toBeFalse()
-            ->and($subnivel->equivale_nota_nacional)->toBeFalse();
+            ->and($subnivel->usa_ambitos)->toBeFalse();
     });
 
-    it('clears ambitos and the national note when the scale stops being qualitative by destrezas', function () {
+    it('keeps the national note when an ambito subnivel is edited', function () {
         $actor = assignRole(User::factory()->create(), Role::Sistemas);
         $nivel = Sys_Nivel::factory()->create();
         $subnivel = Sys_Subnivel::factory()->for($nivel, 'nivel')->create([
@@ -428,18 +403,29 @@ describe('subniveles', function () {
         $this->actingAs($actor)
             ->patch(route('sistemas.estructura.subniveles.update', [$nivel, $subnivel]), [
                 'nombre' => $subnivel->nombre,
-                'tipo_calificacion' => TipoCalificacion::Cuantitativa->value,
-                'califica_por_destrezas' => '1',
-                'usa_ambitos' => '1',
-                'equivale_nota_nacional' => '1',
+                'organizacion' => 'ambitos',
             ])
             ->assertRedirect(route('sistemas.estructura.niveles.show', $nivel));
 
         $subnivel->refresh();
 
-        expect($subnivel->califica_por_destrezas)->toBeFalse()
-            ->and($subnivel->usa_ambitos)->toBeFalse()
-            ->and($subnivel->equivale_nota_nacional)->toBeFalse();
+        expect($subnivel->usa_ambitos)->toBeTrue()
+            ->and($subnivel->califica_por_destrezas)->toBeTrue()
+            ->and($subnivel->equivale_nota_nacional)->toBeTrue();
+    });
+
+    it('asks only for the organization on the subnivel screen', function () {
+        $actor = assignRole(User::factory()->create(), Role::Sistemas);
+        $nivel = Sys_Nivel::factory()->create();
+        Sys_Subnivel::factory()->for($nivel, 'nivel')->create(['usa_ambitos' => false]);
+
+        $this->actingAs($actor)
+            ->get(route('sistemas.estructura.niveles.show', $nivel))
+            ->assertOk()
+            ->assertSee('Se organiza por')
+            ->assertSee('Se organiza por áreas')
+            ->assertDontSee('Escala de calificación')
+            ->assertDontSee('Califica por destrezas');
     });
 
     it('does not update a subnivel from another nivel', function () {
@@ -633,6 +619,8 @@ it('seeds the estructura hub button for systems users', function () {
         ->assertOk()
         ->assertSee('Nivel - Subnivel - Grado')
         ->assertSee('Áreas y asignaturas')
+        ->assertSee('Ámbitos y Destrezas')
         ->assertSee(route('sistemas.estructura'), false)
-        ->assertSee(route('sistemas.curriculo'), false);
+        ->assertSee(route('sistemas.curriculo'), false)
+        ->assertSee(route('sistemas.curriculo.ambitos'), false);
 });

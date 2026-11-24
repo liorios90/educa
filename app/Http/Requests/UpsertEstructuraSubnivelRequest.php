@@ -29,28 +29,49 @@ class UpsertEstructuraSubnivelRequest extends FormRequest
             'nombre' => ['required', 'string', 'max:50', Rule::unique('sys_subniveles', 'nombre')->ignore($ignoreId)],
             'siglas' => ['nullable', 'string', 'max:10'],
             'descripcion' => ['nullable', 'string', 'max:150'],
-            'tipo_calificacion' => ['required', Rule::enum(TipoCalificacion::class)],
-            'califica_por_destrezas' => ['nullable', 'boolean'],
-            'usa_ambitos' => ['nullable', 'boolean'],
-            'equivale_nota_nacional' => ['nullable', 'boolean'],
+            'organizacion' => ['required', Rule::in(['areas', 'ambitos'])],
         ];
     }
 
     /**
-     * @return array{nombre: string, siglas?: string|null, descripcion?: string|null, tipo_calificacion: string, califica_por_destrezas: bool, usa_ambitos: bool, equivale_nota_nacional: bool}
+     * @return array{nombre: string, siglas?: string|null, descripcion?: string|null, usa_ambitos: bool, tipo_calificacion?: string, califica_por_destrezas?: bool, equivale_nota_nacional?: bool}
      */
     public function subnivelAttributes(): array
     {
-        /** @var array{nombre: string, siglas?: string|null, descripcion?: string|null, tipo_calificacion: string} $attributes */
-        $attributes = $this->safe()->only(['nombre', 'siglas', 'descripcion', 'tipo_calificacion']);
-        $tipo = TipoCalificacion::from($attributes['tipo_calificacion']);
-        $porDestrezas = $tipo === TipoCalificacion::Cualitativa
-            && $this->boolean('califica_por_destrezas');
-        $attributes['califica_por_destrezas'] = $porDestrezas;
-        $attributes['usa_ambitos'] = $porDestrezas && $this->boolean('usa_ambitos');
-        $attributes['equivale_nota_nacional'] = $porDestrezas && $this->boolean('equivale_nota_nacional');
+        $subnivel = $this->route('subnivel');
+        $porAmbitos = $this->input('organizacion') === 'ambitos';
+
+        /** @var array{nombre: string, siglas?: string|null, descripcion?: string|null, usa_ambitos: bool, tipo_calificacion?: string, califica_por_destrezas?: bool, equivale_nota_nacional?: bool} $attributes */
+        $attributes = $this->safe()->only(['nombre', 'siglas', 'descripcion']);
+        $attributes['usa_ambitos'] = $porAmbitos;
+
+        if ($porAmbitos) {
+            $attributes['tipo_calificacion'] = TipoCalificacion::Cualitativa->value;
+            $attributes['califica_por_destrezas'] = true;
+            $attributes['equivale_nota_nacional'] = $subnivel instanceof Sys_Subnivel
+                && (bool) $subnivel->equivale_nota_nacional;
+
+            return $attributes;
+        }
+
+        if (! $subnivel instanceof Sys_Subnivel) {
+            $attributes['tipo_calificacion'] = TipoCalificacion::Cuantitativa->value;
+            $attributes['califica_por_destrezas'] = false;
+            $attributes['equivale_nota_nacional'] = false;
+        }
 
         return $attributes;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'organizacion.required' => 'Elige si el subnivel se organiza por áreas o por ámbitos.',
+            'organizacion.in' => 'La organización del subnivel no es válida.',
+        ];
     }
 
     protected function prepareForValidation(): void

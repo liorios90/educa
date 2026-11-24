@@ -8,6 +8,8 @@ use Illuminate\Support\Collection;
 
 class GradosConPonderacionCuantitativa
 {
+    public function __construct(private AcompanamientoCivica $acompanamiento) {}
+
     /**
      * @return Collection<int, array{nombre: string, asignaturas: Collection<int, EstablecimientoAsignatura>}>
      */
@@ -24,7 +26,7 @@ class GradosConPonderacionCuantitativa
             ->get()
             ->groupBy('grado_id')
             ->map(function (Collection $asignaturas): ?array {
-                if ($asignaturas->contains(fn (EstablecimientoAsignatura $asignatura): bool => $asignatura->califica_por_destrezas)) {
+                if ($asignaturas->contains(fn (EstablecimientoAsignatura $asignatura): bool => $asignatura->califica_por_destrezas && ! $this->acompanamiento->esMalla($asignatura))) {
                     return null;
                 }
 

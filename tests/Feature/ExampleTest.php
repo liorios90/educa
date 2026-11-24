@@ -9,11 +9,12 @@ it('renders the Educa home page for guests', function () {
         ->assertSee('Educa')
         ->assertSee('La vida escolar')
         ->assertSee('más conectada.')
-        ->assertSee('Empieza con Educa')
         ->assertSee('Descubrir la plataforma')
-        ->assertSee('Crear cuenta')
+        ->assertDontSee('Empieza con Educa')
+        ->assertDontSee('Crear cuenta')
+        ->assertDontSee('Crear una cuenta')
         ->assertSee('Iniciar sesión')
-        ->assertSee(route('register'), false);
+        ->assertDontSee(route('register'), false);
 });
 
 it('links authenticated users to the dashboard from the home page', function () {

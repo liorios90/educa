@@ -11,6 +11,8 @@
     <p class="text-sm text-slate-600">
             @if ($esAmbito)
                 Califica cada destreza del ámbito. No se saca promedio.
+            @elseif (($registroDestrezas['acompanamiento'] ?? false) === true)
+                Cada habilidad priorizada se registra con A, EP, I o NE. La junta de grado consensúa esa letra. No entra al promedio.
             @else
                 Califica cada indicador con la escala A, EP, I o NE. En Básica Elemental esa escala también produce la nota sobre 10.
             @endif

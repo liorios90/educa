@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\TipoCalificacion;
 use App\Models\Sys_Area;
 use App\Models\Sys_Asignatura;
 use App\Models\Sys_Subnivel;
@@ -46,7 +47,9 @@ it('seeds national areas and asignaturas for each ecuadorian subnivel', function
 
         expect($periodo)->not->toBeNull()
             ->and($periodo->horas_semanales)->toBe(1)
-            ->and($periodo->aparece_en_libreta)->toBeFalse();
+            ->and($periodo->aparece_en_libreta)->toBeFalse()
+            ->and($periodo->tipo_calificacion)->toBe(TipoCalificacion::Cualitativa)
+            ->and($periodo->usa_criterios)->toBeFalse();
 
         foreach ($subnivel->grados as $grado) {
             expect((bool) $periodo->gradosCurriculares->firstWhere('id', $grado->id)?->pivot->obligatoria)->toBeTrue();

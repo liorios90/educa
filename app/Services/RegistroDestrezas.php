@@ -21,11 +21,15 @@ use Illuminate\Support\Facades\DB;
  */
 class RegistroDestrezas
 {
+    public function __construct(private AcompanamientoCivica $acompanamiento) {}
+
     /**
      * @param  Collection<int, Alumno>  $alumnos
      * @return array{
      *     equivale: bool,
      *     usa_ambitos: bool,
+     *     acompanamiento: bool,
+     *     seleccion_completa: bool,
      *     escala: list<array{codigo: string, etiqueta: string, descripcion: string}>,
      *     destrezas: list<array{id: int, codigo: string, descripcion: string, imprescindible: bool, criterio: ?array{codigo: string, descripcion: string}, indicadores: list<array{id: int, codigo: string, descripcion: string}>}>,
      *     alumnos: list<array{id: int, nombre: string, indicadores: array<int, array{calificacion: ?string, observacion: ?string}>, calificaciones: array<int, array{calificacion: ?string, observacion: ?string, indicadores: list<int>}>}>
@@ -36,6 +40,7 @@ class RegistroDestrezas
         $contexto->aula->loadMissing('establecimientoGrado.grado.subnivel');
         $usaAmbitos = $this->usaAmbitos($contexto);
         $destrezas = $this->catalogo($contexto);
+        $esAcompanamiento = $this->acompanamiento->esMalla($contexto->asignatura);
         $destrezaFilas = $destrezas->map(fn (Sys_Destreza $destreza): array => [
             'id' => (int) $destreza->id,
             'codigo' => $destreza->codigo,
@@ -57,8 +62,12 @@ class RegistroDestrezas
             : $this->filasPorIndicador($contexto, $alumnos, $destrezas);
 
         return [
-            'equivale' => (bool) $contexto->aula->establecimientoGrado?->grado?->subnivel?->equivale_nota_nacional,
+            'equivale' => $esAcompanamiento
+                ? false
+                : (bool) $contexto->aula->establecimientoGrado?->grado?->subnivel?->equivale_nota_nacional,
             'usa_ambitos' => $usaAmbitos,
+            'acompanamiento' => $esAcompanamiento,
+            'seleccion_completa' => $esAcompanamiento && $this->acompanamiento->seleccionCompleta((int) $contexto->aula->establecimiento_id),
             'escala' => $usaAmbitos ? CalificacionDestreza::opcionesAmbito() : CalificacionDestreza::opciones(),
             'destrezas' => $destrezaFilas,
             'alumnos' => $filas,
@@ -326,6 +335,13 @@ class RegistroDestrezas
             ->where('asignatura_id', $contexto->asignatura->asignatura_id)
             ->where('grado_id', $contexto->asignatura->grado_id)
             ->where('activo', true)
+            ->when(
+                $this->acompanamiento->esMalla($contexto->asignatura),
+                fn ($query) => $query->whereIn(
+                    'codigo',
+                    $this->acompanamiento->codigosEvaluables((int) $contexto->aula->establecimiento_id),
+                ),
+            )
             ->with([
                 'criterio',
                 'indicadores' => fn ($query) => $query->where('activo', true)->orderBy('orden')->orderBy('id'),

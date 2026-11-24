@@ -68,8 +68,13 @@ final class HubGuide
         ],
         'sistemas.curriculo' => [
             'section' => 'Oferta educativa',
-            'description' => 'Áreas curriculares y asignaturas que se dictan en la institución.',
+            'description' => 'Áreas curriculares y asignaturas de los subniveles que se organizan por áreas.',
             'icon' => 'book-open',
+        ],
+        'sistemas.curriculo.ambitos' => [
+            'section' => 'Oferta educativa',
+            'description' => 'Ejes, ámbitos, destrezas e indicadores de los subniveles que se organizan por ámbitos.',
+            'icon' => 'academic-cap',
         ],
         'Docente.calificar.index' => [
             'section' => 'Registro de clase',

@@ -21,6 +21,15 @@ use Illuminate\Validation\Rule;
 
 class SyncEstablecimientoAsignaturasRequest extends FormRequest
 {
+    public function limitaAAmbitos(): ?bool
+    {
+        return match ($this->input('organizacion')) {
+            'ambitos' => true,
+            'areas' => false,
+            default => null,
+        };
+    }
+
     public function authorize(): bool
     {
         $user = $this->user();
@@ -37,6 +46,7 @@ class SyncEstablecimientoAsignaturasRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'organizacion' => ['nullable', Rule::in(['areas', 'ambitos'])],
             'asignaturas' => ['nullable', 'array'],
             'asignaturas.*' => ['array'],
             'asignaturas.*.grados' => ['nullable', 'array'],

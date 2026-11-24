@@ -58,6 +58,8 @@
                     Cada pestaña es un nivel de Sistemas. Marca los grados que ofrece esta jornada.
                     El subnivel y el nivel se graban solos. El nombre oficial queda para reportes;
                     si quieres, puedes poner un nombre propio para usar dentro del colegio.
+                    Los subniveles organizados por áreas se activan en Áreas y asignaturas.
+                    Los organizados por ámbitos, en Ámbitos y Destrezas.
                 </p>
             </section>
 

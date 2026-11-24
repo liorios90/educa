@@ -7,6 +7,19 @@ use Tests\TestCase;
 
 uses(TestCase::class);
 
+it('keeps ambitos with the educational offer', function () {
+    $buttons = Collection::make([
+        new NavigationItem(['label' => 'Áreas y asignaturas', 'route_name' => 'sistemas.curriculo', 'icon' => 'home']),
+        new NavigationItem(['label' => 'Ámbitos y Destrezas', 'route_name' => 'sistemas.curriculo.ambitos', 'icon' => 'academic-cap']),
+    ]);
+
+    $sections = HubGuide::sections($buttons);
+
+    expect($sections)->toHaveCount(1)
+        ->and($sections[0]['title'])->toBe('')
+        ->and($sections[0]['items'][1]['description'])->toContain('destrezas');
+});
+
 it('explains catalogos for school staff', function () {
     expect(HubGuide::intro('Catálogos'))->toContain('matrícula');
 });

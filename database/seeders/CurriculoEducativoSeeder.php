@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Enums\TipoCalificacion;
 use App\Models\Sys_Area;
 use App\Models\Sys_Asignatura;
 use App\Models\Sys_Subnivel;
@@ -42,9 +43,11 @@ class CurriculoEducativoSeeder extends Seeder
             'aparece_en_libreta' => false,
             'asignaturas' => [[
                 'nombre' => 'Cívica y Acompañamiento Integral en el Aula',
-                'descripcion' => 'Periodo pedagógico semanal de carácter formativo. No se configura con ponderaciones cuantitativas.',
+                'descripcion' => 'Periodo pedagógico semanal de carácter formativo. Se evalúa con A, EP, I o NE y no entra al promedio.',
                 'horas_semanales' => 1,
                 'aparece_en_libreta' => false,
+                'tipo_calificacion' => TipoCalificacion::Cualitativa,
+                'usa_criterios' => false,
             ]],
         ];
 
@@ -79,17 +82,27 @@ class CurriculoEducativoSeeder extends Seeder
             );
 
             foreach ($asignaturas as $asignaturaOrden => $asignaturaData) {
+                $atributos = [
+                    'descripcion' => $asignaturaData['descripcion'] ?? null,
+                    'orden' => $asignaturaOrden + 1,
+                    'horas_semanales' => $asignaturaData['horas_semanales'] ?? null,
+                    'aparece_en_libreta' => $asignaturaData['aparece_en_libreta'] ?? true,
+                ];
+
+                if (isset($asignaturaData['tipo_calificacion'])) {
+                    $atributos['tipo_calificacion'] = $asignaturaData['tipo_calificacion'];
+                }
+
+                if (array_key_exists('usa_criterios', $asignaturaData)) {
+                    $atributos['usa_criterios'] = $asignaturaData['usa_criterios'];
+                }
+
                 Sys_Asignatura::query()->updateOrCreate(
                     [
                         'area_id' => $area->id,
                         'nombre' => $asignaturaData['nombre'],
                     ],
-                    [
-                        'descripcion' => $asignaturaData['descripcion'] ?? null,
-                        'orden' => $asignaturaOrden + 1,
-                        'horas_semanales' => $asignaturaData['horas_semanales'] ?? null,
-                        'aparece_en_libreta' => $asignaturaData['aparece_en_libreta'] ?? true,
-                    ],
+                    $atributos,
                 );
             }
         }

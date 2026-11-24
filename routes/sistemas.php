@@ -59,6 +59,7 @@ Route::middleware(['auth', 'verified', 'role:Sistemas'])
         Route::patch('/estructura/niveles/{nivel}/subniveles/{subnivel}/grados/{grado}', [EstructuraController::class, 'updateGrado'])->name('estructura.grados.update')->scopeBindings()->whereNumber('nivel')->whereNumber('subnivel')->whereNumber('grado');
         Route::delete('/estructura/niveles/{nivel}/subniveles/{subnivel}/grados/{grado}', [EstructuraController::class, 'destroyGrado'])->name('estructura.grados.destroy')->scopeBindings()->whereNumber('nivel')->whereNumber('subnivel')->whereNumber('grado');
         Route::get('/curriculo', [CurriculoController::class, 'index'])->name('curriculo');
+        Route::get('/curriculo/ambitos', [CurriculoController::class, 'ambitos'])->name('curriculo.ambitos');
         Route::patch('/curriculo/niveles/{nivel}/subniveles/{subnivel}/organizacion', [CurriculoController::class, 'updateOrganizacion'])->name('curriculo.organizacion.update')->scopeBindings()->whereNumber('nivel')->whereNumber('subnivel');
         Route::post('/curriculo/niveles/{nivel}/subniveles/{subnivel}/areas', [CurriculoController::class, 'storeArea'])->name('curriculo.areas.store')->scopeBindings()->whereNumber('nivel')->whereNumber('subnivel');
         Route::patch('/curriculo/niveles/{nivel}/subniveles/{subnivel}/areas/{area}', [CurriculoController::class, 'updateArea'])->name('curriculo.areas.update')->scopeBindings()->whereNumber('nivel')->whereNumber('subnivel')->whereNumber('area');

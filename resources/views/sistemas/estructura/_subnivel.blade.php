@@ -1,22 +1,11 @@
 @php
-    use App\Enums\TipoCalificacion;
-
     $subnivelBag = $errors->getBag('subnivel-'.$subnivel->id);
     $subnivelNombre = $subnivelBag->isNotEmpty() ? old('nombre', $subnivel->nombre) : $subnivel->nombre;
     $subnivelSiglas = $subnivelBag->isNotEmpty() ? old('siglas', $subnivel->siglas) : $subnivel->siglas;
     $subnivelDescripcion = $subnivelBag->isNotEmpty() ? old('descripcion', $subnivel->descripcion) : $subnivel->descripcion;
-    $subnivelTipo = $subnivelBag->isNotEmpty()
-        ? old('tipo_calificacion', $subnivel->tipo_calificacion?->value)
-        : $subnivel->tipo_calificacion?->value;
-    $subnivelDestrezas = $subnivelBag->isNotEmpty()
-        ? filter_var(old('califica_por_destrezas'), FILTER_VALIDATE_BOOLEAN)
-        : (bool) $subnivel->califica_por_destrezas;
-    $subnivelAmbitos = $subnivelBag->isNotEmpty()
-        ? filter_var(old('usa_ambitos'), FILTER_VALIDATE_BOOLEAN)
-        : (bool) $subnivel->usa_ambitos;
-    $subnivelNota = $subnivelBag->isNotEmpty()
-        ? filter_var(old('equivale_nota_nacional'), FILTER_VALIDATE_BOOLEAN)
-        : (bool) $subnivel->equivale_nota_nacional;
+    $subnivelOrganizacion = $subnivelBag->isNotEmpty()
+        ? old('organizacion', $subnivel->usa_ambitos ? 'ambitos' : 'areas')
+        : ($subnivel->usa_ambitos ? 'ambitos' : 'areas');
     $gradosCount = $subnivel->grados_count ?? $subnivel->grados->count();
 @endphp
 
@@ -31,16 +20,7 @@
             </p>
             <p class="mt-1 text-sm text-slate-500">{{ $subnivel->descripcion ?: 'Sin descripción' }}</p>
             <p class="mt-1 text-xs text-slate-400">
-                {{ $subnivel->tipo_calificacion?->label() ?? 'Sin escala de calificación' }}
-                @if ($subnivel->califica_por_destrezas)
-                    · Por destrezas
-                @endif
-                @if ($subnivel->usa_ambitos)
-                    · Ámbitos
-                @endif
-                @if ($subnivel->equivale_nota_nacional)
-                    · Nota sobre 10
-                @endif
+                Se organiza por {{ $subnivel->usa_ambitos ? 'ámbitos' : 'áreas' }}
                 · {{ $gradosCount }} grados
             </p>
         </div>
@@ -80,56 +60,18 @@
             <x-text-input :id="'siglas-subnivel-'.$subnivel->id" class="mt-1 block w-full" type="text" name="siglas" :value="$subnivelSiglas" maxlength="10" />
             <x-input-error class="mt-2" :messages="$subnivelBag->get('siglas')" />
         </div>
-        <div class="md:min-w-48" x-data="{ escala: @js((string) $subnivelTipo), porDestrezas: @js($subnivelDestrezas) }">
-            <x-input-label :for="'tipo-calificacion-subnivel-'.$subnivel->id" value="Escala de calificación" />
+        <div class="md:w-56">
+            <x-input-label :for="'organizacion-subnivel-'.$subnivel->id" value="Se organiza por" />
             <select
-                id="tipo-calificacion-subnivel-{{ $subnivel->id }}"
-                name="tipo_calificacion"
+                id="organizacion-subnivel-{{ $subnivel->id }}"
+                name="organizacion"
                 class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                x-model="escala"
                 required
             >
-                <option value="">Selecciona una escala</option>
-                @foreach (TipoCalificacion::cases() as $option)
-                    <option value="{{ $option->value }}" @selected((string) $subnivelTipo === $option->value)>
-                        {{ $option->label() }}
-                    </option>
-                @endforeach
+                <option value="areas" @selected($subnivelOrganizacion === 'areas')>Áreas</option>
+                <option value="ambitos" @selected($subnivelOrganizacion === 'ambitos')>Ámbitos</option>
             </select>
-            <x-input-error class="mt-2" :messages="$subnivelBag->get('tipo_calificacion')" />
-            <label class="mt-2 flex items-center gap-2 text-sm text-slate-700" x-show="escala === 'cualitativa'" x-cloak>
-                <input
-                    type="checkbox"
-                    class="rounded border-gray-300"
-                    name="califica_por_destrezas"
-                    value="1"
-                    x-model="porDestrezas"
-                    :disabled="escala !== 'cualitativa'"
-                >
-                Califica por destrezas
-            </label>
-            <label class="mt-2 flex items-center gap-2 text-sm text-slate-700" x-show="escala === 'cualitativa' && porDestrezas" x-cloak>
-                <input
-                    type="checkbox"
-                    class="rounded border-gray-300"
-                    name="usa_ambitos"
-                    value="1"
-                    @checked($subnivelAmbitos)
-                    :disabled="escala !== 'cualitativa' || !porDestrezas"
-                >
-                Organiza por ámbitos
-            </label>
-            <label class="mt-2 flex items-center gap-2 text-sm text-slate-700" x-show="escala === 'cualitativa' && porDestrezas" x-cloak>
-                <input
-                    type="checkbox"
-                    class="rounded border-gray-300"
-                    name="equivale_nota_nacional"
-                    value="1"
-                    @checked($subnivelNota)
-                    :disabled="escala !== 'cualitativa' || !porDestrezas"
-                >
-                Equivale a nota nacional sobre 10
-            </label>
+            <x-input-error class="mt-2" :messages="$subnivelBag->get('organizacion')" />
         </div>
         <div class="md:min-w-40 md:flex-1">
             <x-input-label :for="'descripcion-subnivel-'.$subnivel->id" value="Descripción" />

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\TipoCalificacion;
 use Database\Factories\SysAsignaturaFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -26,6 +27,8 @@ class Sys_Asignatura extends Model
         'orden',
         'horas_semanales',
         'aparece_en_libreta',
+        'tipo_calificacion',
+        'usa_criterios',
         'area_id',
     ];
 
@@ -35,6 +38,8 @@ class Sys_Asignatura extends Model
     protected $attributes = [
         'orden' => 0,
         'aparece_en_libreta' => true,
+        'tipo_calificacion' => 'cuantitativa',
+        'usa_criterios' => false,
     ];
 
     /**
@@ -46,6 +51,8 @@ class Sys_Asignatura extends Model
             'orden' => 'integer',
             'horas_semanales' => 'integer',
             'aparece_en_libreta' => 'boolean',
+            'tipo_calificacion' => TipoCalificacion::class,
+            'usa_criterios' => 'boolean',
         ];
     }
 

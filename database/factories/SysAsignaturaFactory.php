@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\TipoCalificacion;
 use App\Models\Sys_Area;
 use App\Models\Sys_Asignatura;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -25,6 +26,8 @@ class SysAsignaturaFactory extends Factory
             'orden' => fake()->numberBetween(0, 20),
             'horas_semanales' => fake()->optional()->numberBetween(1, 8),
             'aparece_en_libreta' => true,
+            'tipo_calificacion' => TipoCalificacion::Cuantitativa,
+            'usa_criterios' => false,
             'area_id' => Sys_Area::factory(),
         ];
     }

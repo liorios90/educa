@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Enums\Role;
+use App\Enums\TipoCalificacion;
 use App\Models\EstablecimientoModalidadJornada;
 use App\Models\Sys_Asignatura;
 use App\Models\Sys_CriterioEvaluacion;
@@ -76,11 +77,20 @@ class UpsertCurriculoCriterioRequest extends FormRequest
             function (Validator $validator): void {
                 $subnivel = $this->subnivelDelCatalogo();
 
-                if ($subnivel instanceof Sys_Subnivel && ! $subnivel->usa_ambitos) {
-                    $validator->errors()->add('descripcion', 'Los criterios de evaluación se usan en Inicial y Preparatoria.');
+                if ($subnivel instanceof Sys_Subnivel && ! $subnivel->usa_ambitos && ! $this->asignaturaUsaCriterios()) {
+                    $validator->errors()->add('descripcion', 'Los criterios se usan en ámbitos o en una asignatura cualitativa que los tenga activos.');
                 }
             },
         ];
+    }
+
+    private function asignaturaUsaCriterios(): bool
+    {
+        $asignatura = $this->route('asignatura');
+
+        return $asignatura instanceof Sys_Asignatura
+            && $asignatura->tipo_calificacion === TipoCalificacion::Cualitativa
+            && $asignatura->usa_criterios;
     }
 
     protected function prepareForValidation(): void

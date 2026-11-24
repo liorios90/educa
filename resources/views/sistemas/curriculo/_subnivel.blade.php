@@ -1,10 +1,7 @@
 @php
-    use App\Enums\TipoCalificacion;
-
     $porAmbitos = (bool) $subnivel->usa_ambitos;
     $etiquetaGrupos = $porAmbitos ? 'ejes' : 'áreas';
     $etiquetaUnidades = $porAmbitos ? 'ámbitos' : 'asignaturas';
-    $puedeOrganizarPorAmbitos = $subnivel->tipo_calificacion === TipoCalificacion::Cualitativa;
     $areaCreateBag = $errors->getBag('area-create-'.$subnivel->id);
     $areaCreateCodigo = $areaCreateBag->isNotEmpty() ? old('codigo') : '';
     $areaCreateNombre = $areaCreateBag->isNotEmpty() ? old('nombre') : '';
@@ -47,24 +44,6 @@
                 </span>
             </span>
         </button>
-        @if ($puedeOrganizarPorAmbitos)
-            <form method="POST" action="{{ route('sistemas.curriculo.organizacion.update', [$nivel, $subnivel]) }}" class="sm:shrink-0">
-                @csrf
-                @method('patch')
-                <input type="hidden" name="usa_ambitos" value="0">
-                <label class="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-                    <input
-                        type="checkbox"
-                        name="usa_ambitos"
-                        value="1"
-                        class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500"
-                        @checked($porAmbitos)
-                        onchange="this.form.submit()"
-                    >
-                    Organiza por ámbitos
-                </label>
-            </form>
-        @endif
     </div>
 
     <div

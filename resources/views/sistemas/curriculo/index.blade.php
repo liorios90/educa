@@ -42,7 +42,7 @@
 
     <x-slot name="header">
         <h2 class="text-xl font-semibold leading-tight text-slate-800">
-            Áreas y asignaturas
+            {{ $porAmbitos ? 'Ámbitos y Destrezas' : 'Áreas y asignaturas' }}
         </h2>
     </x-slot>
 
@@ -51,14 +51,12 @@
         x-data="{
             openNivelId: @js($openNivelId),
             openSubnivelId: @js($openSubnivelId),
-            openAreaId: @js($openAreaId),
             editingAreaId: @js($editingAreaId),
             editingAsignaturaId: @js($editingAsignaturaId),
             toggleNivel(id) {
                 if (this.openNivelId === id) {
                     this.openNivelId = null
                     this.openSubnivelId = null
-                    this.openAreaId = null
                     this.editingAreaId = null
                     this.editingAsignaturaId = null
                     return
@@ -71,38 +69,20 @@
 
                 if (this.openSubnivelId === subnivelId) {
                     this.openSubnivelId = null
-                    this.openAreaId = null
                     this.editingAreaId = null
                     this.editingAsignaturaId = null
                     return
                 }
 
                 this.openSubnivelId = subnivelId
-            },
-            toggleArea(nivelId, subnivelId, areaId) {
-                this.openNivelId = nivelId
-                this.openSubnivelId = subnivelId
-
-                if (this.openAreaId === areaId) {
-                    this.openAreaId = null
-                    this.editingAreaId = null
-                    this.editingAsignaturaId = null
-                    return
-                }
-
-                this.openAreaId = areaId
             },
             editArea(nivelId, subnivelId, areaId) {
                 this.openNivelId = nivelId
                 this.openSubnivelId = subnivelId
-                this.openAreaId = areaId
-                this.editingAreaId = areaId
+                this.editingAreaId = this.editingAreaId === areaId ? null : areaId
             },
-            editAsignatura(nivelId, subnivelId, areaId, asignaturaId) {
-                this.openNivelId = nivelId
-                this.openSubnivelId = subnivelId
-                this.openAreaId = areaId
-                this.editingAsignaturaId = asignaturaId
+            editAsignatura(asignaturaId) {
+                this.editingAsignaturaId = this.editingAsignaturaId === asignaturaId ? null : asignaturaId
             },
         }"
     >
@@ -151,15 +131,18 @@
             @endif
 
             <section class="mb-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                <p class="text-sm text-slate-600">
-                    Configura las áreas y las asignaturas de cada subnivel. En las libretas del Ministerio de Educación se agrupan por área y luego por asignatura. En Inicial, Preparatoria y Básica Elemental cada asignatura también lleva las destrezas y sus indicadores de evaluación.
-                </p>
-                <p class="mt-2 text-sm text-slate-600">
-                    En el subnivel, la casilla <strong>Organiza por ámbitos</strong> usa la organización del Currículo de Inicial y Preparatoria: ejes, ámbitos, destrezas y criterios. Puedes cambiarla cuando la norma cambie. Los nombres se editan en el mismo subnivel.
-                </p>
-                <p class="mt-2 text-sm text-slate-600">Marca <strong>Área técnica</strong> en las áreas del subnivel Bachillerato General Unificado para publicarlas en el catálogo. Cada establecimiento activará únicamente las áreas técnicas que ofrezca.</p>
+                @if ($porAmbitos)
+                    <p class="text-sm text-slate-600">
+                        Subniveles organizados por ámbitos, como Inicial y Preparatoria en el currículo del Ministerio de Educación. Cada eje agrupa ámbitos con sus criterios, destrezas e indicadores. La evaluación es cualitativa y no se promedia.
+                    </p>
+                @else
+                    <p class="text-sm text-slate-600">
+                        Subniveles organizados por áreas, como Elemental, Media, Superior y Bachillerato. En las libretas del Ministerio de Educación se agrupan por área y luego por asignatura. En cada asignatura eliges si la calificación es cuantitativa o cualitativa. Si es cualitativa, puedes activar los criterios de evaluación.
+                    </p>
+                    <p class="mt-2 text-sm text-slate-600">Marca <strong>Área técnica</strong> en las áreas del subnivel Bachillerato General Unificado para publicarlas en el catálogo. Cada establecimiento activará únicamente las áreas técnicas que ofrezca.</p>
+                @endif
                 <p class="mt-2 text-sm text-slate-500">
-                    Los niveles, subniveles y grados se administran en
+                    Si un subnivel debe cambiar de áreas a ámbitos, o al revés, se define en
                     <a href="{{ route('sistemas.estructura') }}" class="font-medium text-indigo-600 hover:text-indigo-500">Nivel - Subnivel - Grado</a>.
                 </p>
             </section>
@@ -169,9 +152,12 @@
                     @include('sistemas.curriculo._nivel', ['nivel' => $nivel])
                 @empty
                     <p class="rounded-2xl border border-slate-200 bg-white px-6 py-8 text-center text-slate-500">
-                        Aún no hay niveles. Créalos primero en
-                        <a href="{{ route('sistemas.estructura') }}" class="font-medium text-indigo-600 hover:text-indigo-500">Nivel - Subnivel - Grado</a>
-                        para poder configurar áreas y asignaturas.
+                        @if ($porAmbitos)
+                            Ningún subnivel se organiza por ámbitos. Elige Ámbitos en
+                        @else
+                            Ningún subnivel se organiza por áreas. Elige Áreas en
+                        @endif
+                        <a href="{{ route('sistemas.estructura') }}" class="font-medium text-indigo-600 hover:text-indigo-500">Nivel - Subnivel - Grado</a>.
                     </p>
                 @endforelse
             </div>

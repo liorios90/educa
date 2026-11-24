@@ -94,9 +94,6 @@
                         @if (Route::has('login'))
                             <a href="{{ route('login') }}" class="px-2 text-sm font-semibold text-slate-600 transition hover:text-emerald-900">Iniciar sesión</a>
                         @endif
-                        @if (Route::has('register'))
-                            <a href="{{ route('register') }}" class="inline-flex items-center rounded-full bg-emerald-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-800">Crear cuenta</a>
-                        @endif
                     @endauth
                 </div>
 
@@ -119,9 +116,6 @@
                         @if (Route::has('login'))
                             <a href="{{ route('login') }}" class="rounded-xl px-3 py-2.5 hover:bg-slate-50">Iniciar sesión</a>
                         @endif
-                        @if (Route::has('register'))
-                            <a href="{{ route('register') }}" class="rounded-full bg-emerald-900 px-3 py-2.5 text-center text-white">Crear cuenta</a>
-                        @endif
                     @endauth
                 </div>
             </div>
@@ -142,16 +136,9 @@
                             Organiza la gestión académica y acerca a directivos, docentes, estudiantes y familias en una plataforma pensada para cada institución.
                         </p>
                         <div class="flex w-full flex-col gap-3 pt-1 sm:w-auto sm:flex-row">
-                            @guest
-                                @if (Route::has('register'))
-                                    <a href="{{ route('register') }}" class="inline-flex items-center justify-center rounded-full bg-emerald-900 px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-emerald-950/15 transition hover:bg-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-700 focus:ring-offset-2">
-                                        Empieza con Educa
-                                        <svg class="ml-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14m-6-6 6 6-6 6" /></svg>
-                                    </a>
-                                @endif
-                            @else
+                            @auth
                                 <a href="{{ route('dashboard') }}" class="inline-flex items-center justify-center rounded-full bg-emerald-900 px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-emerald-950/15 transition hover:bg-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-700 focus:ring-offset-2">Ir al panel</a>
-                            @endguest
+                            @endauth
                             <a href="#comunidad" class="inline-flex items-center justify-center rounded-full border border-slate-300 px-6 py-3.5 text-sm font-semibold text-slate-800 transition hover:border-emerald-700 hover:text-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-700 focus:ring-offset-2">Descubrir la plataforma</a>
                         </div>
                         <p class="text-sm font-medium text-slate-500">Flexible para colegios e institutos.</p>
@@ -267,13 +254,9 @@
                         <h2 class="text-3xl font-extrabold tracking-tight sm:text-4xl">Conecta tu comunidad educativa.</h2>
                         <p class="text-sm leading-7 text-emerald-100 sm:text-base">Un espacio flexible para organizar y acompañar la vida escolar.</p>
                     </div>
-                    @guest
-                        @if (Route::has('register'))
-                            <a href="{{ route('register') }}" class="inline-flex shrink-0 items-center justify-center rounded-full bg-white px-6 py-3.5 text-sm font-bold text-emerald-950 transition hover:bg-emerald-50">Crear una cuenta</a>
-                        @endif
-                    @else
+                    @auth
                         <a href="{{ route('dashboard') }}" class="inline-flex shrink-0 items-center justify-center rounded-full bg-white px-6 py-3.5 text-sm font-bold text-emerald-950 transition hover:bg-emerald-50">Continuar al panel</a>
-                    @endguest
+                    @endauth
                 </div>
             </section>
         </main>

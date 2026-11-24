@@ -36,6 +36,8 @@
                                 {{ $contexto->etiqueta() }}.
                                 @if ($registro['usa_ambitos'])
                                     Marca los indicadores que observaste. El conteo te ayuda a elegir la letra de cada destreza, de A+ a E-, o NE si no se trabajó. No se promedia una nota.
+                                @elseif ($registro['acompanamiento'] ?? false)
+                                    Cada habilidad priorizada se registra con A, EP, I o NE. La junta de grado consensúa esa letra. No se convierte en una nota sobre 10 ni se reemplaza por la más baja.
                                 @elseif ($registro['equivale'])
                                     Escala de Básica Elemental: A alcanzado, EP en proceso, I iniciado y NE no evaluado.
                                     En la libreta también se muestra la nota sobre 10 equivalente.
@@ -54,6 +56,12 @@
                                         fn (array $destreza): bool => $destreza['indicadores'] !== [],
                                     );
                             @endphp
+
+                            @if (($registro['acompanamiento'] ?? false) && ! ($registro['seleccion_completa'] ?? false))
+                                <p class="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                                    La institución todavía debe elegir una habilidad cognitiva, tres sociales y una emocional. Hasta entonces solo se califican las cuatro obligatorias, en Configuración, Habilidades de Cívica.
+                                </p>
+                            @endif
 
                             @if (! $puedeCalificar)
                                 <p class="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">

@@ -2,7 +2,7 @@
     <x-slot name="header">
         <div>
             <h2 class="text-xl font-semibold leading-tight text-slate-800">
-                Asignaturas
+                {{ ($porAmbitos ?? false) ? 'Ámbitos y Destrezas' : 'Áreas y asignaturas' }}
             </h2>
             <p class="mt-1 text-sm text-slate-500">
                 {{ $establecimiento->nombre }}

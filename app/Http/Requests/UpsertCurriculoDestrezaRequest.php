@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Enums\Role;
+use App\Enums\TipoCalificacion;
 use App\Models\EstablecimientoModalidadJornada;
 use App\Models\Sys_Asignatura;
 use App\Models\Sys_Destreza;
@@ -86,7 +87,11 @@ class UpsertCurriculoDestrezaRequest extends FormRequest
             function (Validator $validator): void {
                 $subnivel = $this->subnivelDelCatalogo();
 
-                if ($subnivel instanceof Sys_Subnivel && ! $subnivel->califica_por_destrezas) {
+                $asignatura = $this->route('asignatura');
+                $cualitativa = $asignatura instanceof Sys_Asignatura
+                    && $asignatura->tipo_calificacion === TipoCalificacion::Cualitativa;
+
+                if ($subnivel instanceof Sys_Subnivel && ! $subnivel->califica_por_destrezas && ! $cualitativa && ! $this->asignaturaYaTieneDestrezas()) {
                     $validator->errors()->add('descripcion', 'Este subnivel no evalúa por destrezas.');
                 }
             },
@@ -139,6 +144,13 @@ class UpsertCurriculoDestrezaRequest extends FormRequest
             'area' => $asignatura instanceof Sys_Asignatura ? $asignatura->area_id : null,
             'destrezas' => $asignatura instanceof Sys_Asignatura ? $asignatura->id.'-'.$grado : null,
         ]);
+    }
+
+    private function asignaturaYaTieneDestrezas(): bool
+    {
+        $asignatura = $this->route('asignatura');
+
+        return $asignatura instanceof Sys_Asignatura && $asignatura->destrezas()->exists();
     }
 
     private function subnivelDelCatalogo(): ?Sys_Subnivel

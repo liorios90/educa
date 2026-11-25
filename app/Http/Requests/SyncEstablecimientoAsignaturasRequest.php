@@ -274,6 +274,10 @@ class SyncEstablecimientoAsignaturasRequest extends FormRequest
         $conteo = [];
 
         foreach ($candidatas as $candidata) {
+            if ($candidata['asignatura_propia_clave'] !== null) {
+                continue;
+            }
+
             $conteo[$candidata['area_id']][$candidata['grado_id']] = ($conteo[$candidata['area_id']][$candidata['grado_id']] ?? 0) + 1;
         }
 
@@ -292,13 +296,15 @@ class SyncEstablecimientoAsignaturasRequest extends FormRequest
                 'tipo_calificacion' => $fila['tipo_calificacion'],
                 'califica_por_destrezas' => $fila['califica_por_destrezas'],
                 'usa_tabla_equivalencias' => $fila['usa_tabla_equivalencias'],
-                'porcentaje' => $this->porcentajeDeFila(
-                    $fila['tipo_calificacion'],
-                    $fila['area_id'],
-                    $fila['grado_id'],
-                    $conteo[$fila['area_id']][$fila['grado_id']] ?? 0,
-                    $fila['porcentaje'],
-                ),
+                'porcentaje' => $fila['asignatura_propia_clave'] !== null
+                    ? null
+                    : $this->porcentajeDeFila(
+                        $fila['tipo_calificacion'],
+                        $fila['area_id'],
+                        $fila['grado_id'],
+                        $conteo[$fila['area_id']][$fila['grado_id']] ?? 0,
+                        $fila['porcentaje'],
+                    ),
                 'origen' => $fila['origen'],
             ];
         }
@@ -315,6 +321,10 @@ class SyncEstablecimientoAsignaturasRequest extends FormRequest
         $conteo = [];
 
         foreach ($filas as $fila) {
+            if ($fila['asignatura_propia_clave'] !== null) {
+                continue;
+            }
+
             $areaId = (int) $fila['area_id'];
 
             if ($areaId < 1) {
@@ -946,6 +956,10 @@ class SyncEstablecimientoAsignaturasRequest extends FormRequest
         $grupos = [];
 
         foreach ($filas as $fila) {
+            if ($fila['asignatura_propia_clave'] !== null) {
+                continue;
+            }
+
             $areaId = (int) $fila['area_id'];
 
             if ($areaId < 1) {

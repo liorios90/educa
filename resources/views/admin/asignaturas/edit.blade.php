@@ -10,6 +10,11 @@
     $tiposCalificacion = TipoCalificacion::cases();
     $tiposAsignatura = TipoAsignatura::cases();
     $modosLibretaArea = ModoLibretaArea::cases();
+    $pestanaAsignaturas = collect($errors->getMessages())
+        ->keys()
+        ->contains(fn (string $key): bool => str_starts_with($key, 'propias'))
+        ? 'institucionales'
+        : 'obligatorias';
 @endphp
 
 <x-app-layout>
@@ -32,6 +37,7 @@
             nivelBachilleratoId: @js($nivelBachilleratoId),
             activeSubnivelId: @js($activeSubnivelId),
             pantallaAsignaturasArea: @js(request()->filled('area') ? (string) request('area') : null),
+            pestanaAsignaturas: @js($pestanaAsignaturas),
             registroDestrezas: @js(request('destrezas')),
             configuracionArea: null,
             asignaturas: @js($selectedGradosPorAsignatura),
@@ -50,10 +56,8 @@
             hasAsignatura(id) {
                 return (this.asignaturas[id] || []).length > 0
             },
-            idsArea(asignaturaIds, areaId) {
-                const agregadas = (this.nuevas[areaId] || []).map((item) => item.clave)
-
-                return [...asignaturaIds, ...agregadas]
+            idsArea(asignaturaIds) {
+                return asignaturaIds
             },
             countSelectedInArea(asignaturaIds, gradoId) {
                 const grado = String(gradoId)
@@ -76,14 +80,14 @@
                 return modo === 'area_promedio' || modo === 'area_y_asignaturas'
             },
             usaPorcentaje(areaId, gradoId, asignaturaIds) {
-                if (this.countSelectedInArea(this.idsArea(asignaturaIds, areaId), gradoId) < 2) {
+                if (this.countSelectedInArea(this.idsArea(asignaturaIds), gradoId) < 2) {
                     return false
                 }
 
                 return true
             },
             tieneMultiplesPorGrado(asignaturaIds, areaId, gradoIds) {
-                return gradoIds.some((gradoId) => this.countSelectedInArea(this.idsArea(asignaturaIds, areaId), gradoId) > 1)
+                return gradoIds.some((gradoId) => this.countSelectedInArea(this.idsArea(asignaturaIds), gradoId) > 1)
             },
             seleccionarNivel(nivelId, subnivelId) {
                 this.activeNivelId = nivelId
@@ -234,6 +238,7 @@
                             $esInicial = $subnivel->nivel?->nombre === 'Educación Inicial';
                             $esAmbito = (bool) $subnivel->usa_ambitos;
                             $etiquetaAsignatura = $esAmbito ? 'Ámbito' : 'Asignatura';
+                            $etiquetaAsignaturas = $esAmbito ? 'Ámbitos' : 'Asignaturas';
                         @endphp
 
                         <div x-show="activeSubnivelId === {{ $subnivel->id }}" class="space-y-4">
@@ -241,16 +246,16 @@
                             @forelse ($subnivel->areas as $area)
                                 @php
                                     $propiasDelArea = $propiasPorArea[(string) $area->id] ?? [];
-                                    $asignaturaIdsDelArea = array_merge(
-                                        $area->asignaturas->pluck('id')->map(fn ($id) => (string) $id)->all(),
-                                        array_map(fn (array $propia): string => $propia['alpine'], $propiasDelArea),
-                                    );
+                                    $asignaturaIdsDelArea = $area->asignaturas
+                                        ->pluck('id')
+                                        ->map(fn ($id) => (string) $id)
+                                        ->all();
                                 @endphp
                                 <section x-show="pantallaAsignaturasArea === null || pantallaAsignaturasArea === '{{ $area->id }}'" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                                     <div x-show="pantallaAsignaturasArea === null" class="flex flex-wrap items-center justify-between gap-3 pb-3">
                                         <h4 class="text-sm font-bold text-slate-900">{{ $esInicial ? 'Eje' : 'Área' }}: {{ $area->nombre }}</h4>
                                         <div class="flex gap-2">
-                                            <button type="button" class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800" @click="pantallaAsignaturasArea = '{{ $area->id }}'">Asignaturas</button>
+                                            <button type="button" class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800" @click="pantallaAsignaturasArea = '{{ $area->id }}'; pestanaAsignaturas = @js($pestanaAsignaturas)">{{ $etiquetaAsignaturas }}</button>
                                             <button type="button" class="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50" x-show="tieneMultiplesPorGrado(@js($asignaturaIdsDelArea), '{{ $area->id }}', @js($gradoIds))" x-cloak @click="configuracionArea = '{{ $area->id }}'">Configuración</button>
                                         </div>
                                     </div>
@@ -270,7 +275,7 @@
                                                 @endphp
                                                 <div
                                                     class="rounded-lg border border-slate-100 bg-slate-50 p-3"
-                                                    x-show="countSelectedInArea(idsArea(@js($asignaturaIdsDelArea), '{{ $area->id }}'), '{{ $grado->id }}') >= 2"
+                                                        x-show="countSelectedInArea(idsArea(@js($asignaturaIdsDelArea)), '{{ $grado->id }}') >= 2"
                                                     x-init="
                                                         modosArea['{{ $area->id }}'] = modosArea['{{ $area->id }}'] || {}
                                                         if (modosArea['{{ $area->id }}']['{{ $grado->id }}'] === undefined) {
@@ -318,9 +323,18 @@
                                     <div x-show="pantallaAsignaturasArea === '{{ $area->id }}'" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" @keydown.escape.window="if (registroDestrezas) { registroDestrezas = null } else { pantallaAsignaturasArea = null }">
                                       <div class="max-h-[92vh] w-full max-w-6xl overflow-y-auto rounded-2xl bg-white p-5 shadow-xl sm:p-6" @click.outside="if (!registroDestrezas) pantallaAsignaturasArea = null">
                                         <div class="mb-5 flex items-center justify-between gap-4">
-                                            <div><h5 class="text-lg font-semibold text-slate-900">Asignaturas · {{ $area->nombre }}</h5><p class="mt-1 text-sm text-slate-500">Selecciona las asignaturas, grados y opciones para la libreta.</p></div>
+                                            <div>
+                                                <h5 class="text-lg font-semibold text-slate-900">{{ $etiquetaAsignaturas }} · {{ $area->nombre }}</h5>
+                                                <p class="mt-1 text-sm text-slate-500">Separa las del ministerio y las del establecimiento.</p>
+                                            </div>
                                             <button type="button" class="rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-100" @click="pantallaAsignaturasArea = null">Cerrar</button>
                                         </div>
+                                        <nav class="mb-4 flex gap-1 border-b border-slate-200" role="tablist" aria-label="Origen de {{ strtolower($etiquetaAsignaturas) }}">
+                                            <button type="button" role="tab" class="border-b-2 px-4 py-2.5 text-sm font-semibold" :aria-selected="pestanaAsignaturas === 'obligatorias'" :class="pestanaAsignaturas === 'obligatorias' ? 'border-indigo-600 text-indigo-700' : 'border-transparent text-slate-600 hover:text-slate-900'" @click="pestanaAsignaturas = 'obligatorias'">Obligatorias</button>
+                                            <button type="button" role="tab" class="border-b-2 px-4 py-2.5 text-sm font-semibold" :aria-selected="pestanaAsignaturas === 'institucionales'" :class="pestanaAsignaturas === 'institucionales' ? 'border-indigo-600 text-indigo-700' : 'border-transparent text-slate-600 hover:text-slate-900'" @click="pestanaAsignaturas = 'institucionales'">Institucionales</button>
+                                        </nav>
+                                        <div x-show="pestanaAsignaturas === 'obligatorias'" role="tabpanel">
+                                            <p class="mb-4 text-sm leading-6 text-slate-600">{{ $esAmbito ? 'Requeridos' : 'Requeridas' }} por el ministerio. Vienen del catálogo de Sistemas y entran en los promedios oficiales.</p>
                                         <div class="overflow-x-auto rounded-xl border border-slate-200">
                                             <table class="min-w-full divide-y divide-slate-200 text-sm">
                                                 <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -388,15 +402,18 @@
                                                         </tr>
                                                     @endforeach
                                                 @empty
-                                                    <tr><td colspan="6" class="px-4 py-6 text-center text-slate-500">Sistemas aún no ha definido asignaturas en esta área.</td></tr>
+                                                    <tr><td colspan="6" class="px-4 py-6 text-center text-slate-500">Sistemas aún no ha definido {{ $esAmbito ? 'ámbitos' : 'asignaturas' }} en esta área.</td></tr>
                                                 @endforelse
                                                 </tbody>
                                             </table>
                                         </div>
+                                        </div>
 
-                                        @if ($propiasDelArea !== [])
-                                            <div class="mt-5 space-y-4">
-                                                <h6 class="text-sm font-semibold text-slate-800">Asignaturas creadas por el establecimiento</h6>
+                                        <div x-show="pestanaAsignaturas === 'institucionales'" x-cloak role="tabpanel" class="space-y-4">
+                                            <p class="text-sm leading-6 text-slate-600">Cread{{ $esAmbito ? 'os' : 'as' }} por el establecimiento. Pueden aparecer en la libreta y no entran en los promedios del ministerio.</p>
+                                            @if ($propiasDelArea === [])
+                                                <p class="rounded-xl border border-dashed border-slate-300 px-4 py-6 text-center text-sm text-slate-500" x-show="(nuevas['{{ $area->id }}'] || []).length === 0">Todavía no hay {{ $esAmbito ? 'ámbitos institucionales' : 'asignaturas institucionales' }} en esta área.</p>
+                                            @endif
                                         @foreach ($propiasDelArea as $propia)
                                             <div class="rounded-xl border border-slate-200 p-4" x-init="asignaturas['{{ $propia['alpine'] }}'] = asignaturas['{{ $propia['alpine'] }}'] || []">
                                                 <div class="grid gap-3 sm:grid-cols-3">
@@ -442,7 +459,7 @@
                                                 <input type="hidden" name="propias[{{ $propia['clave'] }}][area_id]" value="{{ $area->id }}">
                                                 <label class="mt-3 flex items-center gap-2 text-sm text-slate-600">
                                                     <input type="checkbox" class="rounded border-slate-300" name="propias[{{ $propia['clave'] }}][eliminar]" value="1" @checked($propia['eliminar'])>
-                                                    Quitar esta asignatura
+                                                    Quitar est{{ $esAmbito ? 'e ámbito' : 'a asignatura' }}
                                                 </label>
                                                 <x-input-error class="mt-1" :messages="$errors->get('propias.'.$propia['clave'].'.grados')" />
 
@@ -493,13 +510,8 @@
                                                                     </label>
                                                                     <label class="mt-2 flex items-start gap-2 text-sm text-slate-700" x-show="escala === 'cuantitativa'" x-cloak>
                                                                         <input type="checkbox" class="mt-0.5 rounded border-slate-300" name="propias[{{ $propia['clave'] }}][usa_tabla_equivalencias][{{ $grado->id }}]" value="1" @checked($equivalencias) :disabled="escala !== 'cuantitativa'">
-                                                                        <span>Tabla de equivalencias <span class="block text-xs text-slate-500">Para presentar letras al ministerio.</span></span>
+                                                                        <span>Tabla de equivalencias <span class="block text-xs text-slate-500">Para mostrar letras en la libreta.</span></span>
                                                                     </label>
-                                                                    <div class="mt-3" x-show="escala === 'cuantitativa' && usaPorcentaje('{{ $area->id }}', '{{ $grado->id }}', @js($asignaturaIdsDelArea))" x-cloak>
-                                                                        <label class="block text-xs text-slate-500">Porcentaje (opcional; vacío usa promedio simple)</label>
-                                                                        <input type="number" min="0" max="100" step="0.01" name="propias[{{ $propia['clave'] }}][porcentaje][{{ $grado->id }}]" value="{{ $porcentaje }}" class="mt-1 block w-full rounded-md border-slate-300 text-sm" :disabled="escala !== 'cuantitativa' || !usaPorcentaje('{{ $area->id }}', '{{ $grado->id }}', @js($asignaturaIdsDelArea))">
-                                                                        <x-input-error class="mt-1" :messages="$errors->get('propias.'.$propia['clave'].'.porcentaje.'.$grado->id)" />
-                                                                    </div>
                                                                 </div>
                                                                 <div class="flex items-center pt-5">
                                                                     <input type="hidden" name="propias[{{ $propia['clave'] }}][libreta][{{ $grado->id }}]" value="0">
@@ -514,8 +526,6 @@
                                                 </div>
                                             </div>
                                         @endforeach
-                                            </div>
-                                        @endif
 
                                         <template x-for="item in (nuevas['{{ $area->id }}'] || [])" :key="item.clave">
                                             <div class="rounded-xl border border-dashed border-slate-300 p-4">
@@ -571,12 +581,8 @@
                                                                     </label>
                                                                     <label class="mt-2 flex items-start gap-2 text-sm text-slate-700" x-show="escala === 'cuantitativa'" x-cloak>
                                                                         <input type="checkbox" class="mt-0.5 rounded border-slate-300" value="1" :name="`propias[${item.clave}][usa_tabla_equivalencias][{{ $grado->id }}]`" :disabled="escala !== 'cuantitativa'">
-                                                                        <span>Tabla de equivalencias <span class="block text-xs text-slate-500">Para presentar letras al ministerio.</span></span>
+                                                                        <span>Tabla de equivalencias <span class="block text-xs text-slate-500">Para mostrar letras en la libreta.</span></span>
                                                                     </label>
-                                                                    <div class="mt-3" x-show="escala === 'cuantitativa' && usaPorcentaje('{{ $area->id }}', '{{ $grado->id }}', @js($asignaturaIdsDelArea))" x-cloak>
-                                                                        <label class="block text-xs text-slate-500">Porcentaje (opcional; vacío usa promedio simple)</label>
-                                                                        <input type="number" min="0" max="100" step="0.01" class="mt-1 block w-full rounded-md border-slate-300 text-sm" :name="`propias[${item.clave}][porcentaje][{{ $grado->id }}]`" :disabled="escala !== 'cuantitativa' || !usaPorcentaje('{{ $area->id }}', '{{ $grado->id }}', @js($asignaturaIdsDelArea))">
-                                                                    </div>
                                                                 </div>
                                                                 <div class="flex items-center pt-5">
                                                                     <input type="hidden" value="0" :name="`propias[${item.clave}][libreta][{{ $grado->id }}]`">
@@ -597,8 +603,9 @@
                                             class="mt-5 rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-indigo-700 hover:bg-slate-50"
                                             @click="agregarAsignatura('{{ $area->id }}', @js($gradoIds))"
                                         >
-                                            Crear nueva asignatura
+                                            Crear nuev{{ $esAmbito ? 'o ámbito' : 'a asignatura' }}
                                         </button>
+                                        </div>
                                         <div class="sticky bottom-0 -mx-5 mt-5 flex justify-end border-t border-slate-200 bg-white/95 px-5 py-4 backdrop-blur-sm sm:-mx-6 sm:px-6">
                                             <x-primary-button type="submit">Guardar malla</x-primary-button>
                                         </div>

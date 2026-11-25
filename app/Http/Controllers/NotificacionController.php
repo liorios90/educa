@@ -5,11 +5,15 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreNotificacionRequest;
 use App\Http\Requests\StoreNotificacionRespuestaRequest;
 use App\Models\Notificacion;
+use App\Models\NotificacionArchivo;
 use App\Services\BandejaNotificaciones;
 use App\Services\DestinatariosNotificacion;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class NotificacionController extends Controller
 {
@@ -42,6 +46,7 @@ class NotificacionController extends Controller
 
         return view('notificaciones.create', [
             'destinatarios' => $this->destinatarios->para($user),
+            'aulas' => $this->destinatarios->aulasPara($user),
         ]);
     }
 
@@ -57,6 +62,7 @@ class NotificacionController extends Controller
             array_map(intval(...), $datos['destinatarios']),
             $datos['asunto'],
             $datos['cuerpo'],
+            $this->archivosSubidos($request),
         );
 
         return redirect()
@@ -72,7 +78,7 @@ class NotificacionController extends Controller
         abort_unless($this->bandeja->puedeVer($notificacion, $user), 404);
 
         $this->bandeja->marcarLeida($notificacion, $user);
-        $notificacion->load(['remitente.persona', 'remitente.roles', 'destinatarios.user.persona', 'destinatarios.user.roles']);
+        $notificacion->load(['remitente.persona', 'remitente.roles', 'destinatarios.user.persona', 'destinatarios.user.roles', 'archivos']);
 
         return view('notificaciones.show', [
             'notificacion' => $notificacion,
@@ -91,10 +97,55 @@ class NotificacionController extends Controller
             $notificacion,
             $user,
             $request->validated('cuerpo'),
+            $this->archivosSubidos($request),
         );
 
         return redirect()
             ->route('notificaciones.show', $respuesta)
             ->with('status', 'notificacion-enviada');
+    }
+
+    public function archivo(Request $request, Notificacion $notificacion, NotificacionArchivo $archivo): StreamedResponse
+    {
+        $user = $request->user();
+
+        abort_if($user === null, 403);
+        abort_unless($this->bandeja->puedeVer($notificacion, $user), 404);
+        abort_unless((int) $archivo->notificacion_id === (int) $notificacion->id, 404);
+        abort_unless(Storage::disk('local')->exists($archivo->path), 404);
+
+        return Storage::disk('local')->response($archivo->path, $this->nombreDescarga($archivo), [
+            'Content-Type' => $archivo->tipoContenido(),
+            'X-Content-Type-Options' => 'nosniff',
+        ], $archivo->seMuestraEnLinea() ? 'inline' : 'attachment');
+    }
+
+    private function nombreDescarga(NotificacionArchivo $archivo): string
+    {
+        $nombre = str_replace(['/', '\\'], '-', $archivo->nombre_original);
+        $nombre = trim($nombre);
+
+        return $nombre !== '' ? $nombre : 'archivo';
+    }
+
+    /**
+     * @return list<UploadedFile>
+     */
+    private function archivosSubidos(Request $request): array
+    {
+        $archivos = $request->file('archivos', []);
+
+        if ($archivos instanceof UploadedFile) {
+            return [$archivos];
+        }
+
+        if (! is_array($archivos)) {
+            return [];
+        }
+
+        return array_values(array_filter(
+            $archivos,
+            fn (mixed $archivo): bool => $archivo instanceof UploadedFile,
+        ));
     }
 }

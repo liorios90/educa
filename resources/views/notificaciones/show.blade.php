@@ -36,6 +36,15 @@
                 </dl>
 
                 <div class="mt-6 whitespace-pre-wrap text-sm leading-6 text-slate-800">{{ $notificacion->cuerpo }}</div>
+
+                @if ($notificacion->archivos->isNotEmpty())
+                    <div class="mt-6 border-t border-slate-200 pt-4">
+                        <h3 class="text-sm font-semibold text-slate-800">Archivos adjuntos</h3>
+                        @foreach ($notificacion->archivos as $archivo)
+                            <x-tarea-entrega-archivo :archivo="$archivo" :url="route('notificaciones.archivos.show', [$notificacion, $archivo])" />
+                        @endforeach
+                    </div>
+                @endif
             </article>
 
             @if ($puedeResponder)
@@ -49,8 +58,8 @@
                     </button>
                 </div>
 
-                <x-modal name="notificacion-responder" maxWidth="2xl" :show="$errors->has('cuerpo')" focusable>
-                    <form method="POST" action="{{ route('notificaciones.responder', $notificacion) }}" class="p-6">
+                <x-modal name="notificacion-responder" maxWidth="2xl" :show="$errors->hasAny(['cuerpo', 'archivos', 'archivos.*'])" focusable>
+                    <form method="POST" action="{{ route('notificaciones.responder', $notificacion) }}" enctype="multipart/form-data" class="p-6">
                         @csrf
 
                         <h3 class="text-lg font-semibold text-slate-800">Responder</h3>
@@ -67,6 +76,21 @@
                                 class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                             >{{ old('cuerpo') }}</textarea>
                             <x-input-error class="mt-2" :messages="$errors->get('cuerpo')" />
+                        </div>
+
+                        <div class="mt-4">
+                            <x-input-label for="archivos-respuesta" value="Archivos adjuntos" />
+                            <input
+                                id="archivos-respuesta"
+                                name="archivos[]"
+                                type="file"
+                                multiple
+                                accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.txt,application/pdf,image/jpeg,image/png,image/webp"
+                                class="mt-1 block w-full text-sm text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-indigo-50 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-indigo-700 hover:file:bg-indigo-100"
+                            >
+                            <p class="mt-1 text-xs text-slate-500">Opcional. Hasta 5 archivos, de 10 MB cada uno.</p>
+                            <x-input-error class="mt-2" :messages="$errors->get('archivos')" />
+                            <x-input-error class="mt-2" :messages="$errors->get('archivos.*')" />
                         </div>
 
                         <div class="mt-6 flex justify-end gap-2">

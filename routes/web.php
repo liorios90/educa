@@ -34,6 +34,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('throttle:20,1')
         ->name('notificaciones.store');
     Route::get('/notificaciones/{notificacion}', [NotificacionController::class, 'show'])->name('notificaciones.show');
+    Route::get('/notificaciones/{notificacion}/archivos/{archivo}', [NotificacionController::class, 'archivo'])
+        ->scopeBindings()
+        ->name('notificaciones.archivos.show');
     Route::post('/notificaciones/{notificacion}/responder', [NotificacionController::class, 'responder'])
         ->middleware('throttle:20,1')
         ->name('notificaciones.responder');

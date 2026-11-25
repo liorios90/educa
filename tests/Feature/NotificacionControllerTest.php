@@ -4,12 +4,16 @@ use App\Enums\Role;
 use App\Models\Alumno;
 use App\Models\Empleado;
 use App\Models\Establecimiento;
+use App\Models\EstablecimientoAula;
 use App\Models\EstablecimientoAulaDocente;
 use App\Models\Notificacion;
+use App\Models\NotificacionArchivo;
 use App\Models\NotificacionDestinatario;
 use App\Models\Persona;
 use App\Models\User;
 use Database\Seeders\NavigationSeeder;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * @return array{
@@ -22,7 +26,9 @@ use Database\Seeders\NavigationSeeder;
  *     alumnoAulaB: User,
  *     colega: User,
  *     admin: User,
- *     docenteAjeno: User
+ *     docenteAjeno: User,
+ *     secretaria: User,
+ *     aula: EstablecimientoAula
  * }
  */
 function escenarioNotificaciones(): array
@@ -99,6 +105,8 @@ function escenarioNotificaciones(): array
         'colega' => $colega,
         'admin' => $admin,
         'docenteAjeno' => $docenteAjeno,
+        'secretaria' => $escenario['secretaria'],
+        'aula' => $escenario['aula'],
     ];
 }
 
@@ -202,33 +210,63 @@ it('lets a parent send a notification to a teacher of their child', function () 
     ]);
 });
 
-it('lets a teacher write to their students, those parents and other teachers', function () {
+it('lets a teacher write to school staff and to parents and students of an assigned classroom', function () {
     $escenario = escenarioNotificaciones();
+    assignRole(User::factory()->create([
+        'name' => 'Rojas Elena',
+        'establecimiento_id' => $escenario['establecimiento']->id,
+    ]), Role::Empleado);
+    User::query()
+        ->where('establecimiento_id', $escenario['docenteAjeno']->establecimiento_id)
+        ->where('name', 'Secretaria Andina')
+        ->update(['name' => 'Secretaria Ajena']);
 
     $this->actingAs($escenario['docente'])
         ->get(route('notificaciones.create'))
         ->assertOk()
         ->assertSee('Buscar y seleccionar varios')
-        ->assertSee('Puedes marcar varios y filtrar por nombre, rol, aula o alumno en la misma lista.')
+        ->assertSee('Enviar a')
+        ->assertSee('Elige uno o varios roles. La lista solo muestra a las personas de esos roles.')
+        ->assertSee('Puedes marcar varios. Dentro de los roles elegidos, busca por nombre, aula o alumno.')
+        ->assertSee('name="roles[]"', false)
+        ->assertSee('rolActivo(opcion)', false)
+        ->assertSee('agregarTodos', false)
+        ->assertSee('Todos los padres')
+        ->assertSee('Todos los alumnos')
+        ->assertSee('Elige el aula para ver a sus padres y alumnos. Puedes añadirlos a todos.')
+        ->assertSee('Selecciona un aula para ver padres y alumnos.')
+        ->assertSee('\u0022roles\u0022:[\u0022Alumno\u0022]', false)
+        ->assertSee('\u0022roles\u0022:[\u0022Padre\u0022]', false)
+        ->assertSee('\u0022roles\u0022:[\u0022Admin\u0022]', false)
+        ->assertSee('\u0022roles\u0022:[\u0022Secretaria\u0022]', false)
+        ->assertSee('\u0022roles\u0022:[\u0022Empleado\u0022]', false)
+        ->assertSee('\u0022aulas\u0022:['.$escenario['aula']->id.']', false)
+        ->assertSee('8vo Básica A')
+        ->assertSee('Selecciona al menos un rol para ver destinatarios.')
         ->assertSee('Herrera Ana (Alumno)')
         ->assertSee('Herrera Carlos (Padre de Herrera Ana)')
         ->assertSee('Castro Ana (Alumno)')
         ->assertSee('Castro Luis (Padre de Castro Ana)')
-        ->assertSee('Colega Bruno (Docente de 8vo Básica B)')
+        ->assertSee('Secretaria Andina (Secretaría)')
+        ->assertSee('Director Andino (Administrador)')
+        ->assertSee('Rojas Elena (Empleado)')
         ->assertSee('font-semibold text-slate-800', false)
         ->assertSee('x-text="opcion.nombre"', false)
+        ->assertDontSee('Colega Bruno')
         ->assertDontSee('Ortiz Eva')
-        ->assertDontSee('Ajeno Marta');
+        ->assertDontSee('Secretaria Ajena')
+        ->assertDontSee('Ajeno Marta')
+        ->assertDontSee('8vo Básica B');
 });
 
 it('shows every assigned role next to each recipient name', function () {
     $escenario = escenarioNotificaciones();
-    assignRole($escenario['colega'], Role::Padre);
+    assignRole($escenario['secretaria'], Role::Empleado);
 
     $this->actingAs($escenario['docente'])
         ->get(route('notificaciones.create'))
         ->assertOk()
-        ->assertSee('Colega Bruno (Docente de 8vo Básica B, Padre)');
+        ->assertSee('Secretaria Andina (Secretaría, Empleado)');
 });
 
 it('lists every child next to a parent recipient', function () {
@@ -246,15 +284,21 @@ it('lists every child next to a parent recipient', function () {
         ->assertSee('Herrera Carlos (Padre de Herrera Ana, Herrera Luis)');
 });
 
-it('lets a teacher send a notification to a student, a parent and another teacher', function () {
+it('lets a teacher send a notification to a student, a parent and school staff', function () {
     $escenario = escenarioNotificaciones();
+    $empleado = assignRole(User::factory()->create([
+        'name' => 'Rojas Elena',
+        'establecimiento_id' => $escenario['establecimiento']->id,
+    ]), Role::Empleado);
 
     $this->actingAs($escenario['docente'])
         ->post(route('notificaciones.store'), [
             'destinatarios' => [
                 $escenario['cuentaAlumno']->id,
                 $escenario['padre']->id,
-                $escenario['colega']->id,
+                $escenario['secretaria']->id,
+                $escenario['admin']->id,
+                $empleado->id,
             ],
             'asunto' => 'Recordatorio',
             'cuerpo' => 'La prueba es el lunes.',
@@ -267,8 +311,42 @@ it('lets a teacher send a notification to a student, a parent and another teache
         ->toBe(collect([
             $escenario['cuentaAlumno']->id,
             $escenario['padre']->id,
-            $escenario['colega']->id,
+            $escenario['secretaria']->id,
+            $escenario['admin']->id,
+            $empleado->id,
         ])->sort()->values()->all());
+});
+
+it('does not let a teacher send a notification to another teacher', function () {
+    $escenario = escenarioNotificaciones();
+
+    $this->actingAs($escenario['docente'])
+        ->from(route('notificaciones.create'))
+        ->post(route('notificaciones.store'), [
+            'destinatarios' => [$escenario['colega']->id],
+            'asunto' => 'Aviso',
+            'cuerpo' => 'Este mensaje no debe llegar.',
+        ])
+        ->assertRedirect(route('notificaciones.create'))
+        ->assertSessionHasErrors('destinatarios');
+
+    $this->assertDatabaseMissing('notificaciones', ['asunto' => 'Aviso']);
+});
+
+it('does not let a teacher send a notification to a student from another classroom', function () {
+    $escenario = escenarioNotificaciones();
+
+    $this->actingAs($escenario['docente'])
+        ->from(route('notificaciones.create'))
+        ->post(route('notificaciones.store'), [
+            'destinatarios' => [$escenario['alumnoAulaB']->id],
+            'asunto' => 'Aviso',
+            'cuerpo' => 'Este mensaje no debe llegar.',
+        ])
+        ->assertRedirect(route('notificaciones.create'))
+        ->assertSessionHasErrors('destinatarios');
+
+    $this->assertDatabaseMissing('notificaciones', ['asunto' => 'Aviso']);
 });
 
 it('lets an administrator write to teachers and parents but not students', function () {
@@ -428,7 +506,7 @@ it('lets a recipient reply to the sender even when they cannot compose to that p
     $escenario = escenarioNotificaciones();
     $original = Notificacion::factory()->create([
         'establecimiento_id' => $escenario['establecimiento']->id,
-        'remitente_id' => $escenario['admin']->id,
+        'remitente_id' => $escenario['colega']->id,
         'asunto' => 'Circular institucional',
         'cuerpo' => 'Reunión el martes.',
     ]);
@@ -440,7 +518,7 @@ it('lets a recipient reply to the sender even when they cannot compose to that p
     $this->actingAs($escenario['docente'])
         ->from(route('notificaciones.create'))
         ->post(route('notificaciones.store'), [
-            'destinatarios' => [$escenario['admin']->id],
+            'destinatarios' => [$escenario['colega']->id],
             'asunto' => 'No permitido',
             'cuerpo' => 'No debería enviarse.',
         ])
@@ -460,7 +538,7 @@ it('lets a recipient reply to the sender even when they cannot compose to that p
 
     $this->assertDatabaseHas('notificacion_destinatarios', [
         'notificacion_id' => $respuesta->id,
-        'user_id' => $escenario['admin']->id,
+        'user_id' => $escenario['colega']->id,
     ]);
 });
 
@@ -543,6 +621,166 @@ it('shows the notifications icon in the top bar with unread count', function () 
         ->assertSee('Notificaciones')
         ->assertSee(route('notificaciones.index'), false)
         ->assertSee('1 sin leer', false);
+});
+
+it('lets any sender attach files and lets the recipient open them', function () {
+    Storage::fake('local');
+    $escenario = escenarioNotificaciones();
+
+    $this->actingAs($escenario['cuentaAlumno'])
+        ->get(route('notificaciones.create'))
+        ->assertSee('Archivos adjuntos')
+        ->assertSee('name="archivos[]"', false);
+
+    $this->actingAs($escenario['cuentaAlumno'])
+        ->post(route('notificaciones.store'), [
+            'destinatarios' => [$escenario['docente']->id],
+            'asunto' => 'Comprobante',
+            'cuerpo' => 'Adjunto la foto y el documento.',
+            'archivos' => [
+                UploadedFile::fake()->image('foto.png'),
+                UploadedFile::fake()->create('aviso.pdf', 40, 'application/pdf'),
+            ],
+        ])
+        ->assertRedirect(route('notificaciones.show', Notificacion::query()->where('asunto', 'Comprobante')->firstOrFail()));
+
+    $notificacion = Notificacion::query()->where('asunto', 'Comprobante')->firstOrFail();
+    $imagen = $notificacion->archivos()->where('nombre_original', 'foto.png')->firstOrFail();
+    $pdf = $notificacion->archivos()->where('nombre_original', 'aviso.pdf')->firstOrFail();
+    $imagen->update(['nombre_original' => '<script>alert(1)</script>.png']);
+
+    Storage::disk('local')->assertExists($imagen->path);
+    Storage::disk('local')->assertExists($pdf->path);
+
+    $this->actingAs($escenario['docente'])
+        ->get(route('notificaciones.index'))
+        ->assertSee('Comprobante')
+        ->assertSee('Incluye archivos adjuntos');
+
+    $this->actingAs($escenario['docente'])
+        ->get(route('notificaciones.show', $notificacion))
+        ->assertSee('Archivos adjuntos')
+        ->assertSee('&lt;script&gt;alert(1)&lt;/script&gt;.png', false)
+        ->assertDontSee('<script>alert(1)</script>.png', false)
+        ->assertSee('aviso.pdf')
+        ->assertSee(route('notificaciones.archivos.show', [$notificacion, $imagen]), false)
+        ->assertSee(route('notificaciones.archivos.show', [$notificacion, $pdf]), false);
+
+    $imagenRespuesta = $this->actingAs($escenario['docente'])
+        ->get(route('notificaciones.archivos.show', [$notificacion, $imagen]));
+
+    $imagenRespuesta->assertOk();
+    expect($imagenRespuesta->headers->get('content-type'))->toBe('image/png')
+        ->and($imagenRespuesta->headers->get('content-disposition'))->toContain('inline')
+        ->and($imagenRespuesta->streamedContent())->not->toBe('');
+
+    $pdfRespuesta = $this->actingAs($escenario['docente'])
+        ->get(route('notificaciones.archivos.show', [$notificacion, $pdf]));
+
+    $pdfRespuesta->assertOk();
+    expect($pdfRespuesta->headers->get('content-type'))->toBe('application/pdf')
+        ->and($pdfRespuesta->headers->get('content-disposition'))->toContain('inline');
+
+    $this->actingAs($escenario['cuentaCompanero'])
+        ->get(route('notificaciones.archivos.show', [$notificacion, $imagen]))
+        ->assertNotFound();
+});
+
+it('lets a recipient reply with an attachment the sender can download', function () {
+    Storage::fake('local');
+    $escenario = escenarioNotificaciones();
+    $original = Notificacion::factory()->create([
+        'establecimiento_id' => $escenario['establecimiento']->id,
+        'remitente_id' => $escenario['docente']->id,
+        'asunto' => 'Circular',
+        'cuerpo' => 'Revisa el comunicado.',
+    ]);
+    NotificacionDestinatario::factory()->create([
+        'notificacion_id' => $original->id,
+        'user_id' => $escenario['padre']->id,
+    ]);
+
+    $this->actingAs($escenario['padre'])
+        ->post(route('notificaciones.responder', $original), [
+            'cuerpo' => 'Adjunto la autorización.',
+            'archivos' => [
+                UploadedFile::fake()->createWithContent('autorizacion.txt', 'autorizado'),
+            ],
+        ])
+        ->assertRedirect();
+
+    $respuesta = Notificacion::query()->where('asunto', 'Re: Circular')->firstOrFail();
+    $archivo = $respuesta->archivos()->firstOrFail();
+
+    $this->actingAs($escenario['docente'])
+        ->get(route('notificaciones.show', $respuesta))
+        ->assertSee('Descargar autorizacion.txt');
+
+    $descarga = $this->actingAs($escenario['docente'])
+        ->get(route('notificaciones.archivos.show', [$respuesta, $archivo]));
+
+    $descarga->assertOk();
+    expect($descarga->headers->get('content-disposition'))->toContain('attachment')
+        ->and($descarga->streamedContent())->toBe('autorizado');
+});
+
+it('does not store a notification when an attachment has a forbidden format', function () {
+    Storage::fake('local');
+    $escenario = escenarioNotificaciones();
+
+    $this->actingAs($escenario['docente'])
+        ->from(route('notificaciones.create'))
+        ->post(route('notificaciones.store'), [
+            'destinatarios' => [$escenario['cuentaAlumno']->id],
+            'asunto' => 'Archivo inválido',
+            'cuerpo' => 'No debería guardarse.',
+            'archivos' => [
+                UploadedFile::fake()->create('virus.exe', 10, 'application/octet-stream'),
+            ],
+        ])
+        ->assertRedirect(route('notificaciones.create'))
+        ->assertSessionHasErrors([
+            'archivos.0' => 'El archivo no tiene un formato permitido. Usa PDF, Word, Excel, PowerPoint, imagen o texto.',
+        ]);
+
+    $this->assertDatabaseMissing('notificaciones', ['asunto' => 'Archivo inválido']);
+    expect(Storage::disk('local')->allFiles())->toBe([]);
+});
+
+it('does not let a recipient open an attachment from another notification', function () {
+    Storage::fake('local');
+    $escenario = escenarioNotificaciones();
+    $propia = Notificacion::factory()->create([
+        'establecimiento_id' => $escenario['establecimiento']->id,
+        'remitente_id' => $escenario['docente']->id,
+        'asunto' => 'Para el alumno',
+        'cuerpo' => 'Mensaje.',
+    ]);
+    NotificacionDestinatario::factory()->create([
+        'notificacion_id' => $propia->id,
+        'user_id' => $escenario['cuentaAlumno']->id,
+    ]);
+    $ajena = Notificacion::factory()->create([
+        'establecimiento_id' => $escenario['establecimiento']->id,
+        'remitente_id' => $escenario['docente']->id,
+        'asunto' => 'Para otro',
+        'cuerpo' => 'Otro mensaje.',
+    ]);
+    NotificacionDestinatario::factory()->create([
+        'notificacion_id' => $ajena->id,
+        'user_id' => $escenario['cuentaCompanero']->id,
+    ]);
+    Storage::disk('local')->put('notificaciones/'.$ajena->id.'/secreto.pdf', 'secreto');
+    $archivo = NotificacionArchivo::factory()->create([
+        'notificacion_id' => $ajena->id,
+        'path' => 'notificaciones/'.$ajena->id.'/secreto.pdf',
+        'nombre_original' => 'secreto.pdf',
+        'mime' => 'application/pdf',
+    ]);
+
+    $this->actingAs($escenario['cuentaAlumno'])
+        ->get(route('notificaciones.archivos.show', [$propia, $archivo]))
+        ->assertNotFound();
 });
 
 it('shows the notifications link to every role', function () {

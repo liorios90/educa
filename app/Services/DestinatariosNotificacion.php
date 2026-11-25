@@ -23,18 +23,20 @@ class DestinatariosNotificacion
     ) {}
 
     /**
-     * @return Collection<int, array{id: int, nombre: string, rol: string}>
+     * @return Collection<int, array{id: int, nombre: string, rol: string, roles: list<string>, aulas: list<int>}>
      */
     public function para(User $user): Collection
     {
-        $destinatarios = $this->usuariosPermitidos($user);
-        $this->cargarDatosDeEtiqueta($destinatarios);
+        $fichas = $this->fichasPermitidas($user);
+        $this->cargarDatosDeEtiqueta($fichas->map(fn (array $ficha): User => $ficha['user']));
 
-        return $destinatarios
-            ->map(fn (User $destinatario): array => [
-                'id' => (int) $destinatario->id,
-                'nombre' => $destinatario->nombreVisible(),
-                'rol' => $this->etiquetaDestinatario($destinatario, $user),
+        return $fichas
+            ->map(fn (array $ficha): array => [
+                'id' => (int) $ficha['user']->id,
+                'nombre' => $ficha['user']->nombreVisible(),
+                'rol' => $this->etiquetaDestinatario($ficha['user'], $user),
+                'roles' => $this->clavesDeRol($ficha['user']),
+                'aulas' => $ficha['aulas'],
             ])
             ->sortBy([
                 ['nombre', 'asc'],
@@ -48,31 +50,65 @@ class DestinatariosNotificacion
      */
     public function idsPermitidos(User $user): array
     {
-        return $this->usuariosPermitidos($user)
-            ->pluck('id')
-            ->map(fn (mixed $id): int => (int) $id)
+        return $this->fichasPermitidas($user)
+            ->map(fn (array $ficha): int => (int) $ficha['user']->id)
             ->values()
             ->all();
     }
 
     /**
-     * @return Collection<int, User>
+     * @return Collection<int, array{id: int, etiqueta: string}>
      */
-    private function usuariosPermitidos(User $user): Collection
+    public function aulasPara(User $user): Collection
+    {
+        if ($this->rolDe($user) !== Role::Docente) {
+            return collect();
+        }
+
+        return $this->asignaciones->forUser($user)
+            ->map(fn (EstablecimientoAulaDocente $asignacion): ?EstablecimientoAula => $asignacion->aula)
+            ->filter()
+            ->unique('id')
+            ->map(fn (EstablecimientoAula $aula): array => [
+                'id' => (int) $aula->id,
+                'etiqueta' => $aula->etiqueta(),
+            ])
+            ->sortBy('etiqueta', SORT_NATURAL | SORT_FLAG_CASE)
+            ->values();
+    }
+
+    /**
+     * @return Collection<int, array{user: User, aulas: list<int>}>
+     */
+    private function fichasPermitidas(User $user): Collection
     {
         $rol = $this->rolDe($user);
 
-        $usuarios = match ($rol) {
-            Role::Alumno => $this->docentesDeAlumnos($this->familiar->alumnosDe($user), $user),
-            Role::Padre => $this->docentesDeAlumnos($this->familiar->alumnosDe($user), $user),
-            Role::Docente => $this->alumnosPadresYColegas($user),
-            Role::Admin, Role::Secretaria => $this->docentesYPadres($user),
+        $fichas = match ($rol) {
+            Role::Alumno => $this->fichasSinAula($this->docentesDeAlumnos($this->familiar->alumnosDe($user), $user)),
+            Role::Padre => $this->fichasSinAula($this->docentesDeAlumnos($this->familiar->alumnosDe($user), $user)),
+            Role::Docente => $this->fichasDocente($user),
+            Role::Admin, Role::Secretaria => $this->fichasSinAula($this->docentesYPadres($user)),
             default => collect(),
         };
 
+        return $fichas
+            ->unique(fn (array $ficha): int => (int) $ficha['user']->id)
+            ->reject(fn (array $ficha): bool => (int) $ficha['user']->id === (int) $user->id)
+            ->values();
+    }
+
+    /**
+     * @param  Collection<int, User>  $usuarios
+     * @return Collection<int, array{user: User, aulas: list<int>}>
+     */
+    private function fichasSinAula(Collection $usuarios): Collection
+    {
         return $usuarios
-            ->unique('id')
-            ->reject(fn (User $destinatario): bool => (int) $destinatario->id === (int) $user->id)
+            ->map(fn (User $usuario): array => [
+                'user' => $usuario,
+                'aulas' => [],
+            ])
             ->values();
     }
 
@@ -131,36 +167,12 @@ class DestinatariosNotificacion
     }
 
     /**
-     * @return Collection<int, User>
+     * @return Collection<int, array{user: User, aulas: list<int>}>
      */
-    private function alumnosPadresYColegas(User $docente): Collection
+    private function fichasDocente(User $docente): Collection
     {
-        $alumnos = $this->alumnosDelDocente($docente);
-        $userIds = collect();
-
-        foreach ($alumnos as $alumno) {
-            $alumno->loadMissing(['persona', 'padre.persona']);
-
-            if ($alumno->persona?->user_id !== null) {
-                $userIds->push((int) $alumno->persona->user_id);
-            }
-
-            if ($alumno->padre?->persona?->user_id !== null) {
-                $userIds->push((int) $alumno->padre->persona->user_id);
-            }
-        }
-
-        return $this->usuariosPorIds($userIds)
-            ->concat($this->usuariosConRoles($docente, [Role::Docente]))
-            ->values();
-    }
-
-    /**
-     * @return Collection<int, Alumno>
-     */
-    private function alumnosDelDocente(User $docente): Collection
-    {
-        $ids = collect();
+        /** @var list<array{alumno: Alumno, aula: int}> $filas */
+        $filas = [];
 
         foreach ($this->asignaciones->forUser($docente) as $asignacion) {
             $aula = $asignacion->aula;
@@ -170,19 +182,49 @@ class DestinatariosNotificacion
                 continue;
             }
 
-            $ids = $ids->merge($this->asignaciones->alumnosDe($aula, $malla)->pluck('id'));
+            foreach ($this->asignaciones->alumnosDe($aula, $malla) as $alumno) {
+                $filas[] = [
+                    'alumno' => $alumno,
+                    'aula' => (int) $aula->id,
+                ];
+            }
         }
 
-        $ids = $ids->map(fn (mixed $id): int => (int) $id)->unique()->values();
+        (new EloquentCollection(array_map(
+            fn (array $fila): Alumno => $fila['alumno'],
+            $filas,
+        )))->load(['persona', 'padre.persona']);
 
-        if ($ids->isEmpty()) {
-            return collect();
+        /** @var array<int, list<int>> $aulasPorUsuario */
+        $aulasPorUsuario = [];
+
+        foreach ($filas as $fila) {
+            foreach ([
+                $fila['alumno']->persona?->user_id,
+                $fila['alumno']->padre?->persona?->user_id,
+            ] as $userId) {
+                if ($userId === null) {
+                    continue;
+                }
+
+                $aulasPorUsuario[(int) $userId] ??= [];
+                $aulasPorUsuario[(int) $userId][] = $fila['aula'];
+            }
         }
 
-        return Alumno::query()
-            ->with(['persona', 'padre.persona'])
-            ->whereIn('id', $ids->all())
-            ->get();
+        return $this->usuariosPorIds(collect(array_keys($aulasPorUsuario)))
+            ->concat($this->usuariosConRoles($docente, [Role::Admin, Role::Secretaria, Role::Empleado]))
+            ->unique('id')
+            ->map(function (User $usuario) use ($aulasPorUsuario): array {
+                $aulas = array_values(array_unique($aulasPorUsuario[(int) $usuario->id] ?? []));
+                sort($aulas);
+
+                return [
+                    'user' => $usuario,
+                    'aulas' => $aulas,
+                ];
+            })
+            ->values();
     }
 
     /**
@@ -257,6 +299,22 @@ class DestinatariosNotificacion
                 'persona.empleados.asignaciones.aula.establecimientoGrado.grado',
                 'persona.empleados.asignaciones.aula.periodo',
             ]);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function clavesDeRol(User $destinatario): array
+    {
+        $claves = [];
+
+        foreach ([Role::Docente, Role::Padre, Role::Alumno, Role::Admin, Role::Secretaria, Role::Sistemas, Role::Empleado] as $rol) {
+            if ($destinatario->hasRole($rol)) {
+                $claves[] = $rol->value;
+            }
+        }
+
+        return $claves;
     }
 
     private function etiquetaDestinatario(User $destinatario, User $actor): string

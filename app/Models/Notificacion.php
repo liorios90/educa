@@ -53,4 +53,12 @@ class Notificacion extends Model
     {
         return $this->hasMany(NotificacionDestinatario::class);
     }
+
+    /**
+     * @return HasMany<NotificacionArchivo, $this>
+     */
+    public function archivos(): HasMany
+    {
+        return $this->hasMany(NotificacionArchivo::class)->orderBy('id');
+    }
 }

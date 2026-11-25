@@ -25,6 +25,8 @@ class StoreNotificacionRequest extends FormRequest
             'destinatarios.*' => ['integer'],
             'asunto' => ['required', 'string', 'max:160'],
             'cuerpo' => ['required', 'string', 'max:5000'],
+            'archivos' => ['nullable', 'array', 'max:5'],
+            'archivos.*' => ['file', 'mimes:pdf,jpg,jpeg,png,webp,doc,docx,xls,xlsx,ppt,pptx,odt,ods,txt', 'max:10240'],
         ];
     }
 
@@ -38,6 +40,9 @@ class StoreNotificacionRequest extends FormRequest
             'destinatarios.min' => 'Selecciona al menos un destinatario.',
             'asunto.required' => 'Escribe el asunto.',
             'cuerpo.required' => 'Escribe el mensaje.',
+            'archivos.max' => 'Puedes adjuntar hasta 5 archivos.',
+            'archivos.*.mimes' => 'El archivo no tiene un formato permitido. Usa PDF, Word, Excel, PowerPoint, imagen o texto.',
+            'archivos.*.max' => 'Cada archivo puede pesar hasta 10 MB.',
         ];
     }
 

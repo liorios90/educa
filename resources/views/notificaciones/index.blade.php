@@ -45,6 +45,9 @@
                             <p class="text-xs text-slate-400">{{ $notificacion->created_at?->format('d/m/Y H:i') }}</p>
                         </div>
                         <p class="text-sm {{ $noLeida ? 'font-semibold text-slate-900' : 'text-slate-800' }}">{{ $notificacion->asunto }}</p>
+                        @if (($notificacion->archivos_count ?? 0) > 0)
+                            <p class="text-xs text-slate-500">Incluye archivos adjuntos</p>
+                        @endif
                     </a>
                 @empty
                     <p class="px-6 py-8 text-center text-sm text-slate-500">

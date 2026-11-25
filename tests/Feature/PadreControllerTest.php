@@ -136,6 +136,112 @@ describe('index', function () {
             ->assertSee("<script>alert('xss')</script>")
             ->assertDontSee("<script>alert('xss')</script>", false);
     });
+
+    it('filters padres by the name, identification, email and phone shown in the list', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $carlos = Persona::factory()->create([
+            'nombres' => 'Carlos',
+            'apellidos' => 'Ruiz',
+            'identificacion' => '0911111111',
+            'telefono1' => '042111111',
+            'establecimiento_id' => $establecimiento->id,
+            'user_id' => User::factory()->create([
+                'email' => 'carlos.ruiz@example.com',
+                'establecimiento_id' => $establecimiento->id,
+            ])->id,
+        ]);
+        $luis = Persona::factory()->create([
+            'nombres' => 'Luis',
+            'apellidos' => 'Mora',
+            'identificacion' => '0922222222',
+            'telefono1' => '043222222',
+            'establecimiento_id' => $establecimiento->id,
+            'user_id' => User::factory()->create([
+                'email' => 'luis.mora@example.com',
+                'establecimiento_id' => $establecimiento->id,
+            ])->id,
+        ]);
+        $ajeno = Persona::factory()->create([
+            'nombres' => 'Carlos',
+            'apellidos' => 'Ruiz',
+            'establecimiento_id' => Establecimiento::factory()->create()->id,
+        ]);
+        Padre::factory()->for($carlos)->create();
+        Padre::factory()->for($luis)->create();
+        Padre::factory()->for($ajeno)->create();
+
+        $this->actingAs($admin)
+            ->get(route('Admin.padres', ['buscar' => 'Ruiz Carlos']))
+            ->assertOk()
+            ->assertSee('0911111111')
+            ->assertDontSee('Mora')
+            ->assertDontSee('0922222222');
+
+        $this->actingAs($admin)
+            ->get(route('Admin.padres', ['buscar' => '0922222222']))
+            ->assertOk()
+            ->assertSee('Mora')
+            ->assertDontSee('0911111111');
+
+        $this->actingAs($admin)
+            ->get(route('Admin.padres', ['buscar' => 'carlos.ruiz']))
+            ->assertOk()
+            ->assertSee('Ruiz')
+            ->assertDontSee('Mora');
+
+        $this->actingAs($admin)
+            ->get(route('Admin.padres', ['buscar' => '042111111']))
+            ->assertOk()
+            ->assertSee('Carlos')
+            ->assertDontSee('Mora');
+    });
+
+    it('shows an empty message when the padres search has no matches', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $persona = Persona::factory()->create([
+            'nombres' => 'Luis',
+            'apellidos' => 'Mora',
+            'establecimiento_id' => $establecimiento->id,
+        ]);
+        Padre::factory()->for($persona)->create();
+
+        $this->actingAs($admin)
+            ->get(route('Admin.padres', ['buscar' => 'inexistente']))
+            ->assertOk()
+            ->assertSee('Ningún padre coincide con la búsqueda.')
+            ->assertDontSee('Mora');
+    });
+
+    it('paginates the padres list and keeps the search on the next page', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+
+        foreach (range(1, 21) as $numero) {
+            $persona = Persona::factory()->create([
+                'nombres' => 'Familia',
+                'apellidos' => sprintf('Padre%02d', $numero),
+                'establecimiento_id' => $establecimiento->id,
+            ]);
+            Padre::factory()->for($persona)->create();
+        }
+
+        $this->actingAs($admin)
+            ->get(route('Admin.padres', ['buscar' => 'Familia']))
+            ->assertOk()
+            ->assertSee('Padre01')
+            ->assertDontSee('Padre21')
+            ->assertSee('Mostrando 1–20 de 21')
+            ->assertSee('buscar=Familia', false);
+
+        $this->actingAs($admin)
+            ->get(route('Admin.padres', ['buscar' => 'Familia', 'page' => 2]))
+            ->assertOk()
+            ->assertSee('Padre21')
+            ->assertDontSee('Padre01')
+            ->assertSee('Mostrando 21–21 de 21');
+    });
 });
 
 describe('create', function () {

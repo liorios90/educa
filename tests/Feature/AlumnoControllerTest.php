@@ -136,6 +136,113 @@ describe('index', function () {
             ->assertSee("<script>alert('xss')</script>")
             ->assertDontSee("<script>alert('xss')</script>", false);
     });
+
+    it('filters alumnos by the name, identification, email and parent shown in the list', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $padreCarlos = Persona::factory()->create([
+            'nombres' => 'Carlos',
+            'apellidos' => 'Ruiz',
+            'establecimiento_id' => $establecimiento->id,
+        ]);
+        $padre = Padre::factory()->for($padreCarlos)->create();
+        $ana = Persona::factory()->create([
+            'nombres' => 'Ana',
+            'apellidos' => 'Pérez',
+            'identificacion' => '0933333333',
+            'establecimiento_id' => $establecimiento->id,
+            'user_id' => User::factory()->create([
+                'email' => 'ana.perez@example.com',
+                'establecimiento_id' => $establecimiento->id,
+            ])->id,
+        ]);
+        $luis = Persona::factory()->create([
+            'nombres' => 'Luis',
+            'apellidos' => 'Mora',
+            'identificacion' => '0944444444',
+            'establecimiento_id' => $establecimiento->id,
+        ]);
+        $ajeno = Persona::factory()->create([
+            'nombres' => 'Ana',
+            'apellidos' => 'Pérez',
+            'establecimiento_id' => Establecimiento::factory()->create()->id,
+        ]);
+        Alumno::factory()->for($ana)->create(['padre_id' => $padre->id]);
+        Alumno::factory()->for($luis)->create();
+        Alumno::factory()->for($ajeno)->create();
+
+        $this->actingAs($admin)
+            ->get(route('Admin.alumnos', ['buscar' => 'Pérez Ana']))
+            ->assertOk()
+            ->assertSee('0933333333')
+            ->assertDontSee('Mora')
+            ->assertDontSee('0944444444');
+
+        $this->actingAs($admin)
+            ->get(route('Admin.alumnos', ['buscar' => '0944444444']))
+            ->assertOk()
+            ->assertSee('Mora')
+            ->assertDontSee('0933333333');
+
+        $this->actingAs($admin)
+            ->get(route('Admin.alumnos', ['buscar' => 'ana.perez']))
+            ->assertOk()
+            ->assertSee('Pérez')
+            ->assertDontSee('Mora');
+
+        $this->actingAs($admin)
+            ->get(route('Admin.alumnos', ['buscar' => 'Ruiz Carlos']))
+            ->assertOk()
+            ->assertSee('Ana')
+            ->assertSee('Ruiz Carlos')
+            ->assertDontSee('Mora');
+    });
+
+    it('shows an empty message when the alumnos search has no matches', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $persona = Persona::factory()->create([
+            'nombres' => 'Luis',
+            'apellidos' => 'Mora',
+            'establecimiento_id' => $establecimiento->id,
+        ]);
+        Alumno::factory()->for($persona)->create();
+
+        $this->actingAs($admin)
+            ->get(route('Admin.alumnos', ['buscar' => 'inexistente']))
+            ->assertOk()
+            ->assertSee('Ningún alumno coincide con la búsqueda.')
+            ->assertDontSee('Mora');
+    });
+
+    it('paginates the alumnos list and keeps the search on the next page', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+
+        foreach (range(1, 21) as $numero) {
+            $persona = Persona::factory()->create([
+                'nombres' => 'Curso',
+                'apellidos' => sprintf('Alumno%02d', $numero),
+                'establecimiento_id' => $establecimiento->id,
+            ]);
+            Alumno::factory()->for($persona)->create();
+        }
+
+        $this->actingAs($admin)
+            ->get(route('Admin.alumnos', ['buscar' => 'Curso']))
+            ->assertOk()
+            ->assertSee('Alumno01')
+            ->assertDontSee('Alumno21')
+            ->assertSee('Mostrando 1–20 de 21')
+            ->assertSee('buscar=Curso', false);
+
+        $this->actingAs($admin)
+            ->get(route('Admin.alumnos', ['buscar' => 'Curso', 'page' => 2]))
+            ->assertOk()
+            ->assertSee('Alumno21')
+            ->assertDontSee('Alumno01')
+            ->assertSee('Mostrando 21–21 de 21');
+    });
 });
 
 describe('create', function () {

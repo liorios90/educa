@@ -29,6 +29,26 @@
                 <p class="mb-4 text-sm font-medium text-green-700">Alumno eliminado correctamente.</p>
             @endif
 
+            <form method="GET" action="{{ route('Admin.alumnos') }}" class="mb-4 flex flex-wrap items-center gap-3">
+                <label for="buscar-alumnos" class="sr-only">Buscar alumnos</label>
+                <input
+                    id="buscar-alumnos"
+                    type="search"
+                    name="buscar"
+                    value="{{ $busqueda }}"
+                    placeholder="Apellidos, nombres, identificación, padre o correo"
+                    class="w-full max-w-md rounded-lg border-slate-300 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                >
+                <button type="submit" class="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white hover:bg-slate-800">
+                    Buscar
+                </button>
+                @if ($busqueda !== '')
+                    <a href="{{ route('Admin.alumnos') }}" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
+                        Limpiar
+                    </a>
+                @endif
+            </form>
+
             <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                 <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
                     <thead class="bg-slate-50 text-slate-600">
@@ -69,13 +89,24 @@
                         @empty
                             <tr>
                                 <td colspan="6" class="px-6 py-8 text-center text-slate-500">
-                                    Aún no hay alumnos.
+                                    {{ $busqueda !== '' ? 'Ningún alumno coincide con la búsqueda.' : 'Aún no hay alumnos.' }}
                                 </td>
                             </tr>
                         @endforelse
                     </tbody>
                 </table>
             </div>
+
+            @if ($alumnos->total() > 0)
+                <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <p class="text-sm text-slate-500">
+                        Mostrando {{ $alumnos->firstItem() }}–{{ $alumnos->lastItem() }} de {{ $alumnos->total() }}
+                    </p>
+                    @if ($alumnos->hasPages())
+                        {{ $alumnos->links() }}
+                    @endif
+                </div>
+            @endif
         </div>
     </div>
 </x-app-layout>

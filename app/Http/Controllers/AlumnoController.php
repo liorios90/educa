@@ -10,6 +10,7 @@ use App\Models\Persona;
 use App\Models\Sys_Pais;
 use App\Models\Sys_Provincia;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -18,20 +19,38 @@ use Spatie\Permission\Models\Role as RoleModel;
 
 class AlumnoController extends Controller
 {
+    private const PER_PAGE = 20;
+
     public function index(Request $request): View
     {
         $establecimientoId = $this->establecimientoId($request);
+        $busqueda = mb_substr(trim($request->string('buscar')->toString()), 0, 100);
 
         return view('admin.alumnos.index', [
+            'busqueda' => $busqueda,
             'alumnos' => Alumno::query()
                 ->select('alumnos.*')
                 ->with(['persona.user', 'padre.persona'])
                 ->join('personas', 'personas.id', '=', 'alumnos.persona_id')
                 ->where('personas.establecimiento_id', $establecimientoId)
+                ->when($busqueda !== '', function (Builder $query) use ($busqueda): void {
+                    $query->leftJoin('users', 'users.id', '=', 'personas.user_id')
+                        ->leftJoin('padres', 'padres.id', '=', 'alumnos.padre_id')
+                        ->leftJoin('personas as padre_persona', 'padre_persona.id', '=', 'padres.persona_id');
+                    $this->restringirBusqueda($query, $busqueda, [
+                        'personas.apellidos',
+                        'personas.nombres',
+                        'personas.identificacion',
+                        'users.email',
+                        'padre_persona.apellidos',
+                        'padre_persona.nombres',
+                    ]);
+                })
                 ->orderBy('personas.apellidos')
                 ->orderBy('personas.nombres')
                 ->orderBy('alumnos.id')
-                ->get(),
+                ->paginate(self::PER_PAGE)
+                ->withQueryString(),
         ]);
     }
 
@@ -94,6 +113,25 @@ class AlumnoController extends Controller
         return redirect()
             ->route('Admin.alumnos')
             ->with('status', 'alumno-deleted');
+    }
+
+    /**
+     * @param  Builder<Alumno>  $query
+     * @param  list<string>  $columnas
+     */
+    private function restringirBusqueda(Builder $query, string $busqueda, array $columnas): void
+    {
+        $tokens = preg_split('/\s+/u', $busqueda, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        foreach ($tokens as $token) {
+            $termino = '%'.addcslashes($token, '%_\\').'%';
+
+            $query->where(function (Builder $query) use ($termino, $columnas): void {
+                foreach ($columnas as $columna) {
+                    $query->orWhere($columna, 'like', $termino);
+                }
+            });
+        }
     }
 
     /**

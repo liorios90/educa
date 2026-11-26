@@ -37,6 +37,7 @@ class EstablecimientoAsignatura extends Model
         'establecimiento_programa_id',
         'califica_por_destrezas',
         'usa_tabla_equivalencias',
+        'equivalencia_id',
         'porcentaje',
     ];
 
@@ -121,6 +122,14 @@ class EstablecimientoAsignatura extends Model
     public function figuraProfesional(): BelongsTo
     {
         return $this->belongsTo(EstablecimientoFiguraProfesional::class, 'figura_profesional_id');
+    }
+
+    /**
+     * @return BelongsTo<Equivalencia, $this>
+     */
+    public function equivalencia(): BelongsTo
+    {
+        return $this->belongsTo(Equivalencia::class);
     }
 
     /**

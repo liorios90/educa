@@ -4,10 +4,13 @@ use App\Enums\ModoLibretaArea;
 use App\Enums\Role;
 use App\Enums\TipoAsignatura;
 use App\Enums\TipoCalificacion;
+use App\Enums\UsoEquivalencia;
+use App\Models\EquivalenciaDetalle;
 use App\Models\Establecimiento;
 use App\Models\EstablecimientoAreaLibreta;
 use App\Models\EstablecimientoAsignatura;
 use App\Models\EstablecimientoAsignaturaPropia;
+use App\Models\EstablecimientoAula;
 use App\Models\EstablecimientoFiguraProfesional;
 use App\Models\EstablecimientoGrado;
 use App\Models\Sys_Area;
@@ -15,6 +18,7 @@ use App\Models\Sys_Asignatura;
 use App\Models\Sys_Destreza;
 use App\Models\Sys_IndicadorEvaluacion;
 use App\Models\User;
+use App\Services\SyncEstablecimientoAsignaturas;
 use Database\Seeders\NavigationSeeder;
 
 function catalogoAsignatura(array $estructura, array $nombres = []): Sys_Asignatura
@@ -221,6 +225,15 @@ describe('edit', function () {
             ->assertSee('Obligatorias')
             ->assertSee('Institucionales')
             ->assertSee('Requeridas por el ministerio')
+            ->assertSee('Ayuda')
+            ->assertSee('Cómo usar las asignaturas obligatorias')
+            ->assertSee('Si el grado indica «Tronco común», el ministerio lo exige')
+            ->assertSee('Con equivalencia')
+            ->assertSee('Márquela para elegir la tabla de este periodo')
+            ->assertSee('Ver detalle')
+            ->assertSee('No hay tablas de equivalencia en este periodo')
+            ->assertSee('Créelas en la opción')
+            ->assertSee(route('Admin.tablas-equivalencias.index'), false)
             ->assertSee('no entran en los promedios del ministerio')
             ->assertSee('Todavía no hay asignaturas institucionales')
             ->assertSeeInOrder([
@@ -232,7 +245,7 @@ describe('edit', function () {
             ->assertSee('Crear nueva asignatura')
             ->assertSee(route('Admin.asignaturas.update', $oferta), false);
 
-        expect(substr_count($response->getContent(), 'Guardar malla'))->toBe(2)
+        expect(substr_count($response->getContent(), 'Guardar malla'))->toBe(3)
             ->and(substr_count($response->getContent(), 'sticky bottom-0'))->toBe(2);
     });
 
@@ -1567,6 +1580,283 @@ describe('registro de indicadores', function () {
                 'codigo' => 'LL.1',
                 'descripcion' => 'Destreza',
                 'orden' => 0,
+            ])
+            ->assertForbidden();
+    });
+});
+
+describe('equivalencia de la asignatura', function () {
+    it('lists the active subject tables of the period and their ranges', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $oferta = ofertaDe($establecimiento);
+        $periodo = periodoActivoDe($oferta);
+        $estructura = catalogoEstructura();
+        gradoEnOferta($establecimiento, $oferta, $estructura);
+        catalogoAsignatura($estructura);
+        $tabla = equivalenciaDe($periodo, ['nombre' => 'Escala del establecimiento']);
+        EquivalenciaDetalle::query()->create([
+            'equivalencia_id' => $tabla->id,
+            'nombre' => 'Domina',
+            'valor' => 'DA',
+            'minimo' => 9,
+            'maximo' => 10,
+            'jerarquia' => 1,
+            'activo' => true,
+        ]);
+        equivalenciaDe($periodo, [
+            'nombre' => 'Escala de comportamiento',
+            'uso' => UsoEquivalencia::Comportamiento,
+        ]);
+
+        $this->actingAs($admin)
+            ->withSession(activeContextSession($oferta, $periodo))
+            ->get(route('Admin.asignaturas.edit', $oferta))
+            ->assertOk()
+            ->assertSee('Escala del establecimiento')
+            ->assertSee('Domina')
+            ->assertDontSee('Escala de comportamiento');
+    });
+
+    it('saves the chosen equivalence table on the subject and its classrooms', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $oferta = ofertaDe($establecimiento);
+        $periodo = periodoActivoDe($oferta);
+        $estructura = catalogoEstructura();
+        $grado = gradoEnOferta($establecimiento, $oferta, $estructura);
+        $asignatura = catalogoAsignatura($estructura);
+        $fila = EstablecimientoAsignatura::factory()->create([
+            'establecimiento_id' => $establecimiento->id,
+            'establecimiento_modalidad_jornada_id' => $oferta->id,
+            'grado_id' => $estructura['grado']->id,
+            'asignatura_id' => $asignatura->id,
+            'tipo_calificacion' => TipoCalificacion::Cuantitativa,
+        ]);
+        $aula = EstablecimientoAula::factory()->create([
+            'establecimiento_id' => $establecimiento->id,
+            'establecimiento_modalidad_jornada_id' => $oferta->id,
+            'establecimiento_periodo_id' => $periodo->id,
+            'establecimiento_grado_id' => $grado->id,
+            'paralelo' => 'A',
+        ]);
+        $otroGrado = catalogoEstructura([
+            'nivel' => 'Educación General Básica',
+            'subnivel' => 'Básica Media',
+            'grado' => 'Tercero de EGB',
+        ]);
+        $gradoAjeno = gradoEnOferta($establecimiento, $oferta, $otroGrado);
+        $aulaAjena = EstablecimientoAula::factory()->create([
+            'establecimiento_id' => $establecimiento->id,
+            'establecimiento_modalidad_jornada_id' => $oferta->id,
+            'establecimiento_periodo_id' => $periodo->id,
+            'establecimiento_grado_id' => $gradoAjeno->id,
+            'paralelo' => 'B',
+        ]);
+        $tabla = equivalenciaDe($periodo, ['nombre' => 'Escala del establecimiento']);
+
+        $this->actingAs($admin)
+            ->withSession(activeContextSession($oferta, $periodo))
+            ->putJson(route('Admin.asignaturas.equivalencia.update', $oferta), [
+                'asignatura_id' => $asignatura->id,
+                'grado_id' => $estructura['grado']->id,
+                'equivalencia_id' => $tabla->id,
+            ])
+            ->assertOk()
+            ->assertJsonPath('nombre', 'Escala del establecimiento');
+
+        $this->assertDatabaseHas('establecimiento_asignaturas', [
+            'id' => $fila->id,
+            'equivalencia_id' => $tabla->id,
+            'usa_tabla_equivalencias' => true,
+        ]);
+        $this->assertDatabaseHas('establecimiento_aula_asignatura_equivalencias', [
+            'establecimiento_aula_id' => $aula->id,
+            'establecimiento_asignatura_id' => $fila->id,
+            'equivalencia_id' => $tabla->id,
+        ]);
+        $this->assertDatabaseMissing('establecimiento_aula_asignatura_equivalencias', [
+            'establecimiento_aula_id' => $aulaAjena->id,
+            'establecimiento_asignatura_id' => $fila->id,
+        ]);
+    });
+
+    it('returns 422 when the subject is not in the malla yet', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $oferta = ofertaDe($establecimiento);
+        $periodo = periodoActivoDe($oferta);
+        $estructura = catalogoEstructura();
+        gradoEnOferta($establecimiento, $oferta, $estructura);
+        $asignatura = catalogoAsignatura($estructura);
+        $tabla = equivalenciaDe($periodo);
+
+        $this->actingAs($admin)
+            ->withSession(activeContextSession($oferta, $periodo))
+            ->putJson(route('Admin.asignaturas.equivalencia.update', $oferta), [
+                'asignatura_id' => $asignatura->id,
+                'grado_id' => $estructura['grado']->id,
+                'equivalencia_id' => $tabla->id,
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('errors.malla.0', 'Guarda la malla de este grado antes de asignar la tabla.');
+
+        $this->assertDatabaseMissing('establecimiento_asignaturas', [
+            'asignatura_id' => $asignatura->id,
+        ]);
+    });
+
+    it('keeps the chosen table when the malla is saved afterwards', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $oferta = ofertaDe($establecimiento);
+        $periodo = periodoActivoDe($oferta);
+        $estructura = catalogoEstructura();
+        $grado = gradoEnOferta($establecimiento, $oferta, $estructura);
+        $asignatura = catalogoAsignatura($estructura);
+        $tabla = equivalenciaDe($periodo, ['nombre' => 'Escala del establecimiento']);
+        $aula = EstablecimientoAula::factory()->create([
+            'establecimiento_id' => $establecimiento->id,
+            'establecimiento_modalidad_jornada_id' => $oferta->id,
+            'establecimiento_periodo_id' => $periodo->id,
+            'establecimiento_grado_id' => $grado->id,
+            'paralelo' => 'A',
+        ]);
+
+        $this->actingAs($admin)
+            ->withSession(activeContextSession($oferta, $periodo))
+            ->put(route('Admin.asignaturas.update', $oferta), [
+                'asignaturas' => [
+                    $asignatura->id => [
+                        'grados' => [$estructura['grado']->id],
+                        'tipo_calificacion' => [$estructura['grado']->id => TipoCalificacion::Cuantitativa->value],
+                        'usa_tabla_equivalencias' => [$estructura['grado']->id => '1'],
+                        'equivalencia_id' => [$estructura['grado']->id => $tabla->id],
+                    ],
+                ],
+            ])
+            ->assertRedirect(route('Admin.asignaturas.edit', $oferta));
+
+        $fila = EstablecimientoAsignatura::query()
+            ->where('asignatura_id', $asignatura->id)
+            ->where('grado_id', $estructura['grado']->id)
+            ->first();
+
+        expect($fila)->not->toBeNull()
+            ->and($fila->equivalencia_id)->toBe($tabla->id)
+            ->and($fila->usa_tabla_equivalencias)->toBeTrue();
+        $this->assertDatabaseHas('establecimiento_aula_asignatura_equivalencias', [
+            'establecimiento_aula_id' => $aula->id,
+            'establecimiento_asignatura_id' => $fila->id,
+            'equivalencia_id' => $tabla->id,
+        ]);
+    });
+
+    it('rejects a table that is not an active subject table of this period', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $oferta = ofertaDe($establecimiento);
+        $periodo = periodoActivoDe($oferta);
+        $estructura = catalogoEstructura();
+        gradoEnOferta($establecimiento, $oferta, $estructura);
+        $asignatura = catalogoAsignatura($estructura);
+        EstablecimientoAsignatura::factory()->create([
+            'establecimiento_id' => $establecimiento->id,
+            'establecimiento_modalidad_jornada_id' => $oferta->id,
+            'grado_id' => $estructura['grado']->id,
+            'asignatura_id' => $asignatura->id,
+        ]);
+        $comportamiento = equivalenciaDe($periodo, ['uso' => UsoEquivalencia::Comportamiento]);
+
+        $this->actingAs($admin)
+            ->withSession(activeContextSession($oferta, $periodo))
+            ->putJson(route('Admin.asignaturas.equivalencia.update', $oferta), [
+                'asignatura_id' => $asignatura->id,
+                'grado_id' => $estructura['grado']->id,
+                'equivalencia_id' => $comportamiento->id,
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('errors.equivalencia_id.0', 'Elige una tabla de equivalencia activa de este periodo.');
+    });
+
+    it('clears the equivalence table when the subject no longer uses one', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $admin = adminOf($establecimiento);
+        $oferta = ofertaDe($establecimiento);
+        $periodo = periodoActivoDe($oferta);
+        $estructura = catalogoEstructura();
+        $grado = gradoEnOferta($establecimiento, $oferta, $estructura);
+        $asignatura = catalogoAsignatura($estructura);
+        $tabla = equivalenciaDe($periodo);
+        $fila = EstablecimientoAsignatura::factory()->create([
+            'establecimiento_id' => $establecimiento->id,
+            'establecimiento_modalidad_jornada_id' => $oferta->id,
+            'grado_id' => $estructura['grado']->id,
+            'asignatura_id' => $asignatura->id,
+            'tipo_calificacion' => TipoCalificacion::Cuantitativa,
+            'usa_tabla_equivalencias' => true,
+            'equivalencia_id' => $tabla->id,
+        ]);
+        $aula = EstablecimientoAula::factory()->create([
+            'establecimiento_id' => $establecimiento->id,
+            'establecimiento_modalidad_jornada_id' => $oferta->id,
+            'establecimiento_periodo_id' => $periodo->id,
+            'establecimiento_grado_id' => $grado->id,
+            'paralelo' => 'A',
+        ]);
+        $fila->update(['usa_tabla_equivalencias' => true, 'equivalencia_id' => $tabla->id]);
+        app(SyncEstablecimientoAsignaturas::class)->sincronizarAulasDeEquivalencia($fila->fresh(), null);
+
+        $this->actingAs($admin)
+            ->withSession(activeContextSession($oferta, $periodo))
+            ->putJson(route('Admin.asignaturas.equivalencia.update', $oferta), [
+                'asignatura_id' => $asignatura->id,
+                'grado_id' => $estructura['grado']->id,
+                'equivalencia_id' => null,
+            ])
+            ->assertOk()
+            ->assertJsonPath('equivalencia_id', null);
+
+        $fila->refresh();
+
+        expect($fila->equivalencia_id)->toBeNull()
+            ->and($fila->usa_tabla_equivalencias)->toBeFalse();
+        $this->assertDatabaseMissing('establecimiento_aula_asignatura_equivalencias', [
+            'establecimiento_aula_id' => $aula->id,
+            'establecimiento_asignatura_id' => $fila->id,
+        ]);
+    });
+
+    it('returns 404 when assigning a table on another establishment', function () {
+        $admin = adminOf(Establecimiento::factory()->create());
+        $ajena = ofertaDe(Establecimiento::factory()->create());
+
+        $this->actingAs($admin)
+            ->putJson(route('Admin.asignaturas.equivalencia.update', $ajena), [
+                'asignatura_id' => 1,
+                'grado_id' => 1,
+            ])
+            ->assertNotFound();
+    });
+
+    it('redirects guests to login', function () {
+        $oferta = ofertaDe(Establecimiento::factory()->create());
+
+        $this->put(route('Admin.asignaturas.equivalencia.update', $oferta), [])
+            ->assertRedirect(route('login'));
+    });
+
+    it('forbids a teacher from assigning an equivalence table', function () {
+        $establecimiento = Establecimiento::factory()->create();
+        $oferta = ofertaDe($establecimiento);
+        $docente = assignRole(User::factory()->create([
+            'establecimiento_id' => $establecimiento->id,
+        ]), Role::Docente);
+
+        $this->actingAs($docente)
+            ->putJson(route('Admin.asignaturas.equivalencia.update', $oferta), [
+                'asignatura_id' => 1,
+                'grado_id' => 1,
             ])
             ->assertForbidden();
     });

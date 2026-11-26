@@ -5,16 +5,22 @@ namespace App\Http\Controllers;
 use App\Auth\ActiveOferta;
 use App\Auth\ActivePeriodo;
 use App\Enums\TipoAsignatura;
+use App\Enums\UsoEquivalencia;
+use App\Http\Requests\AsignarEquivalenciaAsignaturaRequest;
 use App\Http\Requests\SyncEstablecimientoAsignaturasRequest;
 use App\Http\Requests\SyncOfertaAreasTecnicasRequest;
+use App\Models\Equivalencia;
+use App\Models\EquivalenciaDetalle;
 use App\Models\Establecimiento;
 use App\Models\EstablecimientoAreaLibreta;
 use App\Models\EstablecimientoAsignatura;
 use App\Models\EstablecimientoFiguraProfesional;
 use App\Models\EstablecimientoModalidadJornada;
+use App\Models\EstablecimientoPeriodo;
 use App\Models\Sys_Area;
 use App\Models\Sys_Subnivel;
 use App\Services\SyncEstablecimientoAsignaturas;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -61,7 +67,7 @@ class EstablecimientoAsignaturaController extends Controller
             'jornada',
             'establecimientoModalidad.modalidad',
             'grados',
-            'malla',
+            'malla.equivalencia',
             'areaLibretas',
             'asignaturasPropias',
         ]);
@@ -122,6 +128,7 @@ class EstablecimientoAsignaturaController extends Controller
                 $gradosOferta->pluck('id')->map(strval(...))->all(),
             ),
             'configPorAsignatura' => $this->configPorAsignatura($oferta->malla),
+            'tablasEquivalencia' => $this->tablasEquivalencia($periodo),
             'propiasPorArea' => $this->propiasPorArea($oferta),
             'modosPorArea' => $libretaPorArea['modos'],
             'promedioPorcentualPorArea' => $libretaPorArea['porcentual'],
@@ -175,6 +182,56 @@ class EstablecimientoAsignaturaController extends Controller
         return redirect()
             ->route($porAmbitos === true ? 'Admin.asignaturas.ambitos.edit' : 'Admin.asignaturas.edit', $oferta)
             ->with('status', 'asignaturas-updated');
+    }
+
+    public function asignarEquivalencia(
+        AsignarEquivalenciaAsignaturaRequest $request,
+        EstablecimientoModalidadJornada $oferta,
+        SyncEstablecimientoAsignaturas $sync,
+    ): JsonResponse {
+        $establecimiento = $this->establecimiento($request);
+        $oferta = $this->ofertaDelEstablecimiento($establecimiento, $oferta);
+        $asignaturaId = $request->integer('asignatura_id');
+        $gradoId = $request->integer('grado_id');
+
+        if (! $oferta->grados()->whereKey($gradoId)->exists()) {
+            throw ValidationException::withMessages([
+                'grado_id' => 'Ese grado no está en esta jornada.',
+            ]);
+        }
+
+        $fila = EstablecimientoAsignatura::query()
+            ->with('equivalencia')
+            ->where('establecimiento_modalidad_jornada_id', $oferta->id)
+            ->where('asignatura_id', $asignaturaId)
+            ->where('grado_id', $gradoId)
+            ->first();
+        $tabla = $request->tablaEquivalencia();
+
+        if ($fila === null) {
+            if ($tabla === null) {
+                return response()->json([
+                    'equivalencia_id' => null,
+                    'nombre' => null,
+                ]);
+            }
+
+            throw ValidationException::withMessages([
+                'malla' => 'Guarda la malla de este grado antes de asignar la tabla.',
+            ]);
+        }
+
+        $periodoAnterior = $fila->equivalencia?->establecimiento_periodo_id;
+        $fila->update([
+            'equivalencia_id' => $tabla?->id,
+            'usa_tabla_equivalencias' => $tabla !== null,
+        ]);
+        $sync->sincronizarAulasDeEquivalencia($fila->refresh(), $periodoAnterior === null ? null : (int) $periodoAnterior);
+
+        return response()->json([
+            'equivalencia_id' => $fila->equivalencia_id,
+            'nombre' => $tabla?->nombre,
+        ]);
     }
 
     private function porAmbitos(Request $request): bool
@@ -267,7 +324,7 @@ class EstablecimientoAsignaturaController extends Controller
 
     /**
      * @param  Collection<int, EstablecimientoAsignatura>  $malla
-     * @return array<string, array<string, array{horas: string, libreta: bool, tipo: string, destrezas: bool, equivalencias: bool, porcentaje: string, figura_profesional_id: string}>>
+     * @return array<string, array<string, array{horas: string, libreta: bool, tipo: string, destrezas: bool, equivalencias: bool, equivalencia_id: string, equivalencia_nombre: string, porcentaje: string, figura_profesional_id: string}>>
      */
     private function configPorAsignatura(Collection $malla): array
     {
@@ -287,6 +344,8 @@ class EstablecimientoAsignaturaController extends Controller
                         'tipo' => (string) ($payload['tipo_calificacion'][$gradoId] ?? $payload['tipo_calificacion'][(string) $gradoId] ?? ''),
                         'destrezas' => filter_var($payload['califica_por_destrezas'][$gradoId] ?? $payload['califica_por_destrezas'][(string) $gradoId] ?? false, FILTER_VALIDATE_BOOLEAN),
                         'equivalencias' => filter_var($payload['usa_tabla_equivalencias'][$gradoId] ?? $payload['usa_tabla_equivalencias'][(string) $gradoId] ?? false, FILTER_VALIDATE_BOOLEAN),
+                        'equivalencia_id' => (string) ($payload['equivalencia_id'][$gradoId] ?? $payload['equivalencia_id'][(string) $gradoId] ?? ''),
+                        'equivalencia_nombre' => '',
                         'porcentaje' => (string) ($payload['porcentaje'][$gradoId] ?? $payload['porcentaje'][(string) $gradoId] ?? ''),
                         'figura_profesional_id' => (string) ($payload['figura_profesional_id'][$gradoId] ?? $payload['figura_profesional_id'][(string) $gradoId] ?? ''),
                     ];
@@ -307,7 +366,7 @@ class EstablecimientoAsignaturaController extends Controller
     }
 
     /**
-     * @return array{horas: string, libreta: bool, tipo: string, destrezas: bool, equivalencias: bool, porcentaje: string, figura_profesional_id: string}
+     * @return array{horas: string, libreta: bool, tipo: string, destrezas: bool, equivalencias: bool, equivalencia_id: string, equivalencia_nombre: string, porcentaje: string, figura_profesional_id: string}
      */
     private function configDeFila(EstablecimientoAsignatura $fila): array
     {
@@ -317,9 +376,41 @@ class EstablecimientoAsignaturaController extends Controller
             'tipo' => $fila->tipo_calificacion?->value ?? '',
             'destrezas' => (bool) $fila->califica_por_destrezas,
             'equivalencias' => (bool) $fila->usa_tabla_equivalencias,
+            'equivalencia_id' => $fila->equivalencia_id === null ? '' : (string) $fila->equivalencia_id,
+            'equivalencia_nombre' => $fila->equivalencia?->nombre ?? '',
             'porcentaje' => $fila->porcentaje === null ? '' : (string) $fila->porcentaje,
             'figura_profesional_id' => $fila->figura_profesional_id === null ? '' : (string) $fila->figura_profesional_id,
         ];
+    }
+
+    /**
+     * @return list<array{id: int, nombre: string, descripcion: string|null, detalles: list<array{nombre: string, valor: string|null, minimo: string|null, maximo: string|null}>}>
+     */
+    private function tablasEquivalencia(?EstablecimientoPeriodo $periodo): array
+    {
+        if ($periodo === null) {
+            return [];
+        }
+
+        return Equivalencia::query()
+            ->with(['detalles' => fn ($detalle) => $detalle->orderBy('jerarquia')->orderBy('minimo')])
+            ->where('establecimiento_periodo_id', $periodo->id)
+            ->where('uso', UsoEquivalencia::Asignatura)
+            ->where('activo', true)
+            ->orderBy('nombre')
+            ->get()
+            ->map(fn (Equivalencia $tabla): array => [
+                'id' => $tabla->id,
+                'nombre' => $tabla->nombre,
+                'descripcion' => $tabla->descripcion,
+                'detalles' => $tabla->detalles->map(fn (EquivalenciaDetalle $detalle): array => [
+                    'nombre' => $detalle->nombre,
+                    'valor' => $detalle->valor,
+                    'minimo' => $detalle->minimo === null ? null : (string) $detalle->minimo,
+                    'maximo' => $detalle->maximo === null ? null : (string) $detalle->maximo,
+                ])->all(),
+            ])
+            ->all();
     }
 
     /**

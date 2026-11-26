@@ -2,10 +2,13 @@
 
 namespace App\Http\Requests;
 
+use App\Auth\ActivePeriodo;
 use App\Enums\ModoLibretaArea;
 use App\Enums\Role;
 use App\Enums\TipoAsignatura;
 use App\Enums\TipoCalificacion;
+use App\Enums\UsoEquivalencia;
+use App\Models\Equivalencia;
 use App\Models\EstablecimientoAsignaturaPropia;
 use App\Models\EstablecimientoFiguraProfesional;
 use App\Models\EstablecimientoModalidadJornada;
@@ -61,6 +64,8 @@ class SyncEstablecimientoAsignaturasRequest extends FormRequest
             'asignaturas.*.califica_por_destrezas.*' => ['nullable', 'boolean'],
             'asignaturas.*.usa_tabla_equivalencias' => ['nullable', 'array'],
             'asignaturas.*.usa_tabla_equivalencias.*' => ['nullable', 'boolean'],
+            'asignaturas.*.equivalencia_id' => ['nullable', 'array'],
+            'asignaturas.*.equivalencia_id.*' => ['nullable', 'integer'],
             'asignaturas.*.porcentaje' => ['nullable', 'array'],
             'asignaturas.*.porcentaje.*' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'areas' => ['nullable', 'array'],
@@ -199,6 +204,12 @@ class SyncEstablecimientoAsignaturasRequest extends FormRequest
                 }
 
                 $this->validarPorcentajes($validator);
+
+                if ($validator->errors()->isNotEmpty()) {
+                    return;
+                }
+
+                $this->validarEquivalencias($validator);
             },
         ];
     }
@@ -264,6 +275,7 @@ class SyncEstablecimientoAsignaturasRequest extends FormRequest
      *     tipo_calificacion: TipoCalificacion,
      *     califica_por_destrezas: bool,
      *     usa_tabla_equivalencias: bool,
+     *     equivalencia_id: int|null,
      *     porcentaje: string|null,
      *     origen: string
      * }>
@@ -296,6 +308,7 @@ class SyncEstablecimientoAsignaturasRequest extends FormRequest
                 'tipo_calificacion' => $fila['tipo_calificacion'],
                 'califica_por_destrezas' => $fila['califica_por_destrezas'],
                 'usa_tabla_equivalencias' => $fila['usa_tabla_equivalencias'],
+                'equivalencia_id' => $fila['equivalencia_id'],
                 'porcentaje' => $fila['asignatura_propia_clave'] !== null
                     ? null
                     : $this->porcentajeDeFila(
@@ -380,6 +393,7 @@ class SyncEstablecimientoAsignaturasRequest extends FormRequest
      *     tipo_calificacion: TipoCalificacion,
      *     califica_por_destrezas: bool,
      *     usa_tabla_equivalencias: bool,
+     *     equivalencia_id: int|null,
      *     porcentaje: float|null,
      *     origen: string
      * }>
@@ -427,6 +441,7 @@ class SyncEstablecimientoAsignaturasRequest extends FormRequest
                 'tipo_calificacion' => $calificacion['tipo_calificacion'],
                 'califica_por_destrezas' => $calificacion['califica_por_destrezas'],
                 'usa_tabla_equivalencias' => $calificacion['usa_tabla_equivalencias'],
+                'equivalencia_id' => $calificacion['usa_tabla_equivalencias'] ? $fila['equivalencia_id'] : null,
                 'porcentaje' => $fila['porcentaje'],
                 'origen' => 'asignaturas.'.$fila['asignatura_id'],
             ];
@@ -447,6 +462,7 @@ class SyncEstablecimientoAsignaturasRequest extends FormRequest
      *     tipo_calificacion: TipoCalificacion,
      *     califica_por_destrezas: bool,
      *     usa_tabla_equivalencias: bool,
+     *     equivalencia_id: null,
      *     porcentaje: float|null,
      *     origen: string
      * }>
@@ -482,6 +498,7 @@ class SyncEstablecimientoAsignaturasRequest extends FormRequest
                 'tipo_calificacion' => $calificacion['tipo_calificacion'],
                 'califica_por_destrezas' => $calificacion['califica_por_destrezas'],
                 'usa_tabla_equivalencias' => $calificacion['usa_tabla_equivalencias'],
+                'equivalencia_id' => null,
                 'porcentaje' => $fila['porcentaje'],
                 'origen' => 'propias.'.$fila['clave'],
             ];
@@ -688,7 +705,7 @@ class SyncEstablecimientoAsignaturasRequest extends FormRequest
     }
 
     /**
-     * @return list<array{asignatura_id: int, grado_id: int, aparece_en_libreta: bool, horas_semanales: int|null, tipo_calificacion: string|null, califica_por_destrezas: bool, usa_tabla_equivalencias: bool, porcentaje: float|null}>
+     * @return list<array{asignatura_id: int, grado_id: int, aparece_en_libreta: bool, horas_semanales: int|null, tipo_calificacion: string|null, califica_por_destrezas: bool, usa_tabla_equivalencias: bool, equivalencia_id: int|null, porcentaje: float|null}>
      */
     private function filasCandidatas(): array
     {
@@ -713,6 +730,7 @@ class SyncEstablecimientoAsignaturasRequest extends FormRequest
                 $libreta = $payload['libreta'][$gradoId] ?? $payload['libreta'][(string) $gradoId] ?? true;
                 $destrezas = $payload['califica_por_destrezas'][$gradoId] ?? $payload['califica_por_destrezas'][(string) $gradoId] ?? false;
                 $equivalencias = $payload['usa_tabla_equivalencias'][$gradoId] ?? $payload['usa_tabla_equivalencias'][(string) $gradoId] ?? false;
+                $equivalenciaId = $payload['equivalencia_id'][$gradoId] ?? $payload['equivalencia_id'][(string) $gradoId] ?? null;
                 $porcentaje = $payload['porcentaje'][$gradoId] ?? $payload['porcentaje'][(string) $gradoId] ?? null;
                 $figuraProfesionalId = $payload['figura_profesional_id'][$gradoId] ?? $payload['figura_profesional_id'][(string) $gradoId] ?? null;
 
@@ -725,6 +743,7 @@ class SyncEstablecimientoAsignaturasRequest extends FormRequest
                     'tipo_calificacion' => is_string($tipo) && $tipo !== '' ? $tipo : null,
                     'califica_por_destrezas' => filter_var($destrezas, FILTER_VALIDATE_BOOLEAN),
                     'usa_tabla_equivalencias' => filter_var($equivalencias, FILTER_VALIDATE_BOOLEAN),
+                    'equivalencia_id' => is_numeric($equivalenciaId) && (int) $equivalenciaId > 0 ? (int) $equivalenciaId : null,
                     'porcentaje' => is_numeric($porcentaje) ? (float) $porcentaje : null,
                 ];
             }
@@ -942,6 +961,31 @@ class SyncEstablecimientoAsignaturasRequest extends FormRequest
         }
 
         return false;
+    }
+
+    private function validarEquivalencias(Validator $validator): void
+    {
+        $periodo = $this->container->make(ActivePeriodo::class)->get($this->user());
+        $permitidas = $periodo === null
+            ? []
+            : Equivalencia::query()
+                ->where('establecimiento_periodo_id', $periodo->id)
+                ->where('uso', UsoEquivalencia::Asignatura)
+                ->where('activo', true)
+                ->pluck('id')
+                ->map(fn (mixed $id): int => (int) $id)
+                ->all();
+
+        foreach ($this->filas() as $fila) {
+            if ($fila['equivalencia_id'] === null || in_array($fila['equivalencia_id'], $permitidas, true)) {
+                continue;
+            }
+
+            $validator->errors()->add(
+                $fila['origen'].'.equivalencia_id.'.$fila['grado_id'],
+                'Elige una tabla de equivalencia activa de este periodo.',
+            );
+        }
     }
 
     private function validarPorcentajes(Validator $validator): void

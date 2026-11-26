@@ -6,10 +6,12 @@ use App\Enums\EscalaCalificacion;
 use App\Enums\ModoLibretaArea;
 use App\Enums\TipoAsignatura;
 use App\Enums\TipoCalificacion;
+use App\Models\Equivalencia;
 use App\Models\Establecimiento;
 use App\Models\EstablecimientoAreaLibreta;
 use App\Models\EstablecimientoAsignatura;
 use App\Models\EstablecimientoAsignaturaPropia;
+use App\Models\EstablecimientoAula;
 use App\Models\EstablecimientoModalidadJornada;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Collection;
@@ -31,6 +33,7 @@ class SyncEstablecimientoAsignaturas
      *     tipo_calificacion: TipoCalificacion,
      *     califica_por_destrezas: bool,
      *     usa_tabla_equivalencias: bool,
+     *     equivalencia_id?: int|null,
      *     porcentaje: string|null,
      *     origen: string
      * }>  $filas
@@ -60,6 +63,7 @@ class SyncEstablecimientoAsignaturas
     ): void {
         DB::transaction(function () use ($establecimiento, $oferta, $filas, $modosArea, $definiciones, $porAmbitos): void {
             $anteriores = EstablecimientoAsignatura::query()
+                ->with('equivalencia')
                 ->where('establecimiento_modalidad_jornada_id', $oferta->id)
                 ->get();
             $horasCatalogo = [];
@@ -116,6 +120,10 @@ class SyncEstablecimientoAsignaturas
                     ? ($organizacionPropia[$propiaId][$fila['grado_id']] ?? null)
                     : ($organizacionCatalogo[$fila['asignatura_id']][$fila['grado_id']] ?? null);
 
+                $existente = $this->filaExistente($anteriores, $fila['asignatura_id'], $propiaId, $fila['grado_id']);
+                $incluyeEquivalencia = array_key_exists('equivalencia_id', $fila);
+                $periodoAnterior = $existente?->equivalencia?->establecimiento_periodo_id;
+
                 $atributos = [
                     'establecimiento_id' => $establecimiento->id,
                     'establecimiento_modalidad_jornada_id' => $oferta->id,
@@ -132,19 +140,22 @@ class SyncEstablecimientoAsignaturas
                     'establecimiento_programa_id' => $organizacion['establecimiento_programa_id'] ?? null,
                     'califica_por_destrezas' => $fila['califica_por_destrezas'],
                     'usa_tabla_equivalencias' => $fila['usa_tabla_equivalencias'],
+                    'equivalencia_id' => $incluyeEquivalencia ? $fila['equivalencia_id'] : $existente?->equivalencia_id,
                     'porcentaje' => $fila['porcentaje'],
                 ];
-
-                $existente = $this->filaExistente($anteriores, $fila['asignatura_id'], $propiaId, $fila['grado_id']);
 
                 if ($existente !== null && EstablecimientoAsignatura::query()->whereKey($existente->id)->exists()) {
                     $existente->update($atributos);
                     $conservar[] = $existente->id;
-
-                    continue;
+                    $guardada = $existente;
+                } else {
+                    $guardada = EstablecimientoAsignatura::query()->create($atributos);
+                    $conservar[] = $guardada->id;
                 }
 
-                $conservar[] = EstablecimientoAsignatura::query()->create($atributos)->id;
+                if ($incluyeEquivalencia) {
+                    $this->sincronizarAulasDeEquivalencia($guardada, $periodoAnterior === null ? null : (int) $periodoAnterior);
+                }
             }
 
             if ($porAmbitos !== null) {
@@ -295,6 +306,62 @@ class SyncEstablecimientoAsignaturas
             return (int) $anterior->asignatura_id === (int) $asignaturaId
                 && $anterior->asignatura_propia_id === null;
         });
+    }
+
+    public function sincronizarAulasDeEquivalencia(EstablecimientoAsignatura $asignatura, ?int $periodoAnterior = null): void
+    {
+        $equivalenciaId = $asignatura->usa_tabla_equivalencias ? $asignatura->equivalencia_id : null;
+        $periodoNuevo = $equivalenciaId === null
+            ? null
+            : Equivalencia::query()->whereKey($equivalenciaId)->value('establecimiento_periodo_id');
+        $periodos = array_values(array_unique(array_filter(
+            [$periodoAnterior, $periodoNuevo === null ? null : (int) $periodoNuevo],
+            fn (mixed $periodoId): bool => $periodoId !== null,
+        )));
+
+        if ($periodos === []) {
+            return;
+        }
+
+        $aulaIds = EstablecimientoAula::query()
+            ->where('establecimiento_id', $asignatura->establecimiento_id)
+            ->where('establecimiento_modalidad_jornada_id', $asignatura->establecimiento_modalidad_jornada_id)
+            ->whereIn('establecimiento_periodo_id', $periodos)
+            ->whereHas('establecimientoGrado', fn ($query) => $query->where('grado_id', $asignatura->grado_id))
+            ->pluck('id');
+
+        if ($aulaIds->isEmpty()) {
+            return;
+        }
+
+        DB::table('establecimiento_aula_asignatura_equivalencias')
+            ->where('establecimiento_asignatura_id', $asignatura->id)
+            ->whereIn('establecimiento_aula_id', $aulaIds)
+            ->delete();
+
+        if ($equivalenciaId === null || $periodoNuevo === null) {
+            return;
+        }
+
+        $ahora = now();
+        $aulasDelPeriodo = EstablecimientoAula::query()
+            ->whereIn('id', $aulaIds)
+            ->where('establecimiento_periodo_id', $periodoNuevo)
+            ->pluck('id');
+
+        if ($aulasDelPeriodo->isEmpty()) {
+            return;
+        }
+
+        DB::table('establecimiento_aula_asignatura_equivalencias')->insert(
+            $aulasDelPeriodo->map(fn (int|string $aulaId): array => [
+                'establecimiento_aula_id' => (int) $aulaId,
+                'establecimiento_asignatura_id' => $asignatura->id,
+                'equivalencia_id' => $equivalenciaId,
+                'created_at' => $ahora,
+                'updated_at' => $ahora,
+            ])->all(),
+        );
     }
 
     public function pruneGradosFueraDeOferta(EstablecimientoModalidadJornada $oferta, array $gradoIds): void

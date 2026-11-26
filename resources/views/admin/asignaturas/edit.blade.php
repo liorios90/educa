@@ -32,6 +32,8 @@
     <div
         class="py-8"
         @abrir-destrezas.window="registroDestrezas = $event.detail.clave"
+        @abrir-tablas-equivalencia.window="abrirTablas($event.detail)"
+        @quitar-equivalencia.window="quitarEquivalencia($event.detail)"
         x-data="{
             activeNivelId: @js($activeNivelId),
             nivelBachilleratoId: @js($nivelBachilleratoId),
@@ -39,6 +41,13 @@
             pantallaAsignaturasArea: @js(request()->filled('area') ? (string) request('area') : null),
             pestanaAsignaturas: @js($pestanaAsignaturas),
             registroDestrezas: @js(request('destrezas')),
+            ayudaObligatorias: null,
+            tablasEquivalencia: @js($tablasEquivalencia),
+            urlEquivalencia: @js(route('Admin.asignaturas.equivalencia.update', $oferta)),
+            selectorEquivalencia: null,
+            detalleEquivalencia: null,
+            avisoEquivalencia: '',
+            guardandoEquivalencia: false,
             configuracionArea: null,
             asignaturas: @js($selectedGradosPorAsignatura),
             nuevas: {},
@@ -92,6 +101,122 @@
             seleccionarNivel(nivelId, subnivelId) {
                 this.activeNivelId = nivelId
                 this.activeSubnivelId = subnivelId
+            },
+            abrirTablas(detalle) {
+                this.selectorEquivalencia = detalle
+                this.detalleEquivalencia = null
+                this.avisoEquivalencia = ''
+            },
+            cerrarTablas() {
+                const seleccion = this.selectorEquivalencia
+                this.selectorEquivalencia = null
+                this.detalleEquivalencia = null
+                this.avisoEquivalencia = ''
+
+                if (seleccion && !seleccion.equivalenciaId) {
+                    this.$dispatch('equivalencia-elegida', {
+                        asignaturaId: seleccion.asignaturaId,
+                        gradoId: seleccion.gradoId,
+                        id: '',
+                        nombre: '',
+                        marcada: false,
+                    })
+                }
+            },
+            cabecerasEquivalencia() {
+                return {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
+                }
+            },
+            async elegirTabla(tabla) {
+                const seleccion = this.selectorEquivalencia
+
+                if (!seleccion || this.guardandoEquivalencia) {
+                    return
+                }
+
+                this.guardandoEquivalencia = true
+                this.avisoEquivalencia = ''
+
+                try {
+                    const respuesta = await fetch(this.urlEquivalencia, {
+                        method: 'PUT',
+                        headers: this.cabecerasEquivalencia(),
+                        body: JSON.stringify({
+                            asignatura_id: Number(seleccion.asignaturaId),
+                            grado_id: Number(seleccion.gradoId),
+                            equivalencia_id: tabla.id,
+                        }),
+                    })
+                    const data = await respuesta.json().catch(() => ({}))
+
+                    if (respuesta.status === 422 && data.errors && data.errors.malla) {
+                        this.avisoEquivalencia = data.errors.malla[0]
+                        this.selectorEquivalencia = { ...seleccion, equivalenciaId: String(tabla.id) }
+                        this.$dispatch('equivalencia-elegida', {
+                            asignaturaId: seleccion.asignaturaId,
+                            gradoId: seleccion.gradoId,
+                            id: String(tabla.id),
+                            nombre: tabla.nombre,
+                            marcada: true,
+                        })
+
+                        return
+                    }
+
+                    if (!respuesta.ok) {
+                        this.avisoEquivalencia = (data.errors && data.errors.equivalencia_id && data.errors.equivalencia_id[0]) || data.message || 'No se pudo guardar la tabla.'
+
+                        return
+                    }
+
+                    this.$dispatch('equivalencia-elegida', {
+                        asignaturaId: seleccion.asignaturaId,
+                        gradoId: seleccion.gradoId,
+                        id: String(tabla.id),
+                        nombre: data.nombre || tabla.nombre,
+                        marcada: true,
+                    })
+                    this.selectorEquivalencia = null
+                    this.detalleEquivalencia = null
+                } catch (error) {
+                    this.avisoEquivalencia = 'No se pudo guardar la tabla.'
+                } finally {
+                    this.guardandoEquivalencia = false
+                }
+            },
+            async quitarEquivalencia(detalle) {
+                try {
+                    const respuesta = await fetch(this.urlEquivalencia, {
+                        method: 'PUT',
+                        headers: this.cabecerasEquivalencia(),
+                        body: JSON.stringify({
+                            asignatura_id: Number(detalle.asignaturaId),
+                            grado_id: Number(detalle.gradoId),
+                            equivalencia_id: null,
+                        }),
+                    })
+
+                    if (!respuesta.ok) {
+                        this.$dispatch('equivalencia-elegida', {
+                            asignaturaId: detalle.asignaturaId,
+                            gradoId: detalle.gradoId,
+                            id: String(detalle.equivalenciaId || ''),
+                            nombre: detalle.nombre || '',
+                            marcada: true,
+                        })
+                    }
+                } catch (error) {
+                    this.$dispatch('equivalencia-elegida', {
+                        asignaturaId: detalle.asignaturaId,
+                        gradoId: detalle.gradoId,
+                        id: String(detalle.equivalenciaId || ''),
+                        nombre: detalle.nombre || '',
+                        marcada: true,
+                    })
+                }
             },
             get nivelEsBachillerato() {
                 return this.nivelBachilleratoId !== null && Number(this.activeNivelId) === Number(this.nivelBachilleratoId)
@@ -320,8 +445,8 @@
                                       </div>
                                     </div>
 
-                                    <div x-show="pantallaAsignaturasArea === '{{ $area->id }}'" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" @keydown.escape.window="if (registroDestrezas) { registroDestrezas = null } else { pantallaAsignaturasArea = null }">
-                                      <div class="max-h-[92vh] w-full max-w-6xl overflow-y-auto rounded-2xl bg-white p-5 shadow-xl sm:p-6" @click.outside="if (!registroDestrezas) pantallaAsignaturasArea = null">
+                                    <div x-show="pantallaAsignaturasArea === '{{ $area->id }}'" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" @keydown.escape.window="if (registroDestrezas) { registroDestrezas = null } else if (selectorEquivalencia) { cerrarTablas() } else if (ayudaObligatorias) { ayudaObligatorias = null } else { pantallaAsignaturasArea = null }">
+                                      <div class="max-h-[92vh] w-full max-w-6xl overflow-y-auto rounded-2xl bg-white p-5 shadow-xl sm:p-6" @click.outside="if (!registroDestrezas && !selectorEquivalencia && !$event.target.closest('[data-ayuda-obligatorias]') && !$event.target.closest('[data-tablas-equivalencia]')) pantallaAsignaturasArea = null">
                                         <div class="mb-5 flex items-center justify-between gap-4">
                                             <div>
                                                 <h5 class="text-lg font-semibold text-slate-900">{{ $etiquetaAsignaturas }} · {{ $area->nombre }}</h5>
@@ -334,7 +459,13 @@
                                             <button type="button" role="tab" class="border-b-2 px-4 py-2.5 text-sm font-semibold" :aria-selected="pestanaAsignaturas === 'institucionales'" :class="pestanaAsignaturas === 'institucionales' ? 'border-indigo-600 text-indigo-700' : 'border-transparent text-slate-600 hover:text-slate-900'" @click="pestanaAsignaturas = 'institucionales'">Institucionales</button>
                                         </nav>
                                         <div x-show="pestanaAsignaturas === 'obligatorias'" role="tabpanel">
-                                            <p class="mb-4 text-sm leading-6 text-slate-600">{{ $esAmbito ? 'Requeridos' : 'Requeridas' }} por el ministerio. Vienen del catálogo de Sistemas y entran en los promedios oficiales.</p>
+                                            <div class="mb-4 flex items-start justify-between gap-4">
+                                                <p class="text-sm leading-6 text-slate-600">{{ $esAmbito ? 'Requeridos' : 'Requeridas' }} por el ministerio. Vienen del catálogo de Sistemas y entran en los promedios oficiales.</p>
+                                                <button type="button" class="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50" @click="ayudaObligatorias = '{{ $area->id }}'">
+                                                    <span aria-hidden="true" class="inline-flex h-5 w-5 items-center justify-center rounded-full border border-slate-300 text-xs font-semibold">?</span>
+                                                    Ayuda
+                                                </button>
+                                            </div>
                                         <div class="overflow-x-auto rounded-xl border border-slate-200">
                                             <table class="min-w-full divide-y divide-slate-200 text-sm">
                                                 <thead class="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -359,10 +490,16 @@
                                                             $tipo = ($config['tipo'] ?? '') !== '' ? $config['tipo'] : ($subnivel->tipo_calificacion?->value ?? TipoCalificacion::Cuantitativa->value);
                                                             $destrezas = array_key_exists('destrezas', $config) ? (bool) $config['destrezas'] : ($tipo === TipoCalificacion::Cualitativa->value && (bool) $subnivel->califica_por_destrezas);
                                                             $equivalencias = (bool) ($config['equivalencias'] ?? false);
+                                                            $equivalenciaId = (string) ($config['equivalencia_id'] ?? '');
+                                                            $equivalenciaNombre = (string) ($config['equivalencia_nombre'] ?? '');
                                                             $porcentaje = $config['porcentaje'] ?? '';
                                                             $figuraProfesionalId = (string) ($config['figura_profesional_id'] ?? '');
                                                         @endphp
-                                                        <tr x-data="{ escala: @js($tipo), porDestrezas: @js($destrezas) }" class="align-top">
+                                                        <tr
+                                                            x-data="{ escala: @js($tipo), porDestrezas: @js($destrezas), marcada: @js($equivalencias || $equivalenciaId !== ''), equivalenciaId: @js($equivalenciaId), equivalenciaNombre: @js($equivalenciaNombre) }"
+                                                            @equivalencia-elegida.window="if (String($event.detail.asignaturaId) === '{{ $asignatura->id }}' && String($event.detail.gradoId) === '{{ $grado->id }}') { equivalenciaId = String($event.detail.id || ''); equivalenciaNombre = $event.detail.nombre || ''; marcada = !!$event.detail.marcada }"
+                                                            class="align-top"
+                                                        >
                                                             <td class="px-4 py-3 font-medium text-slate-800">{{ $asignatura->nombre }} <span class="block text-xs font-normal text-slate-500">Catálogo de Sistemas</span>
                                                                 @if ($area->es_tecnica && $establecimiento->bachillerato_tecnico)
                                                                     <label class="mt-2 block text-xs font-normal text-slate-500" for="asignatura-figura-{{ $asignatura->id }}-{{ $grado->id }}">Figura profesional</label>
@@ -397,7 +534,23 @@
                                                                 <input type="number" min="0" max="100" step="0.01" name="asignaturas[{{ $asignatura->id }}][porcentaje][{{ $grado->id }}]" value="{{ $porcentaje }}" placeholder="Porcentaje opcional" class="mt-2 block w-full rounded-md border-slate-300 text-xs" x-show="escala === 'cuantitativa' && usaPorcentaje('{{ $area->id }}', '{{ $grado->id }}', @js($asignaturaIdsDelArea))" :disabled="escala !== 'cuantitativa' || !usaPorcentaje('{{ $area->id }}', '{{ $grado->id }}', @js($asignaturaIdsDelArea))" x-cloak>
                                                             </td>
                                                             <td class="px-4 py-3">
-                                                                <input type="checkbox" class="rounded border-slate-300" name="asignaturas[{{ $asignatura->id }}][usa_tabla_equivalencias][{{ $grado->id }}]" value="1" @checked($equivalencias) :disabled="escala !== 'cuantitativa'" x-show="escala === 'cuantitativa'" x-cloak aria-label="{{ $asignatura->nombre }} con equivalencia para {{ $grado->pivot->nombre ?? $grado->nombre }}">
+                                                                <div x-show="escala === 'cuantitativa'" x-cloak>
+                                                                    <input type="hidden" name="asignaturas[{{ $asignatura->id }}][equivalencia_id][{{ $grado->id }}]" :value="equivalenciaId">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        class="rounded border-slate-300"
+                                                                        name="asignaturas[{{ $asignatura->id }}][usa_tabla_equivalencias][{{ $grado->id }}]"
+                                                                        value="1"
+                                                                        :checked="marcada"
+                                                                        :disabled="escala !== 'cuantitativa'"
+                                                                        aria-label="{{ $asignatura->nombre }} con equivalencia para {{ $grado->pivot->nombre ?? $grado->nombre }}"
+                                                                        @change="if ($event.target.checked) { marcada = true; $dispatch('abrir-tablas-equivalencia', { asignaturaId: '{{ $asignatura->id }}', gradoId: '{{ $grado->id }}', asignatura: @js($asignatura->nombre), grado: @js($grado->pivot->nombre ?? $grado->nombre), equivalenciaId }) } else { const previa = equivalenciaId; const nombrePrevio = equivalenciaNombre; marcada = false; equivalenciaId = ''; equivalenciaNombre = ''; $dispatch('quitar-equivalencia', { asignaturaId: '{{ $asignatura->id }}', gradoId: '{{ $grado->id }}', equivalenciaId: previa, nombre: nombrePrevio }) }"
+                                                                    >
+                                                                    <p class="mt-1 max-w-40 text-xs text-slate-600" x-show="equivalenciaNombre" x-cloak>
+                                                                        <span x-text="equivalenciaNombre"></span>
+                                                                        <button type="button" class="mt-1 block font-medium text-indigo-700 hover:text-indigo-500" @click="$dispatch('abrir-tablas-equivalencia', { asignaturaId: '{{ $asignatura->id }}', gradoId: '{{ $grado->id }}', asignatura: @js($asignatura->nombre), grado: @js($grado->pivot->nombre ?? $grado->nombre), equivalenciaId })">Cambiar</button>
+                                                                    </p>
+                                                                </div>
                                                             </td>
                                                         </tr>
                                                     @endforeach
@@ -406,6 +559,59 @@
                                                 @endforelse
                                                 </tbody>
                                             </table>
+                                        </div>
+                                        <div
+                                            x-show="ayudaObligatorias === '{{ $area->id }}'"
+                                            x-cloak
+                                            data-ayuda-obligatorias
+                                            class="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/60 p-4"
+                                            @click.self="ayudaObligatorias = null"
+                                        >
+                                            <div class="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-5 shadow-xl sm:p-6" @click.stop>
+                                                <div class="mb-4 flex items-start justify-between gap-4">
+                                                    <div>
+                                                        <h5 class="text-lg font-semibold text-slate-900">Cómo usar {{ $esAmbito ? 'los ámbitos obligatorios' : 'las asignaturas obligatorias' }}</h5>
+                                                        <p class="mt-1 text-sm text-slate-500">Vienen del catálogo del ministerio. Cada fila es un grado de esta jornada.</p>
+                                                    </div>
+                                                    <button type="button" class="rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-100" @click="ayudaObligatorias = null">Cerrar</button>
+                                                </div>
+                                                <div class="space-y-4 text-sm leading-6 text-slate-700">
+                                                    <p>Marque {{ $esAmbito ? 'el ámbito' : 'la asignatura' }} en cada grado si el establecimiento lo dicta. Lo que deje sin marcar no forma parte de la malla de ese grado.</p>
+                                                    <dl class="space-y-3">
+                                                        <div>
+                                                            <dt class="font-semibold text-slate-900">Seleccionar</dt>
+                                                            <dd>Incluye {{ $esAmbito ? 'el ámbito' : 'la asignatura' }} en ese grado. Si el grado indica «Tronco común», el ministerio lo exige: la casilla queda marcada y no se puede quitar.</dd>
+                                                        </div>
+                                                        <div>
+                                                            <dt class="font-semibold text-slate-900">En libreta</dt>
+                                                            <dd>Márquela para que la nota salga en la libreta del estudiante. Si no la marca, {{ $esAmbito ? 'el ámbito sigue' : 'la asignatura sigue' }} en la malla, pero no se imprime en la libreta.</dd>
+                                                        </div>
+                                                        <div>
+                                                            <dt class="font-semibold text-slate-900">Calificación</dt>
+                                                            <dd>Elija Cuantitativa para una nota numérica o Cualitativa para la escala de letras. Puede ser distinta en cada grado.</dd>
+                                                        </div>
+                                                        <div>
+                                                            <dt class="font-semibold text-slate-900">Cualitativa y destrezas</dt>
+                                                            <dd>Con la escala cualitativa puede marcar «Califica por destrezas». El docente evalúa cada indicador, no un solo promedio. @if ($esAmbito) Cada destreza se califica de A+ a E-, sin promedio. @else Si el subnivel lo permite, el enlace «Indicadores» abre el cuadro de lo que se califica, con las valoraciones A, EP, I o NE. @endif</dd>
+                                                        </div>
+                                                        <div>
+                                                            <dt class="font-semibold text-slate-900">Cuantitativa y equivalencia</dt>
+                                                            <dd>Con la escala cuantitativa aparece la columna «Con equivalencia». Márquela para elegir la tabla de este periodo. Cada tabla tiene «Ver detalle», con la letra y el rango de nota. Si no hay ninguna, créelas en la opción Tablas de equivalencia. Al elegir una, la asignatura de ese grado queda guardada con ese cuadro. Si el grado todavía no está en la malla, el sistema se lo indica y la elección se conserva al guardar. Quite la marca para dejar la asignatura sin cuadro.</dd>
+                                                        </div>
+                                                        <div>
+                                                            <dt class="font-semibold text-slate-900">Porcentaje</dt>
+                                                            <dd>Aparece cuando el grado tiene dos o más {{ $esAmbito ? 'ámbitos' : 'asignaturas' }} de esta área en escala cuantitativa. Es el peso de cada una en el promedio del área. Si escribe porcentajes, los de ese grado deben sumar 100 %. Si los deja vacíos, el promedio del área es simple, sin ponderar.</dd>
+                                                        </div>
+                                                        @if ($area->es_tecnica && $establecimiento->bachillerato_tecnico)
+                                                            <div>
+                                                                <dt class="font-semibold text-slate-900">Figura profesional</dt>
+                                                                <dd>En un módulo técnico indique la especialidad a la que pertenece. Sin esa figura el módulo no queda asociado al Bachillerato Técnico.</dd>
+                                                            </div>
+                                                        @endif
+                                                    </dl>
+                                                    <p>Pulse «Guardar malla» para conservar los cambios de la jornada. {{ $esAmbito ? 'Estos ámbitos entran' : 'Estas asignaturas entran' }} en los promedios oficiales. Las creadas por el establecimiento se configuran en la pestaña Institucionales y no entran en esos promedios.</p>
+                                                </div>
+                                            </div>
                                         </div>
                                         </div>
 
@@ -623,6 +829,61 @@
                 @endif
             </form>
             @include('admin.asignaturas._destrezas-modal')
+            <div
+                x-show="selectorEquivalencia"
+                x-cloak
+                data-tablas-equivalencia
+                class="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/60 p-4"
+                @click.self="cerrarTablas()"
+            >
+                <div class="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-5 shadow-xl sm:p-6" @click.stop>
+                    <div class="mb-4 flex items-start justify-between gap-4">
+                        <div>
+                            <h5 class="text-lg font-semibold text-slate-900">Tablas de equivalencia</h5>
+                            <p class="mt-1 text-sm text-slate-500" x-text="selectorEquivalencia ? selectorEquivalencia.asignatura + ' · ' + selectorEquivalencia.grado : ''"></p>
+                        </div>
+                        <button type="button" class="rounded-lg px-3 py-2 text-sm text-slate-600 hover:bg-slate-100" @click="cerrarTablas()">Cerrar</button>
+                    </div>
+                    <p class="mb-4 text-sm text-red-700" x-show="avisoEquivalencia" x-text="avisoEquivalencia" x-cloak></p>
+                    <div x-show="tablasEquivalencia.length === 0" class="rounded-xl border border-dashed border-slate-300 px-4 py-6 text-sm leading-6 text-slate-600">
+                        No hay tablas de equivalencia en este periodo. Créelas en la opción <a href="{{ route('Admin.tablas-equivalencias.index') }}" class="font-medium text-indigo-700 hover:text-indigo-500">Tablas de equivalencia</a>.
+                    </div>
+                    <ul class="space-y-3" x-show="tablasEquivalencia.length > 0">
+                        <template x-for="tabla in tablasEquivalencia" :key="tabla.id">
+                            <li class="rounded-xl border border-slate-200 p-4">
+                                <div class="flex items-start justify-between gap-3">
+                                    <div>
+                                        <p class="font-medium text-slate-900" x-text="tabla.nombre"></p>
+                                        <p class="mt-1 text-sm text-slate-500" x-show="tabla.descripcion" x-text="tabla.descripcion"></p>
+                                    </div>
+                                    <div class="flex shrink-0 gap-2">
+                                        <button type="button" class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50" @click="detalleEquivalencia = detalleEquivalencia === tabla.id ? null : tabla.id">Ver detalle</button>
+                                        <button type="button" class="rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60" :disabled="guardandoEquivalencia" @click="elegirTabla(tabla)">Elegir</button>
+                                    </div>
+                                </div>
+                                <div class="mt-3" x-show="detalleEquivalencia === tabla.id" x-cloak>
+                                    <p class="text-sm text-slate-500" x-show="tabla.detalles.length === 0">Esta tabla todavía no tiene rangos.</p>
+                                    <table class="mt-2 w-full text-left text-sm" x-show="tabla.detalles.length > 0">
+                                        <thead class="text-xs uppercase tracking-wide text-slate-500">
+                                            <tr><th class="py-1 pr-3">Letra</th><th class="py-1 pr-3">Valor</th><th class="py-1 pr-3">Desde</th><th class="py-1">Hasta</th></tr>
+                                        </thead>
+                                        <tbody>
+                                            <template x-for="detalle in tabla.detalles" :key="detalle.nombre + detalle.minimo">
+                                                <tr class="border-t border-slate-100">
+                                                    <td class="py-1.5 pr-3" x-text="detalle.nombre"></td>
+                                                    <td class="py-1.5 pr-3" x-text="detalle.valor"></td>
+                                                    <td class="py-1.5 pr-3" x-text="detalle.minimo"></td>
+                                                    <td class="py-1.5" x-text="detalle.maximo"></td>
+                                                </tr>
+                                            </template>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </li>
+                        </template>
+                    </ul>
+                </div>
+            </div>
         </div>
     </div>
 </x-app-layout>

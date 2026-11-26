@@ -86,6 +86,7 @@ Route::middleware(['auth', 'verified', 'role:Admin'])
         Route::get('asignaturas/ambitos/{oferta}', [EstablecimientoAsignaturaController::class, 'edit'])->name('asignaturas.ambitos.edit');
         Route::get('asignaturas/{oferta}', [EstablecimientoAsignaturaController::class, 'edit'])->name('asignaturas.edit');
         Route::put('asignaturas/{oferta}', [EstablecimientoAsignaturaController::class, 'update'])->name('asignaturas.update');
+        Route::put('asignaturas/{oferta}/equivalencia', [EstablecimientoAsignaturaController::class, 'asignarEquivalencia'])->name('asignaturas.equivalencia.update')->whereNumber('oferta');
         Route::post('asignaturas/{oferta}/catalogo/{asignatura}/criterios', [CatalogoDestrezaController::class, 'storeCriterio'])->name('asignaturas.criterios.store')->whereNumber('oferta')->whereNumber('asignatura');
         Route::patch('asignaturas/{oferta}/catalogo/{asignatura}/criterios/{criterio}', [CatalogoDestrezaController::class, 'updateCriterio'])->name('asignaturas.criterios.update')->whereNumber('oferta')->whereNumber('asignatura')->whereNumber('criterio');
         Route::delete('asignaturas/{oferta}/catalogo/{asignatura}/criterios/{criterio}', [CatalogoDestrezaController::class, 'destroyCriterio'])->name('asignaturas.criterios.destroy')->whereNumber('oferta')->whereNumber('asignatura')->whereNumber('criterio');
